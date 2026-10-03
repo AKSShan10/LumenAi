@@ -14,3 +14,17 @@ POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 DATABASE_URL = os.getenv("DATABASE_URL") or (
     f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
+
+# ---------------- AI model ----------------
+# LLM_PROVIDER:
+#   gemini - Google Gemini (our choice). Only LLM_API_KEY is needed; the address is filled in below.
+#   openai - OpenAI, or any other OpenAI-compatible service (then set LLM_BASE_URL too)
+#   fake   - offline stand-in for tests and trying the app without a key
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL") or (GEMINI_BASE_URL if LLM_PROVIDER == "gemini" else None)
+LLM_MODEL = os.getenv("LLM_MODEL") or ("gemini-3.5-flash" if LLM_PROVIDER == "gemini" else "gpt-4o-mini")
+# Temperature is NOT sent unless you set it. Google asks to keep Gemini 3 models at their
+# default (1.0); lower values can make them loop. Stable scores come from our Python maths instead.
+LLM_TEMPERATURE = float(os.environ["LLM_TEMPERATURE"]) if os.getenv("LLM_TEMPERATURE") else None

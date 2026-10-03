@@ -1,4 +1,4 @@
-"""Shared test settings.
+"""Shared test settings. Offline: the fake AI is used, so no key is needed.
 
 Database for tests:
   - TEST_DATABASE_URL set  -> that PostgreSQL database (its tables are dropped and recreated!)
@@ -11,6 +11,7 @@ import os
 TEST_DB = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 os.environ.update({
     "DATABASE_URL": TEST_DB,
+    "LLM_PROVIDER": "fake",
 })
 if os.path.exists("test.db"):
     os.remove("test.db")

@@ -1,6 +1,5 @@
 # Secrets (N7)
 .env
-.env.example
 secrets/*
 !secrets/README.md
 
