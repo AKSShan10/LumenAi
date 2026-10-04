@@ -1,4 +1,4 @@
-"""System checks.
+"""System checks for the interviewer.
 
   GET /api/llm-check       makes one tiny call to the AI service and says in plain words whether it works
   GET /api/workflow-runs   the latest runs of the recruitment graph (stage, outcome, error, seconds)
@@ -8,9 +8,10 @@ from sqlmodel import Session, select
 
 from app.ai.llm_client import check_connection
 from app.core.database import get_session
+from app.core.security import require_interviewer
 from app.features.system.models import WorkflowRun
 
-router = APIRouter(prefix="/api", tags=["System"])
+router = APIRouter(prefix="/api", tags=["System"], dependencies=[Depends(require_interviewer)])
 
 
 @router.get("/llm-check")

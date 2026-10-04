@@ -8,6 +8,11 @@ export async function request(path, options = {}) {
   if (token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(path, { ...options, headers });
 
+  if (response.status === 401 && token) {   // login expired -> back to the login page
+    auth.clear();
+    window.location.reload();
+  }
+
   if (response.status === 204) return null;              // e.g. after a delete
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
