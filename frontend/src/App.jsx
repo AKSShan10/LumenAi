@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { auth } from "./shared/api/authToken.js";
 import Icon from "./shared/utils/Icon.jsx";
 import AppFooter from "./shared/utils/AppFooter.jsx";
 import { systemApi } from "./features/system/systemApi.js";
+import LoginPage from "./features/auth/LoginPage.jsx";
 import SettingsPage from "./features/system/SettingsPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
@@ -17,11 +19,14 @@ const MENU = [
 // The interviewer's app. Simple navigation with useState: no router library needed.
 export default function App() {
   const [appName, setAppName] = useState("LumenAI");
+  const [loggedIn, setLoggedIn] = useState(Boolean(auth.get()));
   const [page, setPage] = useState("dashboard");
 
   useEffect(() => {
     systemApi.health().then((h) => { setAppName(h.app_name); document.title = h.app_name; }).catch(() => {});
   }, []);
+
+  if (!loggedIn) return <LoginPage appName={appName} onDone={() => setLoggedIn(true)} />;
 
   const [, title, , subtitle] = MENU.find(([key]) => key === page);
 
@@ -40,6 +45,10 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="sidebar-user">
+          <span className="avatar">IN</span>
+          <div><b>Interviewer</b><button className="link" onClick={() => { auth.clear(); setLoggedIn(false); }}>Log out</button></div>
+        </div>
       </aside>
 
       <div className="content">

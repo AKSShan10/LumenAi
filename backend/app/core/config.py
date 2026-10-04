@@ -28,3 +28,9 @@ LLM_MODEL = os.getenv("LLM_MODEL") or ("gemini-3.5-flash" if LLM_PROVIDER == "ge
 # Temperature is NOT sent unless you set it. Google asks to keep Gemini 3 models at their
 # default (1.0); lower values can make them loop. Stable scores come from our Python maths instead.
 LLM_TEMPERATURE = float(os.environ["LLM_TEMPERATURE"]) if os.getenv("LLM_TEMPERATURE") else None
+
+# ---------------- Login (simple JWT) ----------------
+# One shared interviewer passcode; candidates never log in, they use their private link.
+INTERVIEWER_PASSCODE = os.getenv("INTERVIEWER_PASSCODE", "")
+SECRET_KEY = os.getenv("SECRET_KEY", "")          # signs our login tokens; any long random text
+TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))

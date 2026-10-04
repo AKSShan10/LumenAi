@@ -12,6 +12,8 @@ TEST_DB = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 os.environ.update({
     "DATABASE_URL": TEST_DB,
     "LLM_PROVIDER": "fake",
+    "INTERVIEWER_PASSCODE": "test-passcode",
+    "SECRET_KEY": "test-secret-key-that-is-long-enough-123",
 })
 if os.path.exists("test.db"):
     os.remove("test.db")
@@ -30,5 +32,16 @@ if TEST_DB.startswith("postgresql"):
 
 @pytest.fixture(scope="session")
 def client():
+    """A logged-in interviewer."""
+    with TestClient(app) as c:
+        token = c.post("/api/auth/login", json={"passcode": "test-passcode"}).json()["token"]
+        c.headers["Authorization"] = f"Bearer {token}"
+        c.token = token
+        yield c
+
+
+@pytest.fixture(scope="session")
+def anonymous():
+    """Someone who is not logged in (for example, a candidate)."""
     with TestClient(app) as c:
         yield c

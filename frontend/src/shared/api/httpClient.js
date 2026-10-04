@@ -1,8 +1,12 @@
-// One place that talks HTTP to the backend and turns errors into messages.
+// One place that talks HTTP to the backend: adds the login token and turns errors into messages.
 // Every feature has its own small *Api.js file that uses these helpers.
+import { auth } from "./authToken.js";
 
 export async function request(path, options = {}) {
-  const response = await fetch(path, options);
+  const token = auth.get();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(path, { ...options, headers });
 
   if (response.status === 204) return null;              // e.g. after a delete
   const body = await response.json().catch(() => ({}));

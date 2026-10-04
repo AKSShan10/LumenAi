@@ -1,7 +1,7 @@
 """LumenAI API - the FastAPI application. Open http://localhost:8010/docs (API_PORT in .env) to try every endpoint.
 
 Folder guide (app/):
-    core/       settings, database connection, list of all tables
+    core/       settings, database connection, login tokens, list of all tables
     ai/         talking to the AI model
     graphs/     LangGraph AI workflows
     features/   one folder per feature, each with models, schemas, routers and services
@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 
 from app.core import config
 from app.core.database import init_db
+from app.features.auth.routers import auth_router
 from app.features.system.routers import system_router
 
 # Logs contain ids and events only, never names or CV text
@@ -60,5 +61,6 @@ def health():
 
 
 # Each feature adds its router to this list.
-for module in (system_router,):                  # "Test AI connection", workflow run log
+for module in (auth_router,                      # login
+               system_router):                   # "Test AI connection", workflow run log
     app.include_router(module.router)
