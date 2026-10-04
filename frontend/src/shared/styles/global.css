@@ -1,0 +1,75 @@
+/* ---------- colours ---------- */
+:root {
+  --bg: #f4f6fb;            /* page background */
+  --card: #ffffff;
+  --line: #e3e7ef;          /* borders */
+  --text: #1c2434;
+  --muted: #5f6878;
+  --blue: #2563eb;          /* buttons, links, the active page */
+  --navy: #101a30;          /* sidebar */
+  --red: #d93025;
+  --green: #1f7a3a;
+}
+
+/* ---------- basics ---------- */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 17px; margin: 0 0 10px; }
+.icon { flex: none; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+label { display: block; margin-bottom: 14px; font-weight: 600; }
+input:not([type="file"]):not([type="checkbox"]), select, textarea {
+  display: block; width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #c9ced8; border-radius: 8px; font: inherit; font-weight: normal; background: #fff; }
+button { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; margin: 6px 6px 6px 0; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.link { background: none; color: var(--blue); padding: 0; }
+button.secondary { background: #fff; color: var(--blue); border: 1px solid #c9ced8; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.error { color: #b3261e; }
+.ok { color: var(--green); }
+.check { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #e8eaef; }
+.badge.failed { background: #fbdcd9; color: #b3261e; }
+.badge.done { background: #d8f0df; color: var(--green); }
+
+/* ---------- app frame: sidebar on the left, page on the right ---------- */
+/* The frame is exactly as tall as the window. The sidebar never moves; only .content scrolls. */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 228px; flex: none; background: var(--navy); color: #c7d0e2; display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+.brand { padding: 22px 20px 18px; border-bottom: 1px solid #22304d; }
+.brand b { display: block; font-size: 22px; color: #fff; }
+.brand span { font-size: 11px; color: #93a0ba; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; padding: 16px 10px; flex: 1; }
+.sidebar nav button { display: flex; align-items: center; gap: 12px; margin: 0; padding: 11px 12px; background: none; color: #c7d0e2; text-align: left; border-left: 3px solid transparent; border-radius: 6px; }
+.sidebar nav button:hover { background: #18243f; }
+.sidebar nav button.active { background: #1c2b4d; color: #fff; border-left-color: #4f8cff; }
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+.content main { flex: 1 0 auto; padding: 20px 28px; }
+/* header: a white bar at the top of every page */
+.app-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; padding: 14px 28px; background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.app-header p { margin: 2px 0 0; }
+/* footer: one quiet line at the bottom of every page */
+.app-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 28px; border-top: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 12px; }
+@media (max-width: 800px) {
+  .shell { flex-direction: column; height: auto; overflow: visible; }
+  .sidebar { width: 100%; height: auto; }
+  .content { height: auto; overflow: visible; }
+  .sidebar nav { flex-direction: row; flex-wrap: wrap; }
+  .content main { padding: 16px; }
+  .app-header { position: static; padding: 12px 16px; }
+}
+
+/* ---------- login, and the user at the bottom of the sidebar ---------- */
+.login-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.login-page .app-footer { position: fixed; left: 0; right: 0; bottom: 0; }
+.login { width: 100%; max-width: 360px; }
+.login h1 { margin-bottom: 4px; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid #22304d; font-size: 14px; }
+.sidebar-user b { display: block; color: #fff; }
+.sidebar-user button.link { color: #93a0ba; font-size: 12px; margin: 0; }
+.avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }

@@ -163,10 +163,10 @@ cp .env.example .env      # then fill in your keys
 
 | Action | Command |
 |---|---|
-| Build and run | _to be added with the code_ |
-| Stop | _to be added with the code_ |
-| Reset (delete all data) | _to be added with the code_ |
-| Run the tests | _to be added with the code_ |
+| Build and run | `docker compose up --build` |
+| Stop | `docker compose down` |
+| Reset (delete all data) | `docker compose down -v` |
+| Run the tests | `pytest` |
 
 ## Configuration
 
