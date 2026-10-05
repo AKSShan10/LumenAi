@@ -2,6 +2,7 @@
 
 Each feature adds its tables here.
 """
+from app.features.job_library.models.company_document_model import CompanyDocument
 from app.features.system.models.workflow_run_model import WorkflowRun
 
-__all__ = ["WorkflowRun"]
+__all__ = ["CompanyDocument", "WorkflowRun"]

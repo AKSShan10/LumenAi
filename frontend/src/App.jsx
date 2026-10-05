@@ -5,6 +5,7 @@ import AppFooter from "./shared/utils/AppFooter.jsx";
 import { systemApi } from "./features/system/systemApi.js";
 import LoginPage from "./features/auth/LoginPage.jsx";
 import SettingsPage from "./features/system/SettingsPage.jsx";
+import CompanyDocumentsPanel from "./features/job_library/CompanyDocumentsPanel.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
@@ -61,10 +62,10 @@ export default function App() {
         </header>
 
         <main>
-          {page === "settings" ? <SettingsPage /> : (
-            /* Placeholder: each feature replaces this card with its real page. */
-            <div className="card"><p className="muted">This screen is not built yet.</p></div>
-          )}
+          {page === "settings" && <SettingsPage />}
+          {page === "jobs" && <CompanyDocumentsPanel />}
+          {/* Placeholder: each feature replaces this card with its real page. */}
+          {!["settings", "jobs"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

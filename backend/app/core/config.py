@@ -28,6 +28,9 @@ LLM_MODEL = os.getenv("LLM_MODEL") or ("gemini-3.5-flash" if LLM_PROVIDER == "ge
 # Temperature is NOT sent unless you set it. Google asks to keep Gemini 3 models at their
 # default (1.0); lower values can make them loop. Stable scores come from our Python maths instead.
 LLM_TEMPERATURE = float(os.environ["LLM_TEMPERATURE"]) if os.getenv("LLM_TEMPERATURE") else None
+# Embeddings turn a text into numbers, so the search can find documents with a similar meaning (RAG).
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL") or (
+    "gemini-embedding-001" if LLM_PROVIDER == "gemini" else "text-embedding-3-small")
 
 # ---------------- Login (simple JWT) ----------------
 # One shared interviewer passcode; candidates never log in, they use their private link.

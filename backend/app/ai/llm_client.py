@@ -1,6 +1,7 @@
 """The only place that talks to the AI model.
 
     llm_json(instructions, data)   ask for a JSON answer (used by every feature)
+    embed_texts(texts)             turn texts into vectors for the document search (RAG)
     check_connection()             the "Test AI connection" button
 
 Works with Gemini (default), OpenAI or any OpenAI-compatible service: see LLM_* in core/config.py.
@@ -83,6 +84,26 @@ def llm_json(instructions: str, data) -> dict | None:
     except Exception as exc:  # network error, bad key, rate limit...
         name = type(exc).__name__
         _fail(REASONS.get(name, f"{name} from the AI service"))
+        return None
+
+
+def embed_texts(texts: list[str]) -> list[list[float]] | None:
+    """Vectors for the document search. None if it failed (the search then compares words instead)."""
+    if not texts:
+        return []
+    if config.LLM_PROVIDER == "fake":
+        from app.ai.fake_llm import fake_embedding
+        return [fake_embedding(t) for t in texts]
+    problem = settings_problem()
+    if problem:
+        _fail(problem)
+        return None
+    try:
+        response = _client().embeddings.create(model=config.EMBEDDING_MODEL, input=texts)
+        return [item.embedding for item in response.data]
+    except Exception as exc:
+        name = type(exc).__name__
+        _fail(REASONS.get(name, f"{name} from the embedding service"))
         return None
 
 

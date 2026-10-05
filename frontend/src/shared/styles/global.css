@@ -37,6 +37,16 @@ th { color: var(--muted); font-weight: 600; }
 .badge.failed { background: #fbdcd9; color: #b3261e; }
 .badge.done { background: #d8f0df; color: var(--green); }
 
+/* ---------- forms and lists used by the feature pages ---------- */
+h3 { font-size: 15px; margin: 0 0 8px; }
+small { font-weight: normal; color: var(--muted); }
+textarea { resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row input { margin-top: 0; }
+.two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.section { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px; }
+@media (max-width: 800px) { .two-columns { grid-template-columns: 1fr; } }
+
 /* ---------- app frame: sidebar on the left, page on the right ---------- */
 /* The frame is exactly as tall as the window. The sidebar never moves; only .content scrolls. */
 .shell { display: flex; height: 100vh; overflow: hidden; }

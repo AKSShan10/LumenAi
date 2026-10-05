@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from app.core import config
 from app.core.database import init_db
 from app.features.auth.routers import auth_router
+from app.features.job_library.routers import company_document_router
 from app.features.system.routers import system_router
 
 # Logs contain ids and events only, never names or CV text
@@ -62,5 +63,6 @@ def health():
 
 # Each feature adds its router to this list.
 for module in (auth_router,                      # login
+               company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log
     app.include_router(module.router)
