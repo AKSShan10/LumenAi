@@ -24,3 +24,7 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Log files
+logs/
+*.log

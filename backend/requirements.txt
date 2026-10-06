@@ -16,3 +16,5 @@ python-docx==1.2.0
 alembic==1.20.0
 python-dotenv==1.2.2
 mcp==1.27.0
+langchain-mcp-adapters==0.3.2
+langchain-google-genai==4.4.0

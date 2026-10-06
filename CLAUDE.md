@@ -34,7 +34,7 @@ It is the final project of a BJIT AI trainee (Md. Abdul Kahhar Siddiki Shan). De
 - Never hide or remove the consent notice on the candidate join page (the requirements say consent must be visible).
 - Never show the AI helper, scores, notes or live analysis to the candidate.
 - Never rate voice, confidence, appearance or identity. No candidate photo, no "confidence" or "speaking clarity" scores.
-- Never let the AI make a hiring decision or choose MCP tools; the backend code calls the tools.
+- Never let the AI make a hiring decision. In the Assistant chat the AI may choose MCP tools, but it can never approve a job or post to Telegram by itself: it asks, and a person answers Yes or No. On the pages, the backend code calls the tools after a click.
 - Never write the WBS, the SRS or the workflow diagram for me. Those must be my own work; you may review, format and comment.
 
 ## Commands

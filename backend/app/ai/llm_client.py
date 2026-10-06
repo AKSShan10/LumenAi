@@ -11,6 +11,7 @@ last_error() then says why in plain words, so the screen can show it (no keys or
 import json
 import logging
 import re
+import time
 
 from app.core import config
 
@@ -38,7 +39,7 @@ def last_error() -> str:
 def _fail(reason: str) -> None:
     global _last_error
     _last_error = reason
-    log.warning("LLM call failed: %s", reason)
+    log.warning("AI call failed: %s", reason)
 
 
 def settings_problem() -> str:
@@ -66,6 +67,7 @@ def llm_json(instructions: str, data) -> dict | None:
         _fail(problem)
         return None
 
+    started = time.time()
     try:
         client = _client()
         options = {} if config.LLM_TEMPERATURE is None else {"temperature": config.LLM_TEMPERATURE}
@@ -80,6 +82,8 @@ def llm_json(instructions: str, data) -> dict | None:
         answer = _parse_json(response.choices[0].message.content or "")
         if answer is None:
             _fail("the AI answered, but not with valid JSON (try again, or try another model)")
+        else:
+            log.info("AI call ok model=%s %.1fs", config.LLM_MODEL, time.time() - started)
         return answer
     except Exception as exc:  # network error, bad key, rate limit...
         name = type(exc).__name__
@@ -98,8 +102,10 @@ def embed_texts(texts: list[str]) -> list[list[float]] | None:
     if problem:
         _fail(problem)
         return None
+    started = time.time()
     try:
         response = _client().embeddings.create(model=config.EMBEDDING_MODEL, input=texts)
+        log.info("embedding call ok model=%s texts=%d %.1fs", config.EMBEDDING_MODEL, len(texts), time.time() - started)
         return [item.embedding for item in response.data]
     except Exception as exc:
         name = type(exc).__name__

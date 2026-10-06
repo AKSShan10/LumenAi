@@ -10,6 +10,7 @@ A post is sent only when the interviewer clicks "Post to Telegram". The backend 
 the AI never chooses or calls it.
 """
 import json
+import logging
 
 from fastapi import HTTPException
 from sqlmodel import Session
@@ -18,6 +19,8 @@ from app.features.jobs.models import Job, JobPosting
 from app.features.jobs.schemas import PostDraftOut
 from app.graphs.job_post_graph import write_job_post
 from app.mcp_servers.client import McpError, call_tool
+
+log = logging.getLogger("job_posting")
 
 TELEGRAM_SERVER = "app.mcp_servers.telegram_server"
 BUTTON_TEXT = "Apply now"
@@ -69,6 +72,7 @@ def post_job(session: Session, job: Job, text: str, apply_url: str) -> JobPostin
         posting.message_id, posting.message_link = answer.get("message_id") or 0, answer.get("link") or ""
     else:
         posting.status, posting.error = "failed", answer.get("error") or "unknown error"
+    log.info("telegram post job=%s %s%s", job.id, posting.status, f" ({posting.error})" if posting.error else "")
     session.add(posting)              # failed tries are saved too, so the interviewer sees what went wrong
     session.commit()
     session.refresh(posting)

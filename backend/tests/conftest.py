@@ -13,6 +13,7 @@ os.environ.update({
     "DATABASE_URL": TEST_DB,
     "LLM_PROVIDER": "fake",
     "TELEGRAM_PROVIDER": "fake",
+    "LOG_FILE": "",                       # tests write no log file
     "INTERVIEWER_PASSCODE": "test-passcode",
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",
 })

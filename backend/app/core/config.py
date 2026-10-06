@@ -38,6 +38,10 @@ INTERVIEWER_PASSCODE = os.getenv("INTERVIEWER_PASSCODE", "")
 SECRET_KEY = os.getenv("SECRET_KEY", "")          # signs our login tokens; any long random text
 TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))
 
+# ---------------- Log file ----------------
+# Every API call, AI call and Telegram post is written here (see core/logging_setup.py). Empty = terminal only.
+LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
+
 # ---------------- Job posts on Telegram (through the Telegram MCP server) ----------------
 # TELEGRAM_PROVIDER:
 #   telegram - really post to the channel (needs the token and the channel id)
