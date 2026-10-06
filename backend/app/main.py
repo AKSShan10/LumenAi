@@ -41,7 +41,7 @@ def resume_unfinished_work() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()                                    # create tables if they do not exist yet
+    init_db()                                    # apply the database migrations that are still missing
     threading.Thread(target=resume_unfinished_work, daemon=True).start()
     yield
 

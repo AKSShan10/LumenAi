@@ -63,7 +63,7 @@ docker compose up --build              # web http://localhost:8090, API docs htt
 
 Offline mode for trying things without keys: `LLM_PROVIDER=fake`, `STT_PROVIDER=fake`, `DRIVE_PROVIDER=fake`, empty `SMTP_HOST`.
 
-A new database column must also be added to `NEW_COLUMNS` in `backend/app/core/database.py` (there is no migration tool), and the backend must be restarted.
+A new table or column needs a migration (Alembic): add a new table to `backend/app/core/all_models.py`, then in `backend/` run `alembic revision --autogenerate -m "what changed"`, read the new file in `backend/migrations/versions/` and commit it. The backend applies missing migrations when it starts.
 
 ## Git and Redmine
 
