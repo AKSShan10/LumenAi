@@ -12,6 +12,7 @@ TEST_DB = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 os.environ.update({
     "DATABASE_URL": TEST_DB,
     "LLM_PROVIDER": "fake",
+    "TELEGRAM_PROVIDER": "fake",
     "INTERVIEWER_PASSCODE": "test-passcode",
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",
 })

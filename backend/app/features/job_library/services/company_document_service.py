@@ -2,6 +2,7 @@
 
     add_document()            save a document with its embedding
     find_documents()          the most similar documents of one kind for a text (given to the AI)
+    has_document_for_job()    was this approved job already added?
     document_out()            the list row shown on the Job Requirements page
 
 How the search works: every document is stored with an "embedding" (a list of numbers that stands for
@@ -50,6 +51,11 @@ def find_documents(session: Session, query: str, kind: str, top_k: int, min_simi
                          "text": " ".join(row.text.split()[:MAX_WORDS])})
     hits.sort(key=lambda hit: hit["similarity"], reverse=True)
     return hits[:top_k]
+
+
+def has_document_for_job(session: Session, job_id: int) -> bool:
+    return session.exec(select(CompanyDocument).where(CompanyDocument.job_id == job_id,
+                                                      CompanyDocument.source == "approved job")).first() is not None
 
 
 def document_out(row: CompanyDocument) -> DocumentOut:

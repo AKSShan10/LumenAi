@@ -49,7 +49,7 @@ def upload(file: UploadFile = File(...), kind: Kind = Form("job_description"), t
 
 @router.get("/search", response_model=list[DocumentHit])
 def try_search(q: str, session: Session = Depends(get_session)):
-    """The search the AI will use, so the interviewer can see which documents it would get."""
+    """The same search the job description workflow runs, so the interviewer can see what the AI gets."""
     hits = (find_documents(session, q, "job_description", TOP_EXAMPLES, MIN_EXAMPLE_SIMILARITY)
             + find_documents(session, q, "policy", TOP_POLICIES))
     return [DocumentHit(**{key: hit[key] for key in ("id", "kind", "title", "similarity")}) for hit in hits]
