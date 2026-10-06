@@ -15,7 +15,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
-
+Claude outputs/
 # Node
 node_modules/
 dist/
