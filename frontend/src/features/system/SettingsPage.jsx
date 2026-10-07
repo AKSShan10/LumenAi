@@ -18,6 +18,7 @@ export default function SettingsPage() {
         <p className="muted">Each check makes one small test call and says in plain words what to fix. Keys live in the .env file.</p>
         <p><CheckButton label="Test AI connection" check={systemApi.llmCheck} /></p>
         <p><CheckButton label="Test job posting" check={systemApi.postingCheck} /></p>
+        <p><CheckButton label="Test Google Drive" check={systemApi.driveCheck} /></p>
       </div>
 
       <div className="card">

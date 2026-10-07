@@ -1,0 +1,15 @@
+Karima Akter
+Junior Software Engineer (made-up CV for tests)
+
+Summary
+Software engineer with 1 year of experience in Python and Django.
+
+Skills
+Python, Django, MySQL, Git
+
+Experience
+Junior Software Engineer, Sample Tech, 2025 to 2026
+- Worked on a Django web application and fixed bugs
+
+Education
+BSc in Software Engineering, Sample University, 2024

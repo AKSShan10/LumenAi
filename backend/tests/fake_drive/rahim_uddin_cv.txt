@@ -1,0 +1,16 @@
+Rahim Uddin
+Backend Developer (made-up CV for tests)
+
+Summary
+Backend developer with 4 years of experience building REST APIs with Python and FastAPI.
+
+Skills
+Python, FastAPI, PostgreSQL, Docker, pytest
+
+Experience
+Software Engineer, Example Soft Ltd., 2022 to 2026
+- Built and maintained REST APIs with FastAPI and PostgreSQL
+- Wrote automated tests and reviewed code
+
+Education
+BSc in Computer Science and Engineering, Example University, 2021

@@ -42,6 +42,17 @@ TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))
 # Every API call, AI call and job post is written here (see core/logging_setup.py). Empty = terminal only.
 LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
 
+# ---------------- CV files and Google Drive ----------------
+# Downloaded and uploaded CVs are saved here (inside backend/ unless the path starts at the disk root).
+# The folder holds real CVs: it is in .gitignore and must never be committed.
+STORAGE_DIR = os.getenv("STORAGE_DIR", "storage")
+# DRIVE_PROVIDER:
+#   google - read the form's response sheet and the CVs from Google Drive (needs the key file)
+#   fake   - read a folder on this computer instead (tests, and demos without a Google account)
+DRIVE_PROVIDER = os.getenv("DRIVE_PROVIDER", "google")
+GOOGLE_DRIVE_KEY_FILE = os.getenv("GOOGLE_DRIVE_KEY_FILE", "secrets/google-drive.json")   # service-account key; never committed
+DRIVE_FAKE_FOLDER = os.getenv("DRIVE_FAKE_FOLDER", "tests/fake_drive")
+
 # ---------------- Job posts on Blogger (through the Blogger MCP server) ----------------
 # BLOGGER_PROVIDER:
 #   blogger - really publish on the blog (needs the four values below)

@@ -6,6 +6,7 @@ secrets/*
 # Candidate data must never be committed (N14)
 sample-cvs/
 uploads/
+backend/storage/
 *.db
 *.sqlite
 

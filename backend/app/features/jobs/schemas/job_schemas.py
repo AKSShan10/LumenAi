@@ -24,3 +24,4 @@ class JobOut(JobCreate):
     id: int
     status: str = "draft"            # draft | approved
     approved_at: datetime | None = None
+    response_sheet_url: str = ""    # where the applications of this job arrive (set on the Candidates page)

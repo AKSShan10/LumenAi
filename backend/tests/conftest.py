@@ -7,12 +7,15 @@ Database for tests:
 Never point TEST_DATABASE_URL at your real database.
 """
 import os
+import tempfile
 
 TEST_DB = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 os.environ.update({
     "DATABASE_URL": TEST_DB,
     "LLM_PROVIDER": "fake",
     "BLOGGER_PROVIDER": "fake",
+    "DRIVE_PROVIDER": "fake",
+    "STORAGE_DIR": tempfile.mkdtemp(prefix="lumenai-test-cvs-"),      # CV files of the tests; never the real folder
     "LOG_FILE": "",                       # tests write no log file
     "INTERVIEWER_PASSCODE": "test-passcode",
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",

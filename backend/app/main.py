@@ -20,6 +20,7 @@ from app.core.database import init_db
 from app.core.logging_setup import setup_logging
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
+from app.features.candidates.routers import candidate_router
 from app.features.job_library.routers import company_document_router
 from app.features.jobs.routers import job_posting_router, job_router
 from app.features.system.routers import system_router
@@ -84,6 +85,7 @@ def health():
 for module in (auth_router,                      # login
                job_router,                       # the saved jobs (read and delete)
                job_posting_router,               # the posts of a job, and the posting check
+               candidate_router,                 # CVs: fetch from the Google Form, manual upload, the saved files
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

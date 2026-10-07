@@ -23,6 +23,22 @@ export async function request(path, options = {}) {
   return body;
 }
 
+// Downloads a file that needs the login token (a plain link cannot send the token) and saves it under `filename`.
+export async function download(path, filename) {
+  const token = auth.get();
+  const response = await fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || "The file could not be downloaded.");
+  }
+  const address = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = address;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(address);
+}
+
 export const json = (data) => ({
   method: "POST",
   headers: { "Content-Type": "application/json" },

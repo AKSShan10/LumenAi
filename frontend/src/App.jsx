@@ -6,11 +6,12 @@ import { systemApi } from "./features/system/systemApi.js";
 import LoginPage from "./features/auth/LoginPage.jsx";
 import SettingsPage from "./features/system/SettingsPage.jsx";
 import JobRequirementsPage from "./features/jobs/JobRequirementsPage.jsx";
+import CandidatesPage from "./features/candidates/CandidatesPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
   ["dashboard", "Dashboard", "home", "Where every job, CV and interview stands."],
-  ["candidates", "Candidates", "people", "Upload CVs, screen them and see the ranking."],
+  ["candidates", "Candidates", "people", "Fetch the applications of a job, upload CVs and see who applied."],
   ["interviews", "Interviews", "calendar", "Invitations, live interviews and transcripts."],
   ["jobs", "Job Requirements", "document", "Chat with the AI: store documents, write the job, approve it and post it."],
   ["reports", "Reports", "chart", "Compare candidates and record the decision."],
@@ -64,8 +65,9 @@ export default function App() {
         <main>
           {page === "settings" && <SettingsPage />}
           {page === "jobs" && <JobRequirementsPage />}
+          {page === "candidates" && <CandidatesPage />}
           {/* Placeholder: each feature replaces this card with its real page. */}
-          {!["settings", "jobs"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
+          {!["settings", "jobs", "candidates"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

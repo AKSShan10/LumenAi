@@ -17,4 +17,5 @@ class Job(SQLModel, table=True):
     prompt: str = Field(default="", sa_column=Column(Text))        # the short text the interviewer typed for the AI
     status: str = "draft"                             # draft | approved; editing an approved job makes it a draft again
     approved_at: Optional[datetime] = None
+    response_sheet_url: str = ""                      # the response sheet of this job's Google Form (applications)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
