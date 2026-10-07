@@ -12,10 +12,10 @@ const TOOL_NAMES = {
   save_job: "saved the job",
   list_jobs: "listed the jobs",
   get_job: "read a job",
-  prepare_telegram_post: "prepared the Telegram post",
+  prepare_job_post: "prepared the post",
   request_job_approval: "asked you to approve",
-  request_telegram_post: "asked you to post",
-  check_telegram_settings: "checked the Telegram bot",
+  request_job_post: "asked you to post",
+  check_blogger_settings: "checked the Blogger login",
 };
 const EXAMPLES = [
   "Write a job for a backend developer with Python and FastAPI, 3 years experience",
@@ -24,7 +24,7 @@ const EXAMPLES = [
 ];
 
 // The assistant: a chat where the AI chooses the tools.
-// It can store documents, write and save jobs, and prepare a Telegram post.
+// It can store documents, write and save jobs, and prepare the post.
 // It cannot approve a job or post by itself: it asks, and you answer Yes or No here.
 export default function AssistantPage() {
   const [chat, setChat] = useState(null);
@@ -59,14 +59,33 @@ export default function AssistantPage() {
   return (
     <div className="card chat">
       <div className="row-between">
-        <p className="muted small">The AI chooses what to do. Approving a job and posting to Telegram always wait for your Yes.</p>
-        <button className="link" onClick={() => run(assistantApi.clear)} disabled={busy || chat.messages.length === 0}>New chat</button>
+        <p className="muted small">The AI chooses what to do. Approving a job and posting it always wait for your Yes.</p>
+        <div>
+          {/* Every chat is kept in the database. Pick one to read it; "Continue this chat" lets you write in it again. */}
+          {chat.chats.length > 1 && (
+            <select value={chat.chat_id} disabled={busy} title="Your chats"
+                    onChange={(e) => run(() => assistantApi.earlier(Number(e.target.value)))}>
+              {chat.chats.map((c, index) => (
+                <option key={c.id} value={c.id}>
+                  {index === 0 ? "Current chat" : new Date(c.started_at).toLocaleDateString()}: {c.title}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className="link" onClick={() => run(assistantApi.newChat)} disabled={busy || (chat.is_current && chat.messages.length === 0)}>New chat</button>
+        </div>
       </div>
+      {!chat.is_current && (
+        <p className="warn">This is an earlier chat.{" "}
+          <button className="link" onClick={() => run(() => assistantApi.continueChat(chat.chat_id))} disabled={busy}>Continue this chat</button>
+          {" "}or{" "}
+          <button className="link" onClick={() => run(assistantApi.chat)} disabled={busy}>go back to the current chat</button>.</p>
+      )}
 
       <div className="chat-messages">
         {chat.messages.length === 0 && !sent && (
           <div className="muted">
-            <p>Ask me to store a company document, write a job description, or post a job to Telegram. For example:</p>
+            <p>Ask me to store a company document, write a job description, or post a job. For example:</p>
             {EXAMPLES.map((example) => <p key={example}><button className="link" onClick={() => setText(example)}>{example}</button></p>)}
           </div>
         )}
@@ -91,10 +110,10 @@ export default function AssistantPage() {
         {/* Questions that wait for your answer. Nothing happens until you click Yes. */}
         {chat.actions.map((action) => (
           <div key={action.id} className="chat-question">
-            <b>{action.kind === "approve_job" ? `Approve the job "${action.job_title}"?` : `Post the job "${action.job_title}" to the Telegram channel?`}</b>
-            {action.kind === "post_telegram" && (
+            <b>{action.kind === "approve_job" ? `Approve the job "${action.job_title}"?` : `Post the job "${action.job_title}"?`}</b>
+            {action.kind !== "approve_job" && (
               <>
-                <p className="muted small">This will appear in the channel, with an "Apply now" button under it:</p>
+                <p className="muted small">This will be posted, with an "Apply now" link under it:</p>
                 <p className="description">{action.text}{"\n\n"}Apply here: {action.apply_url}</p>
               </>
             )}
@@ -108,6 +127,7 @@ export default function AssistantPage() {
       </div>
 
       {error && <p className="error">{error}</p>}
+      {chat.is_current && (
       <form onSubmit={send} className="chat-input">
         <label className="attach" title="Attach a PDF, DOCX or TXT file">
           <Icon name="clip" />
@@ -117,6 +137,7 @@ export default function AssistantPage() {
                placeholder={file ? `What should I do with ${file.name}?` : "Write a message..."} />
         <button disabled={busy || (!text.trim() && !file)}><Icon name="send" size={16} /> Send</button>
       </form>
+      )}
       {file && <p className="muted small">Attached: {file.name} <button type="button" className="link" onClick={() => { setFile(null); fileInput.current.value = ""; }}>remove</button></p>}
     </div>
   );

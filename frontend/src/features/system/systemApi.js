@@ -4,6 +4,6 @@ import { request } from "../../shared/api/httpClient.js";
 export const systemApi = {
   health: () => request("/api/health"),
   llmCheck: () => request("/api/llm-check"),
-  telegramCheck: () => request("/api/telegram-check"),
+  postingCheck: () => request("/api/posting-check"),      // is Blogger set up?
   workflowRuns: () => request("/api/workflow-runs?limit=15"),
 };

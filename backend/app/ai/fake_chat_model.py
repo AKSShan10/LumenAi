@@ -20,10 +20,10 @@ def _plan(text: str) -> list[str]:
     find_job = [] if has_job_number else ["list_jobs"]
     if "[attached file:" in low:
         return ["save_attached_file_as_document"]
-    if "telegram" in low and ("check" in low or "test" in low):
-        return ["check_telegram_settings"]
-    if "post" in low or "telegram" in low:
-        return find_job + ["prepare_telegram_post", "request_telegram_post"]
+    if "blog" in low and ("check" in low or "test" in low):
+        return ["check_blogger_settings"]
+    if "post" in low or "blog" in low:
+        return find_job + ["prepare_job_post", "request_job_post"]
     if "approve" in low:
         return find_job + ["request_job_approval"]
     if "search" in low or "find" in low:
@@ -89,18 +89,18 @@ class FakeToolChatModel(BaseChatModel):
         if step == "save_job":
             draft = results["write_job_draft"]["draft"]
             return {**draft, "prompt": text[:2000]}
-        if step in ("prepare_telegram_post", "request_job_approval"):
+        if step in ("prepare_job_post", "request_job_approval"):
             return {"job_id": job_id}
-        if step == "request_telegram_post":
+        if step == "request_job_post":
             link = re.search(r"https://\S+", text)
-            return {"job_id": job_id, "text": results["prepare_telegram_post"].get("text", ""),
+            return {"job_id": job_id, "text": results["prepare_job_post"].get("text", ""),
                     "apply_url": link.group(0) if link else ""}
         return {}
 
     def _answer(self, plan: list[str], results: dict) -> str:
         if not plan:
             return ("I can store company documents, write a job description, ask you to approve a job and "
-                    "prepare its Telegram post. For example: \"Write a job for a backend developer with Python\". "
+                    "prepare its post. For example: \"Write a job for a backend developer with Python\". "
                     "(Fake AI: simple word rules, for tests and demos without a key.)")
         last = results.get(plan[-1], {})
         if plan[-1] == "save_job":
@@ -111,7 +111,7 @@ class FakeToolChatModel(BaseChatModel):
                     + "Tell me what to change, or ask me to approve it.")
         if plan[-1] == "save_attached_file_as_document":
             return f"I stored \"{last.get('title')}\" as a company document ({last.get('kind')}, {last.get('words')} words)."
-        if plan[-1] in ("request_job_approval", "request_telegram_post"):
+        if plan[-1] in ("request_job_approval", "request_job_post"):
             asked = "Yes / No question" in str(last.get("text"))
             return ("I prepared it. Please answer Yes or No on the screen; nothing happens before that."
                     if asked else str(last.get("text")))

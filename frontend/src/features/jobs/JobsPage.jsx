@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { jobsApi } from "./jobsApi.js";
-import JobForm from "./JobForm.jsx";
-import JobPostPanel from "./JobPostPanel.jsx";
 import CompanyDocumentsPanel from "../job_library/CompanyDocumentsPanel.jsx";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
 
-// The Job Requirements page: pick a job, see it, edit it, approve it, or create a new one.
+const PLACES = { blogger: "Blogger blog" };
+
+// What is saved in the database: the jobs, their posts and the company documents.
+// This view only shows (and deletes). Writing, changing, approving and posting are done in the chat.
 export default function JobsPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
-  const [mode, setMode] = useState("view");          // view | edit | new
-  const [addToLibrary, setAddToLibrary] = useState(true);
+  const [postings, setPostings] = useState([]);
   const [error, setError] = useState("");
   const [askDelete, setAskDelete] = useState(false);   // the yes / no pop-up is open
 
@@ -24,58 +24,69 @@ export default function JobsPage() {
   }
   useEffect(() => { load(null); }, []);
 
+  // The posts of the job that is shown
+  useEffect(() => {
+    setPostings([]);
+    if (jobId) jobsApi.postings(jobId).then(setPostings).catch((e) => setError(e.message));
+  }, [jobId]);
+
   if (!jobs) return <div className="card">{error ? <p className="error">{error}</p> : <p>Loading...</p>}</div>;
   const job = jobs.find((j) => j.id === jobId);
 
-  const saved = async (savedJob) => { await load(savedJob.id); setMode("view"); };
-
-  async function run(action, selectId) {
-    setError("");
-    try { await action(); await load(selectId); } catch (e) { setError(e.message); }
+  async function remove() {
+    setAskDelete(false); setError("");
+    try { await jobsApi.remove(job.id); await load(null); } catch (e) { setError(e.message); }
   }
-  function remove() {
-    setAskDelete(false);
-    run(() => jobsApi.remove(job.id), null);
-  }
-
-  if (mode === "new" || !job) {
-    return <><JobForm onSaved={saved} onCancel={job ? () => setMode("view") : null} /><CompanyDocumentsPanel /></>;
-  }
-  if (mode === "edit") return <JobForm key={job.id} job={job} onSaved={saved} onCancel={() => setMode("view")} />;
 
   return (
     <>
       <div className="card">
-        <div className="row-between">
-          <label className="inline">Job{" "}
-            <select value={job.id} onChange={(e) => setJobId(Number(e.target.value))}>
-              {jobs.map((j) => <option key={j.id} value={j.id}>{j.title} ({j.status})</option>)}
-            </select>
-          </label>
-          <div>
-            <button className="secondary" onClick={() => setMode("edit")}>Edit</button>
-            <button className="danger" onClick={() => setAskDelete(true)}>Delete</button>
-            <button onClick={() => setMode("new")}>+ New job</button>
-          </div>
-        </div>
+        <h3>Saved jobs <small className="muted">({jobs.length})</small></h3>
+        {!job ? (
+          <p className="muted">No jobs yet. Ask the AI in the chat, for example: "Write a job for a backend developer with Python".</p>
+        ) : (
+          <>
+            <div className="row-between">
+              <label className="inline">Job{" "}
+                <select value={job.id} onChange={(e) => setJobId(Number(e.target.value))}>
+                  {jobs.map((j) => <option key={j.id} value={j.id}>#{j.id} {j.title} ({j.status})</option>)}
+                </select>
+              </label>
+              <button className="danger" onClick={() => setAskDelete(true)}>Delete</button>
+            </div>
 
-        <h2>{job.title} <span className={`badge ${job.status}`}>{job.status}</span></h2>
-        <p><b>Required:</b> {job.required_skills.join(", ")}</p>
-        {job.preferred_skills.length > 0 && <p><b>Preferred:</b> {job.preferred_skills.join(", ")}</p>}
-        <p><b>Minimum experience:</b> {job.min_years} years{job.qualifications && <> · <b>Qualifications:</b> {job.qualifications}</>}</p>
-        {job.description ? <p className="description">{job.description}</p>
-                         : <p className="muted">No description yet. Click Edit, then "Fill the form with AI".</p>}
+            <h2>{job.title} <span className={`badge ${job.status}`}>{job.status}</span></h2>
+            <p className="muted small">Job #{job.id}. To change, approve or post it, ask in the chat and use this number.</p>
+            <p><b>Required:</b> {job.required_skills.join(", ")}</p>
+            {job.preferred_skills.length > 0 && <p><b>Preferred:</b> {job.preferred_skills.join(", ")}</p>}
+            <p><b>Minimum experience:</b> {job.min_years} years{job.qualifications && <> · <b>Qualifications:</b> {job.qualifications}</>}</p>
+            {job.prompt && <p className="muted small"><b>Asked for:</b> {job.prompt}</p>}
+            {job.description ? <p className="description">{job.description}</p>
+                             : <p className="muted">No description yet.</p>}
 
-        {job.status !== "approved" && (
-          <div className="section">
-            <h3>Step 3 · Approve</h3>
-            <p className="muted small">Only an approved job can be posted. Read the description before you approve it.</p>
-            <label className="inline">
-              <input type="checkbox" checked={addToLibrary} onChange={(e) => setAddToLibrary(e.target.checked)} />
-              {" "}keep this description as an example for future jobs
-            </label>
-            <div><button onClick={() => run(() => jobsApi.approve(job.id, addToLibrary), job.id)} disabled={!job.description}>Approve job</button></div>
-          </div>
+            <div className="section">
+              <h3>Posts of this job</h3>
+              {postings.length === 0 ? <p className="muted">Not posted yet.</p> : (
+                <table>
+                  <thead><tr><th>When</th><th>Where</th><th>Result</th><th>Details</th></tr></thead>
+                  <tbody>
+                    {postings.map((p) => (
+                      <tr key={p.id}>
+                        <td>{new Date(p.created_at).toLocaleString()}</td>
+                        <td>{PLACES[p.channel] || p.channel}</td>
+                        <td><span className={`badge ${p.status === "posted" ? "done" : "failed"}`}>{p.status}</span></td>
+                        <td className="small">
+                          {p.status === "failed" ? p.error
+                            : p.message_link ? <a href={p.message_link} target="_blank" rel="noreferrer">Open the post</a>
+                            : "Posted"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
         )}
         {error && <p className="error">{error}</p>}
         {askDelete && (
@@ -83,8 +94,7 @@ export default function JobsPage() {
                          onYes={remove} onNo={() => setAskDelete(false)} />
         )}
       </div>
-      {job.status === "approved" && <JobPostPanel key={job.id} job={job} />}
-      <CompanyDocumentsPanel key={`${job.id}-${job.status}`} />
+      <CompanyDocumentsPanel />
     </>
   );
 }

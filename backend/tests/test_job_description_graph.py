@@ -59,27 +59,42 @@ def test_a_bad_draft_goes_back_to_the_ai_once(client, monkeypatch):
     assert result["revisions"] == 1 and result["problems"] == []
 
 
-def test_problems_that_stay_are_shown_to_the_interviewer(client, monkeypatch):
+def test_generate_again_follows_the_change_request(client, monkeypatch):
+    first = write_job_draft(PROMPT)["draft"]["description"]
+    again = write_job_draft(PROMPT, "more focus on teamwork", first)
+    assert again["error"] == "" and "more focus on teamwork" in again["draft"]["description"]     # the fake AI repeats the wish
+
+    seen = {}
+
+    def ai(instructions, data):
+        seen.update(data)
+        return good_draft(description="word " * 100 + "Salary 50000 BDT.")
+    monkeypatch.setattr(workflow, "llm_json", ai)
+    paid = write_job_draft(PROMPT, "mention the salary of 50000 BDT", first)
+    assert seen["change_request"] == "mention the salary of 50000 BDT" and seen["previous_description"] == first
+    assert paid["problems"] == []                                      # pay is allowed: the interviewer asked for it
+
+
+def test_problems_that_stay_are_kept_for_the_interviewer(client, monkeypatch):
     monkeypatch.setattr(workflow, "llm_json", lambda instructions, data: good_draft(required_skills=[]))
-    draft = client.post("/api/jobs/draft-from-prompt", json={"prompt": PROMPT}).json()
-    assert draft["from_ai"] is True and draft["revisions"] == 1               # revised once, then it stops
-    assert draft["message"] == "Please check: no required skills were found"
+    result = write_job_draft(PROMPT)
+    assert result["error"] == "" and result["revisions"] == 1                 # revised once, then it stops
+    assert result["problems"] == ["no required skills were found"]
 
 
 def test_ai_failure_is_reported_and_logged(client, monkeypatch):
     monkeypatch.setattr(workflow, "llm_json", lambda instructions, data: None)
     monkeypatch.setattr(workflow, "last_error", lambda: "the AI service rejected the API key")
-    draft = client.post("/api/jobs/draft-from-prompt", json={"prompt": PROMPT}).json()
-    assert draft["from_ai"] is False and "rejected the API key" in draft["message"]
+    result = write_job_draft(PROMPT)
+    assert "rejected the API key" in result["error"]
     last_run = client.get("/api/workflow-runs?limit=1").json()[0]
     assert last_run["outcome"] == "failed" and "API key" in last_run["error"]
 
 
-def test_the_ai_is_given_the_company_documents(client, monkeypatch):
-    past = client.post("/api/company-documents", json={"kind": "job_description", "title": "Backend Developer 2025",
-                       "text": "Backend Developer. You will build REST APIs with Python, FastAPI and Docker for our platform team."}).json()
-    policy = client.post("/api/company-documents", json={"kind": "policy", "title": "Hiring policy",
-                         "text": "Every job description ends with the equal opportunity statement of the company."}).json()
+def test_the_ai_is_given_the_company_documents(client, add_doc, monkeypatch):
+    past = add_doc("job_description", "Backend Developer 2025",
+                   "Backend Developer. You will build REST APIs with Python, FastAPI and Docker for our platform team.")
+    policy = add_doc("policy", "Hiring policy", "Every job description ends with the equal opportunity statement of the company.")
     seen = {}
 
     def ai(instructions, data):
@@ -87,9 +102,9 @@ def test_the_ai_is_given_the_company_documents(client, monkeypatch):
         return good_draft()
     monkeypatch.setattr(workflow, "llm_json", ai)
 
-    draft = client.post("/api/jobs/draft-from-prompt", json={"prompt": PROMPT}).json()
+    result = write_job_draft(PROMPT)
     assert "Backend Developer 2025" in [e["title"] for e in seen["examples"]]
     assert [p["title"] for p in seen["company_policy"]] == ["Hiring policy"]
-    assert "Backend Developer 2025" in draft["examples"] and draft["policies"] == ["Hiring policy"]
+    assert "Backend Developer 2025" in [e["title"] for e in result["examples"]]
     for document in (past, policy):
         client.delete(f"/api/company-documents/{document['id']}")

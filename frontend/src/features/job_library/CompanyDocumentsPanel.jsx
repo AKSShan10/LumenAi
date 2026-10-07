@@ -1,17 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { companyDocumentsApi } from "./companyDocumentsApi.js";
 
 const KINDS = { job_description: "Past job description", policy: "Company policy" };
 
-// The company's own texts. Before the AI writes a job, it will be given the most similar past job
-// descriptions (for style) and the company policy notes (for rules). This is the RAG step.
+// The company's own texts that are stored in the database. Before the AI writes a job, it is given the most
+// similar past job descriptions (for style) and the company policy notes (for rules). This is the RAG step.
+// This panel only shows, searches and removes. Documents are added in the chat (typed, or as an attached file).
 export default function CompanyDocumentsPanel() {
   const [items, setItems] = useState([]);
-  const [kind, setKind] = useState("job_description");
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [file, setFile] = useState(null);
-  const fileInput = useRef(null);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState(null);
   const [error, setError] = useState("");
@@ -23,16 +19,6 @@ export default function CompanyDocumentsPanel() {
     setError("");
     try { await action(); await load(); } catch (e) { setError(e.message); }
   }
-  const add = (event) => {
-    event.preventDefault();
-    run(async () => {
-      // A chosen file wins; otherwise the pasted text is saved.
-      if (file) await companyDocumentsApi.upload(kind, title, file);
-      else await companyDocumentsApi.add(kind, title, text);
-      setTitle(""); setText(""); setFile(null);
-      if (fileInput.current) fileInput.current.value = "";
-    });
-  };
   const search = (event) => {
     event.preventDefault();
     run(async () => setHits(await companyDocumentsApi.search(query)));
@@ -40,39 +26,17 @@ export default function CompanyDocumentsPanel() {
 
   return (
     <div className="card">
-      <h3>Company documents <small className="muted">(what the AI looks up before it writes)</small></h3>
-      <p className="muted small">Upload or paste past job descriptions and company policy notes. A new job description follows the most
-        similar past ones and the policy notes.</p>
-
-      <form onSubmit={add}>
-        <div className="two-columns">
-          <label>Kind
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              {Object.entries(KINDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
-          <label>Title
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={file ? "Empty = the file name" : "Backend Developer 2025"} />
-          </label>
-        </div>
-        <label>File <small>(PDF, DOCX or TXT, 5 MB at most)</small>
-          <input type="file" accept=".pdf,.docx,.txt" ref={fileInput} onChange={(e) => setFile(e.target.files[0] || null)} />
-        </label>
-        {!file && (
-          <label>Or paste the text
-            <textarea rows="4" value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste the text here" />
-          </label>
-        )}
-        <button className="secondary" disabled={!file && (title.trim().length < 2 || text.trim().length < 1)}>Add document</button>
-      </form>
+      <h3>Company documents <small className="muted">({items.length}; what the AI looks up before it writes)</small></h3>
+      <p className="muted small">To add one, attach a PDF, DOCX or TXT file in the chat, or paste the text there and ask the AI to store it.</p>
       {error && <p className="error">{error}</p>}
 
       {items.length === 0 ? <p className="muted">No documents yet.</p> : (
         <table>
-          <thead><tr><th>Title</th><th>Kind</th><th>From</th><th>Words</th><th></th></tr></thead>
+          <thead><tr><th>Added</th><th>Title</th><th>Kind</th><th>From</th><th>Words</th><th></th></tr></thead>
           <tbody>
             {items.map((d) => (
               <tr key={d.id}>
+                <td className="small">{new Date(d.created_at).toLocaleDateString()}</td>
                 <td>{d.title}</td>
                 <td className="small">{KINDS[d.kind] || d.kind}</td>
                 <td className="small">{d.source}</td>

@@ -7,30 +7,24 @@ OTHER_JOB = ("Graphic Designer. You will design brochures, banners and social me
              "Illustrator for the marketing team.")
 
 
-def add(client, kind, title, text) -> dict:
-    response = client.post("/api/company-documents", json={"kind": kind, "title": title, "text": text})
-    assert response.status_code == 201
-    return response.json()
-
-
-def test_add_list_and_remove(client):
-    document = add(client, "job_description", "Backend Developer 2025", PAST_JOB)
+def test_add_list_and_remove(client, add_doc):
+    document = add_doc("job_description", "Backend Developer 2025", PAST_JOB)
     assert document["kind"] == "job_description" and document["source"] == "added" and document["words"] > 10
     assert document["id"] in [d["id"] for d in client.get("/api/company-documents").json()]
     assert client.delete(f"/api/company-documents/{document['id']}").status_code == 204
     assert client.delete(f"/api/company-documents/{document['id']}").status_code == 404
 
 
-def test_bad_documents_are_rejected(client):
-    assert client.post("/api/company-documents", json={"kind": "policy", "title": "x", "text": POLICY}).status_code == 422
-    assert client.post("/api/company-documents", json={"kind": "policy", "title": "No text", "text": ""}).status_code == 422
-    assert client.post("/api/company-documents", json={"kind": "novel", "title": "Wrong kind", "text": POLICY}).status_code == 422
+def test_documents_are_only_read_and_removed_through_the_api(client):
+    """Documents are added in the chat (typed or as an attached file). The old form endpoints are gone."""
+    assert client.post("/api/company-documents", json={"kind": "policy", "title": "Policy", "text": POLICY}).status_code == 405
+    assert client.post("/api/company-documents/upload", files={"file": ("a.txt", b"hello")}).status_code == 405
 
 
-def test_search_finds_the_similar_job_and_the_policy(client):
-    backend = add(client, "job_description", "Backend Developer 2025", PAST_JOB)
-    designer = add(client, "job_description", "Graphic Designer 2024", OTHER_JOB)
-    policy = add(client, "policy", "Hiring policy", POLICY)
+def test_search_finds_the_similar_job_and_the_policy(client, add_doc):
+    backend = add_doc("job_description", "Backend Developer 2025", PAST_JOB)
+    designer = add_doc("job_description", "Graphic Designer 2024", OTHER_JOB)
+    policy = add_doc("policy", "Hiring policy", POLICY)
 
     hits = client.get("/api/company-documents/search", params={"q": "Python FastAPI developer for REST APIs"}).json()
     jobs = [h for h in hits if h["kind"] == "job_description"]
@@ -40,10 +34,10 @@ def test_search_finds_the_similar_job_and_the_policy(client):
         client.delete(f"/api/company-documents/{document['id']}")
 
 
-def test_search_without_embeddings_compares_words(client, monkeypatch):
+def test_search_without_embeddings_compares_words(client, add_doc, monkeypatch):
     from app.features.job_library.services import company_document_service
     monkeypatch.setattr(company_document_service, "embed_texts", lambda texts: None)   # the embedding service is down
-    document = add(client, "job_description", "Backend Developer words only", PAST_JOB)
+    document = add_doc("job_description", "Backend Developer words only", PAST_JOB)
     hits = client.get("/api/company-documents/search", params={"q": "FastAPI PostgreSQL tests"}).json()
     assert document["id"] in [h["id"] for h in hits]
     client.delete(f"/api/company-documents/{document['id']}")
@@ -53,10 +47,10 @@ def test_documents_need_login(anonymous):
     assert anonymous.get("/api/company-documents").status_code == 401
 
 
-# ---------- file upload ----------
-def upload(client, filename, data, title=""):
-    return client.post("/api/company-documents/upload", data={"kind": "job_description", "title": title},
-                       files={"file": (filename, data)})
+# ---------- reading files (used when a file is attached in the chat) ----------
+import pytest  # noqa: E402
+
+from app.utils.file_text_utils import text_from_file  # noqa: E402
 
 
 def docx_bytes(text) -> bytes:
@@ -86,31 +80,16 @@ def pdf_bytes(text) -> bytes:
     return pdf + b"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % xref
 
 
-def test_upload_text_word_and_pdf_files(client):
-    for filename, data in (("backend-developer.txt", PAST_JOB.encode()),
-                           ("backend-developer.docx", docx_bytes(PAST_JOB)),
-                           ("backend-developer.pdf", pdf_bytes("Backend Developer with Python and FastAPI"))):
-        response = upload(client, filename, data)
-        assert response.status_code == 201, filename
-        document = response.json()
-        assert document["title"] == "backend-developer" and document["words"] >= 5     # title = the file name
-        client.delete(f"/api/company-documents/{document['id']}")
+def test_text_is_read_from_text_word_and_pdf_files():
+    assert text_from_file("backend-developer.txt", PAST_JOB.encode()) == PAST_JOB
+    assert PAST_JOB in text_from_file("backend-developer.docx", docx_bytes(PAST_JOB))
+    assert "Backend Developer with Python" in text_from_file("backend-developer.pdf", pdf_bytes("Backend Developer with Python and FastAPI"))
 
 
-def test_uploaded_file_is_found_by_the_search(client):
-    document = upload(client, "old-job.docx", docx_bytes(PAST_JOB), title="Backend Developer 2025").json()
-    assert document["title"] == "Backend Developer 2025"
-    hits = client.get("/api/company-documents/search", params={"q": "Python FastAPI REST APIs"}).json()
-    assert document["id"] in [h["id"] for h in hits]
-    client.delete(f"/api/company-documents/{document['id']}")
-
-
-def test_bad_files_are_rejected(client):
-    assert upload(client, "photo.png", b"not a document").status_code == 400          # wrong type
-    assert upload(client, "empty.txt", b"   ").status_code == 400                     # no text inside
-    assert upload(client, "broken.pdf", b"this is not a real pdf").status_code == 400  # cannot be read
-    assert upload(client, "big.txt", b"a" * (5 * 1024 * 1024 + 1)).status_code == 400  # too large
-
-
-def test_upload_needs_login(anonymous):
-    assert anonymous.post("/api/company-documents/upload", files={"file": ("a.txt", b"hello")}).status_code == 401
+@pytest.mark.parametrize("filename, data", [("photo.png", b"not a document"),                 # wrong type
+                                            ("empty.txt", b"   "),                            # no text inside
+                                            ("broken.pdf", b"this is not a real pdf"),         # cannot be read
+                                            ("big.txt", b"a" * (5 * 1024 * 1024 + 1))])        # too large
+def test_bad_files_are_refused_with_a_reason(filename, data):
+    with pytest.raises(ValueError):
+        text_from_file(filename, data)

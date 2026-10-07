@@ -1,12 +1,10 @@
-"""Posting an approved job to the Telegram channel.
+"""Posting an approved job to the company blog (Blogger).
 
     approved_post()    the post made by code from the approved job: the words the interviewer already approved
-    draft_post()       optional: the AI writes a shorter post (runs the job post workflow); nothing is saved or posted
-    full_message()     the post plus the application link, exactly as it goes to Telegram
-    post_job()         the backend calls the Telegram MCP tool and saves how it ended
-    telegram_check()   is the bot set up? (used by the Settings page)
+    post_job()         the backend calls the Blogger MCP tool and saves how it ended
+    posting_check()    is Blogger set up? (used by the Settings page)
 
-A post is sent only when the interviewer clicks "Post to Telegram". The backend code calls the tool;
+A post is sent only after the interviewer answered Yes in the chat. The backend code calls the tool;
 the AI never chooses or calls it.
 """
 import json
@@ -16,13 +14,12 @@ from fastapi import HTTPException
 from sqlmodel import Session
 
 from app.features.jobs.models import Job, JobPosting
-from app.features.jobs.schemas import PostDraftOut
-from app.graphs.job_post_graph import write_job_post
 from app.mcp_servers.client import McpError, call_tool
 
 log = logging.getLogger("job_posting")
 
-TELEGRAM_SERVER = "app.mcp_servers.telegram_server"
+BLOGGER_SERVER = "app.mcp_servers.blogger_server"
+CHANNEL = "blogger"                                  # saved with every post
 BUTTON_TEXT = "Apply now"
 
 
@@ -44,43 +41,36 @@ def approved_post(job: Job) -> str:
     return "\n".join(lines)
 
 
-def draft_post(job: Job, change_request: str = "", previous: str = "") -> PostDraftOut:
-    must_be_approved(job)
-    result = write_job_post(job.model_dump(), change_request, previous)
-    if result["error"]:
-        return PostDraftOut(from_ai=False, message="The AI could not write the post: " + result["error"])
-    message = "Please check: " + "; ".join(result["problems"]) if result["problems"] else ""
-    return PostDraftOut(from_ai=True, message=message, text=result["text"])
-
-
-def full_message(text: str, apply_url: str) -> str:
-    """The link is added by code, so it is always the link the interviewer gave."""
-    return f"{text.strip()}\n\nApply here: {apply_url}"
+def _send(job: Job, text: str, apply_url: str) -> dict:
+    """Calls the Blogger MCP tool. Returns {"ok", "link", "error"}.
+    The job title is the title of the blog post; the link becomes "Apply now" under the text, added by code."""
+    return json.loads(call_tool(BLOGGER_SERVER, "publish_blog_post",
+                                {"title": job.title, "text": text.strip(),
+                                 "button_text": BUTTON_TEXT, "button_url": apply_url}))
 
 
 def post_job(session: Session, job: Job, text: str, apply_url: str) -> JobPosting:
     must_be_approved(job)
-    posting = JobPosting(job_id=job.id, text=text.strip(), apply_url=apply_url)
+    posting = JobPosting(job_id=job.id, channel=CHANNEL, text=text.strip(), apply_url=apply_url)
     try:
-        answer = json.loads(call_tool(TELEGRAM_SERVER, "send_channel_post",
-                                      {"text": full_message(text, apply_url),
-                                       "button_text": BUTTON_TEXT, "button_url": apply_url}))
+        answer = _send(job, text, apply_url)
     except (McpError, ValueError) as problem:
-        answer = {"ok": False, "error": f"The Telegram tool did not answer ({problem})"}
+        answer = {"ok": False, "error": f"The posting tool did not answer ({problem})"}
 
     if answer.get("ok"):
-        posting.message_id, posting.message_link = answer.get("message_id") or 0, answer.get("link") or ""
+        posting.message_link = answer.get("link") or ""
     else:
         posting.status, posting.error = "failed", answer.get("error") or "unknown error"
-    log.info("telegram post job=%s %s%s", job.id, posting.status, f" ({posting.error})" if posting.error else "")
+    log.info("%s post job=%s %s%s", posting.channel, job.id, posting.status, f" ({posting.error})" if posting.error else "")
     session.add(posting)              # failed tries are saved too, so the interviewer sees what went wrong
     session.commit()
     session.refresh(posting)
     return posting
 
 
-def telegram_check() -> dict:
+def posting_check() -> dict:
+    """Is Blogger set up? Posts nothing. Used by the Settings page."""
     try:
-        return json.loads(call_tool(TELEGRAM_SERVER, "check_telegram_settings"))
+        return json.loads(call_tool(BLOGGER_SERVER, "check_blogger_settings"))
     except (McpError, ValueError) as problem:
-        return {"ok": False, "message": f"The Telegram tool did not answer ({problem})"}
+        return {"ok": False, "message": f"The Blogger tool did not answer ({problem})"}

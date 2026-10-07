@@ -1,6 +1,6 @@
 """MCP client: starts one of our MCP servers, calls its tools and returns their text answers.
 
-    call_tool("app.mcp_servers.telegram_server", "send_channel_post", {"text": ..., "button_url": ...})
+    call_tool("app.mcp_servers.blogger_server", "publish_blog_post", {"title": ..., "text": ...})
 
 The server runs as a short-lived child process and is spoken to over standard input / output.
 """

@@ -1,4 +1,4 @@
-"""The assistant chatbot: the AI chooses the tools, a person confirms approvals and Telegram posts.
+"""The assistant chatbot: the AI chooses the tools, a person confirms approvals and job posts.
 
 LLM_PROVIDER=fake gives a stand-in model that chooses tools with word rules. Everything else is real:
 the agent loop, the MCP servers (started as child processes) and the tools.
@@ -18,7 +18,7 @@ PAST_JOB = ("Backend Developer. You will build REST APIs with Python and FastAPI
 
 @pytest.fixture(autouse=True)
 def new_chat(client):
-    client.delete("/api/assistant/chat")
+    client.post("/api/assistant/chat/new")
     yield
 
 
@@ -39,12 +39,12 @@ def test_the_assistant_cannot_reach_the_posting_tool():
     import asyncio
     from langchain_mcp_adapters.client import MultiServerMCPClient
     every_tool = {t.name for t in asyncio.run(MultiServerMCPClient(assistant_agent.mcp_servers()).get_tools())}
-    assert "send_channel_post" in every_tool                                   # the Telegram server has it ...
-    assert "send_channel_post" in assistant_agent.HIDDEN_TOOLS                 # ... but the assistant does not get it
+    assert "publish_blog_post" in every_tool                                   # the Blogger server can post ...
+    assert assistant_agent.HIDDEN_TOOLS == {"publish_blog_post"}               # ... but the assistant does not get that tool
     assert {"write_job_draft", "save_job", "search_company_documents", "save_attached_file_as_document",
-            "prepare_telegram_post", "check_telegram_settings"} <= every_tool
+            "prepare_job_post", "check_blogger_settings"} <= every_tool
     assert not [name for name in every_tool if "approve" in name]              # no MCP tool approves a job
-    assert [t.name for t in assistant_agent.LOCAL_TOOLS] == ["request_job_approval", "request_telegram_post"]
+    assert [t.name for t in assistant_agent.LOCAL_TOOLS] == ["request_job_approval", "request_job_post"]
 
 
 # ---------- company documents ----------
@@ -64,9 +64,8 @@ def test_an_attached_file_is_stored_exactly(client):
             client.delete(f"/api/company-documents/{document['id']}")
 
 
-def test_search(client):
-    document = client.post("/api/company-documents", json={"kind": "job_description", "title": "Assistant search test",
-                                                           "text": PAST_JOB}).json()
+def test_search(client, add_doc):
+    document = add_doc("job_description", "Assistant search test", PAST_JOB)
     chat = say(client, "Search the documents for Python FastAPI REST APIs")
     assert last(chat)["tools"] == ["search_company_documents"] and "Assistant search test" in last(chat)["content"]
     client.delete(f"/api/company-documents/{document['id']}")
@@ -100,16 +99,16 @@ def test_write_approve_and_post_with_a_yes_each_time(client):
     assert client.get(f"/api/jobs/{job['id']}").json()["status"] == "approved"
 
     # 4. asking to post only creates a question; nothing is posted
-    chat = say(client, f"Post job {job['id']} to Telegram, the form is {FORM}")
-    assert last(chat)["tools"] == ["prepare_telegram_post", "request_telegram_post"]
+    chat = say(client, f"Post job {job['id']} on the blog, the form is {FORM}")
+    assert last(chat)["tools"] == ["prepare_job_post", "request_job_post"]
     assert client.get(f"/api/jobs/{job['id']}/postings").json() == []
     question = chat["actions"][0]
-    assert question["kind"] == "post_telegram" and question["apply_url"] == FORM
+    assert question["kind"] == "post_job" and question["apply_url"] == FORM
     assert question["text"].startswith(job["title"]) and "http" not in question["text"]     # the link is added by code
 
-    # 5. Yes: the backend posts it (fake Telegram) and saves the result
+    # 5. Yes: the backend posts it (fake Blogger) and saves the result
     chat = client.post(f"/api/assistant/actions/{question['id']}", json={"yes": True}).json()
-    assert "was posted to the Telegram channel" in last(chat)["content"]
+    assert "was posted to the Blogger blog" in last(chat)["content"]
     postings = client.get(f"/api/jobs/{job['id']}/postings").json()
     assert len(postings) == 1 and postings[0]["status"] == "posted" and postings[0]["apply_url"] == FORM
 
@@ -131,27 +130,29 @@ def test_no_means_nothing_happens(client):
 def test_a_draft_job_cannot_be_posted(client):
     say(client, "Create a job for a Data analyst with SQL and Excel")
     job = client.get("/api/jobs").json()[0]
-    chat = say(client, f"Post job {job['id']} to Telegram, the form is {FORM}")
+    chat = say(client, f"Post job {job['id']} on the blog, the form is {FORM}")
     assert chat["actions"] == [] and "Approve the job first" in last(chat)["content"]
     assert client.get(f"/api/jobs/{job['id']}/postings").json() == []
 
 
-def test_a_post_needs_the_form_link(client):
-    job = client.post("/api/jobs", json={"title": "Link Tester", "required_skills": ["Python"],
-                                         "description": "A made-up job used to test the assistant."}).json()
-    client.post(f"/api/jobs/{job['id']}/approve", json={"add_to_library": False})
-    chat = say(client, f"Post job {job['id']} to Telegram")
+def test_a_post_needs_the_form_link(client, make_job):
+    job = make_job(approve=True, title="Link Tester", description="A made-up job used to test the assistant.")
+    chat = say(client, f"Post job {job['id']} on the blog")
     assert chat["actions"] == [] and client.get(f"/api/jobs/{job['id']}/postings").json() == []
 
 
-def test_an_edited_job_is_not_posted_by_an_old_yes(client):
-    """The job was approved when the assistant asked, but edited before the interviewer answered."""
-    job = client.post("/api/jobs", json={"title": "Edit Tester", "required_skills": ["Python"],
-                                         "description": "A made-up job used to test the assistant."}).json()
-    client.post(f"/api/jobs/{job['id']}/approve", json={"add_to_library": False})
-    chat = say(client, f"Post job {job['id']} to Telegram, the form is {FORM}")
-    client.put(f"/api/jobs/{job['id']}", json={"title": "Edit Tester", "required_skills": ["Python"],
-                                               "description": "The text was changed after the approval."})
+def test_an_edited_job_is_not_posted_by_an_old_yes(client, make_job):
+    """The job was approved when the assistant asked, but changed before the interviewer answered."""
+    from sqlmodel import Session
+    from app.core.database import engine
+    from app.features.jobs.models import Job
+    from app.features.jobs.schemas import JobCreate
+    from app.features.jobs.services.job_service import update_job
+    job = make_job(approve=True, title="Edit Tester", description="A made-up job used to test the assistant.")
+    chat = say(client, f"Post job {job['id']} on the blog, the form is {FORM}")
+    with Session(engine) as session:
+        update_job(session, session.get(Job, job["id"]), JobCreate(title="Edit Tester", required_skills=["Python"],
+                                                                   description="The text was changed after the approval."))
     chat = client.post(f"/api/assistant/actions/{chat['actions'][0]['id']}", json={"yes": True}).json()
     assert "Approve the job first" in last(chat)["content"]
     assert client.get(f"/api/jobs/{job['id']}/postings").json() == []
@@ -159,11 +160,91 @@ def test_an_edited_job_is_not_posted_by_an_old_yes(client):
 
 # ---------- the chat itself ----------
 
-def test_the_conversation_is_kept_and_can_be_cleared(client):
+def test_the_conversation_is_kept(client):
     say(client, "hello")
     chat = client.get("/api/assistant/chat").json()
     assert [m["role"] for m in chat["messages"]] == ["user", "assistant"] and "I can store" in last(chat)["content"]
-    assert client.delete("/api/assistant/chat").json() == {"messages": [], "actions": []}
+
+
+def test_new_chat_keeps_the_earlier_chat(client):
+    first = say(client, "List the jobs")
+    assert first["is_current"] is True and len(first["messages"]) == 2
+
+    fresh = client.post("/api/assistant/chat/new").json()
+    assert fresh["messages"] == [] and fresh["is_current"] is True and fresh["chat_id"] != first["chat_id"]
+    assert client.post("/api/assistant/chat/new").json()["chat_id"] == fresh["chat_id"]     # an empty chat is used again
+
+    # the earlier chat is still in the database, with its title, and can be read
+    listed = {c["id"]: c for c in fresh["chats"]}
+    assert listed[first["chat_id"]]["title"] == "List the jobs" and listed[first["chat_id"]]["messages"] == 2
+    earlier = client.get("/api/assistant/chat", params={"chat_id": first["chat_id"]}).json()
+    assert earlier["is_current"] is False and [m["content"] for m in earlier["messages"]][0] == "List the jobs"
+    assert client.get("/api/assistant/chat", params={"chat_id": 999999}).status_code == 404
+
+    # a new message goes to the new chat, and the AI is only given the lines of that chat
+    again = say(client, "hello")
+    assert again["chat_id"] == fresh["chat_id"] and len(again["messages"]) == 2
+
+
+def test_an_earlier_chat_can_be_continued(client, monkeypatch):
+    first = say(client, "List the jobs")
+    client.post("/api/assistant/chat/new")
+    second = say(client, "hello")
+    assert second["chat_id"] != first["chat_id"]
+
+    # "Continue this chat": the first chat is the current one again; the second one is kept
+    chat = client.post(f"/api/assistant/chat/{first['chat_id']}/continue").json()
+    assert chat["chat_id"] == first["chat_id"] and chat["is_current"] is True and len(chat["messages"]) == 2
+    assert [c["id"] for c in chat["chats"]][:2] == [first["chat_id"], second["chat_id"]]      # the current one first
+    assert client.get("/api/assistant/chat").json()["chat_id"] == first["chat_id"]
+
+    # a new line goes into it, and the AI is given the earlier lines of that chat only
+    seen = {}
+
+    def model(messages):
+        seen["messages"] = messages
+        return {"answer": "ok", "tools": [], "error": ""}
+    monkeypatch.setattr(assistant_service, "run_assistant", model)
+    chat = say(client, "and now?")
+    assert chat["chat_id"] == first["chat_id"] and len(chat["messages"]) == 4
+    assert [m["content"] for m in seen["messages"]][0] == "List the jobs" and "hello" not in str(seen["messages"])
+
+    assert client.post("/api/assistant/chat/999999/continue").status_code == 404
+
+
+def test_continuing_leaves_no_empty_chat_and_cancels_a_waiting_question(client, make_job):
+    first = say(client, "hello")
+    job = make_job(title="Continue Tester", description="A made-up job used to test the assistant.")
+    client.post("/api/assistant/chat/new")
+    asked = say(client, f"Approve job {job['id']}")
+    assert len(asked["actions"]) == 1
+    chat = client.post(f"/api/assistant/chat/{first['chat_id']}/continue").json()
+    assert chat["actions"] == []                                               # it belonged to the chat that was left
+    empty = client.post("/api/assistant/chat/new").json()                      # an empty current chat ...
+    chat = client.post(f"/api/assistant/chat/{first['chat_id']}/continue").json()
+    assert empty["chat_id"] not in [c["id"] for c in chat["chats"]]            # ... is not kept in the list
+
+
+def test_the_ai_only_gets_the_current_chat(client, monkeypatch):
+    say(client, "a line from the earlier chat")
+    client.post("/api/assistant/chat/new")
+    seen = {}
+
+    def model(messages):
+        seen["messages"] = messages
+        return {"answer": "ok", "tools": [], "error": ""}
+    monkeypatch.setattr(assistant_service, "run_assistant", model)
+    say(client, "a line from the new chat")
+    assert [m["content"] for m in seen["messages"]] == ["a line from the new chat"]
+
+
+def test_a_waiting_question_is_cancelled_by_a_new_chat(client, make_job):
+    job = make_job(title="Cancel Tester", description="A made-up job used to test the assistant.")
+    chat = say(client, f"Approve job {job['id']}")
+    question = chat["actions"][0]
+    assert client.post("/api/assistant/chat/new").json()["actions"] == []
+    assert client.post(f"/api/assistant/actions/{question['id']}", json={"yes": True}).status_code == 400
+    assert client.get(f"/api/jobs/{job['id']}").json()["status"] == "draft"
 
 
 def test_the_ai_gets_a_note_about_the_file_not_the_whole_file(client, monkeypatch):
@@ -196,4 +277,5 @@ def test_the_assistant_needs_login(anonymous):
     assert anonymous.get("/api/assistant/chat").status_code == 401
     assert anonymous.post("/api/assistant/chat", data={"text": "hello"}).status_code == 401
     assert anonymous.post("/api/assistant/actions/1", json={"yes": True}).status_code == 401
-    assert anonymous.delete("/api/assistant/chat").status_code == 401
+    assert anonymous.post("/api/assistant/chat/new").status_code == 401
+    assert anonymous.post("/api/assistant/chat/1/continue").status_code == 401

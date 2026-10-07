@@ -8,7 +8,7 @@ Where the tools come from:
     HIDDEN_TOOLS     MCP tools the AI must not get (it could post without a person's Yes)
     LOCAL_TOOLS      two tools written here: they only ASK for an approval or a post
 
-The one fixed rule: the AI cannot approve a job or post to Telegram. It can only ask. The interviewer
+The one fixed rule: the AI cannot approve a job or post it to the blog. It can only ask. The interviewer
 answers Yes or No on the screen, and then the backend code does it (assistant_service.confirm_action).
 """
 import asyncio
@@ -44,17 +44,18 @@ def mcp_servers() -> dict:
             "transport": "stdio",
             "env": environment,
         },
-        "telegram": {
+        "blogger": {
             "command": sys.executable,
-            "args": ["-m", "app.mcp_servers.telegram_server"],
+            "args": ["-m", "app.mcp_servers.blogger_server"],
             "transport": "stdio",
             "env": environment,
         },
     }
 
 
-# The Telegram server can post. The assistant only gets its check tool; posting goes through request_telegram_post.
-HIDDEN_TOOLS = {"send_channel_post"}
+# The Blogger server can post. The assistant only gets its check tool; posting goes through
+# request_job_post, which only asks.
+HIDDEN_TOOLS = {"publish_blog_post"}
 
 
 # ---------- the two tools that only ask ----------
@@ -90,13 +91,13 @@ def request_job_approval(job_id: int) -> str:
 
 
 @tool
-def request_telegram_post(job_id: int, text: str, apply_url: str) -> str:
-    """Ask the interviewer to post an approved job to the Telegram channel. This does NOT post it: they answer
-    Yes or No on the screen. text is the post (from prepare_telegram_post); apply_url is the application form link."""
-    return _ask("post_telegram", job_id, text, apply_url)
+def request_job_post(job_id: int, text: str, apply_url: str) -> str:
+    """Ask the interviewer to post an approved job on the company blog. This does NOT post it: they
+    answer Yes or No on the screen. text is the post (from prepare_job_post); apply_url is the application form link."""
+    return _ask("post_job", job_id, text, apply_url)
 
 
-LOCAL_TOOLS = [request_job_approval, request_telegram_post]
+LOCAL_TOOLS = [request_job_approval, request_job_post]
 
 
 # ---------- the AI model ----------

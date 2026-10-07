@@ -82,8 +82,8 @@ def health():
 
 # Each feature adds its router to this list.
 for module in (auth_router,                      # login
-               job_router,                       # job profiles and the AI job description
-               job_posting_router,               # posting an approved job to Telegram
+               job_router,                       # the saved jobs (read and delete)
+               job_posting_router,               # the posts of a job, and the posting check
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

@@ -16,7 +16,7 @@ class MessageOut(BaseModel):
 class ActionOut(BaseModel):
     """Something the assistant prepared that waits for the interviewer's Yes or No."""
     id: int
-    kind: str                        # approve_job | post_telegram
+    kind: str                        # approve_job | post_job
     job_id: int
     job_title: str
     text: str = ""
@@ -25,9 +25,20 @@ class ActionOut(BaseModel):
     result: str = ""
 
 
+class ChatSummary(BaseModel):
+    """One line in the list of chats."""
+    id: int
+    title: str                       # the first thing the interviewer wrote
+    started_at: datetime
+    messages: int                    # how many lines it has
+
+
 class ChatOut(BaseModel):
+    chat_id: int                     # the chat these messages belong to
+    is_current: bool                 # False = an earlier chat is shown: read it, or continue it
     messages: list[MessageOut]
-    actions: list[ActionOut]         # the ones still waiting for an answer
+    actions: list[ActionOut]         # the ones still waiting for an answer (current chat only)
+    chats: list[ChatSummary]         # all chats, the current one first
 
 
 class ConfirmIn(BaseModel):

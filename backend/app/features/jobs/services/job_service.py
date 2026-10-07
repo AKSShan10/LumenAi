@@ -1,7 +1,7 @@
-"""Job profile logic.
+"""Job profile logic. Used by the assistant's tools (recruitment_server.py) and by the Yes / No answers.
 
     get_job_or_404()        find a job or answer 404
-    draft_from_prompt()     the AI turns a short prompt into a job profile (runs the job description workflow)
+    create_job()            save a new job as a draft
     update_job()            save changes; a changed job must be approved again
     approve_job()           the interviewer approves; the description can join the company documents
 """
@@ -10,8 +10,7 @@ from sqlmodel import Session
 
 from app.features.job_library.services.company_document_service import add_document, has_document_for_job
 from app.features.jobs.models import Job
-from app.features.jobs.schemas import JobCreate, JobDraftOut
-from app.graphs.job_description_graph import write_job_draft
+from app.features.jobs.schemas import JobCreate
 from app.utils.datetime_utils import utc_now
 
 
@@ -22,14 +21,12 @@ def get_job_or_404(session: Session, job_id: int) -> Job:
     return job
 
 
-def draft_from_prompt(prompt: str, change_request: str = "", previous: str = "") -> JobDraftOut:
-    result = write_job_draft(prompt, change_request, previous)
-    if result["error"]:
-        return JobDraftOut(from_ai=False, message="The AI could not write the job: " + result["error"])
-    message = "Please check: " + "; ".join(result["problems"]) if result["problems"] else ""
-    return JobDraftOut(from_ai=True, message=message, **result["draft"],
-                       examples=[e["title"] for e in result["examples"]],
-                       policies=[p["title"] for p in result["policies"]], revisions=result["revisions"])
+def create_job(session: Session, body: JobCreate) -> Job:
+    job = Job(**body.model_dump())
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
 
 
 def update_job(session: Session, job: Job, body: JobCreate) -> Job:

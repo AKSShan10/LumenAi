@@ -3,8 +3,8 @@ import AssistantPage from "../assistant/AssistantPage.jsx";
 import JobsPage from "./JobsPage.jsx";
 
 // The Job Requirements page has two views:
-//   Chat                 talk to the AI: it stores documents, writes the job and prepares the Telegram post
-//   Jobs and documents   everything that is saved, with the forms to check and change it by hand
+//   Chat                    everything is done here: the AI stores documents, writes the job and prepares the post
+//   Saved in the database   the jobs, their posts and the company documents (shown only; delete is possible)
 export default function JobRequirementsPage() {
   const [view, setView] = useState("chat");
 
@@ -12,9 +12,9 @@ export default function JobRequirementsPage() {
     <>
       <div className="tabs">
         <button className={view === "chat" ? "active" : ""} onClick={() => setView("chat")}>Chat with the AI</button>
-        <button className={view === "saved" ? "active" : ""} onClick={() => setView("saved")}>Jobs and documents</button>
+        <button className={view === "saved" ? "active" : ""} onClick={() => setView("saved")}>Saved in the database</button>
       </div>
-      {/* Each view is loaded fresh when opened, so a job made in the chat shows up under "Jobs and documents". */}
+      {/* Each view is loaded fresh when opened, so a job made in the chat shows up under "Saved in the database". */}
       {view === "chat" ? <AssistantPage /> : <JobsPage />}
     </>
   );

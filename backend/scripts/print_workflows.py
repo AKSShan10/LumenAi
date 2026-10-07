@@ -14,15 +14,20 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))                      # so "import app..." works when run as a script
 
+from langgraph.prebuilt import create_react_agent  # noqa: E402
+
+from app.ai.fake_chat_model import FakeToolChatModel  # noqa: E402
+from app.graphs.assistant_agent import LOCAL_TOOLS  # noqa: E402
 from app.graphs.job_description_graph import job_description_graph  # noqa: E402
-from app.graphs.job_post_graph import job_post_graph  # noqa: E402
-from app.graphs.recruitment_graph import recruitment_graph  # noqa: E402
+
+# The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
+# agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
+assistant_agent_graph = create_react_agent(FakeToolChatModel(), LOCAL_TOOLS)
 
 # Each feature adds its workflow here: (title, file, compiled graph)
 WORKFLOWS = [
     ("Job description workflow", "backend/app/graphs/job_description_graph.py", job_description_graph),
-    ("Job post workflow", "backend/app/graphs/job_post_graph.py", job_post_graph),
-    ("Main recruitment workflow", "backend/app/graphs/recruitment_graph.py", recruitment_graph),
+    ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),
 ]
 OUTPUT = BACKEND.parent / "docs" / "architecture" / "LumenAI_Workflows_From_Code.md"
 

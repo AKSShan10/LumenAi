@@ -7,12 +7,12 @@
     write_job_draft(prompt, ...)                   run the job description workflow (nothing is saved)
     save_job(...)                                  save a job as a draft, or change a saved job
     list_jobs() / get_job(job_id)                  the saved jobs
-    prepare_telegram_post(job_id)                  the post made from an approved job
+    prepare_job_post(job_id)                  the post made from an approved job
 
 Started by the assistant:   python -m app.mcp_servers.recruitment_server      (stdio transport)
 Every tool answers with JSON. A problem is returned as {"error": "..."} in plain words.
 
-There is NO tool here that approves a job or posts to Telegram. Those two need a person's Yes
+There is NO tool here that approves a job or posts it. Those two need a person's Yes
 (see app/graphs/assistant_agent.py).
 """
 import json
@@ -31,7 +31,7 @@ from app.features.job_library.services.company_document_service import (
 from app.features.jobs.models import Job
 from app.features.jobs.schemas import JobCreate
 from app.features.jobs.services.job_posting_service import approved_post
-from app.features.jobs.services.job_service import update_job
+from app.features.jobs.services.job_service import create_job, update_job
 from app.graphs.job_description_graph import write_job_draft as run_job_description_workflow
 
 server = FastMCP("lumenai-recruitment")
@@ -129,10 +129,7 @@ def save_job(title: str, description: str, required_skills: list[str], preferred
                 return _answer({"error": f"job {job_id} was not found"})
             job = update_job(session, job, body)
         else:
-            job = Job(**body.model_dump())
-            session.add(job)
-            session.commit()
-            session.refresh(job)
+            job = create_job(session, body)
         return _answer({"saved": True, "job": _job(job)})
 
 
@@ -153,8 +150,8 @@ def get_job(job_id: int) -> str:
 
 
 @server.tool()
-def prepare_telegram_post(job_id: int) -> str:
-    """The Telegram post for an approved job, made from the approved description. Nothing is posted."""
+def prepare_job_post(job_id: int) -> str:
+    """The post for an approved job, made from the approved description. Nothing is posted."""
     with Session(engine) as session:
         job = session.get(Job, job_id)
         if not job:

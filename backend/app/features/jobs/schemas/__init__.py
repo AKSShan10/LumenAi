@@ -1,6 +1,5 @@
-"""Request and response bodies for job profiles."""
-from .job_posting_schemas import PostDraftIn, PostDraftOut, PostIn, PostingOut, PostTextOut
-from .job_schemas import ApproveIn, JobCreate, JobDraftOut, JobOut, PromptIn
+"""Shapes of jobs and job posts."""
+from .job_posting_schemas import PostingOut
+from .job_schemas import JobCreate, JobOut
 
-__all__ = ["ApproveIn", "JobCreate", "JobDraftOut", "JobOut", "PostDraftIn", "PostDraftOut", "PostIn", "PostingOut",
-           "PostTextOut", "PromptIn"]
+__all__ = ["JobCreate", "JobOut", "PostingOut"]

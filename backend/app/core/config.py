@@ -39,14 +39,17 @@ SECRET_KEY = os.getenv("SECRET_KEY", "")          # signs our login tokens; any 
 TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))
 
 # ---------------- Log file ----------------
-# Every API call, AI call and Telegram post is written here (see core/logging_setup.py). Empty = terminal only.
+# Every API call, AI call and job post is written here (see core/logging_setup.py). Empty = terminal only.
 LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
 
-# ---------------- Job posts on Telegram (through the Telegram MCP server) ----------------
-# TELEGRAM_PROVIDER:
-#   telegram - really post to the channel (needs the token and the channel id)
-#   fake     - post nothing and answer as if it worked (tests, and demos without a bot)
-TELEGRAM_PROVIDER = os.getenv("TELEGRAM_PROVIDER", "telegram")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")        # from @BotFather; keep it only in .env
-TELEGRAM_CHANNEL_ID = os.getenv("TELEGRAM_CHANNEL_ID", "")      # "@channelname" or a number like -1001234567890
-TELEGRAM_API_URL = os.getenv("TELEGRAM_API_URL", "https://api.telegram.org")
+# ---------------- Job posts on Blogger (through the Blogger MCP server) ----------------
+# BLOGGER_PROVIDER:
+#   blogger - really publish on the blog (needs the four values below)
+#   fake    - publish nothing and answer as if it worked (tests, and demos without a blog)
+BLOGGER_PROVIDER = os.getenv("BLOGGER_PROVIDER", "blogger")
+BLOGGER_BLOG_ID = os.getenv("BLOGGER_BLOG_ID", "")                # the number in the blog's address on blogger.com
+BLOGGER_CLIENT_ID = os.getenv("BLOGGER_CLIENT_ID", "")            # from Google Cloud Console (OAuth client)
+BLOGGER_CLIENT_SECRET = os.getenv("BLOGGER_CLIENT_SECRET", "")    # keep it only in .env
+BLOGGER_REFRESH_TOKEN = os.getenv("BLOGGER_REFRESH_TOKEN", "")    # made once by scripts/blogger_login.py; only in .env
+BLOGGER_API_URL = os.getenv("BLOGGER_API_URL", "https://www.googleapis.com/blogger/v3")
+GOOGLE_TOKEN_URL = os.getenv("GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token")

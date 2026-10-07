@@ -9,7 +9,6 @@ import math
 import re
 
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
-from app.graphs.job_post_prompts import JOB_POST_PROMPT, JOB_POST_REVISE_PROMPT
 
 
 def fake_answer(instructions: str, data) -> dict:
@@ -17,26 +16,7 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_job(data)
     if instructions == JOB_REVISE_PROMPT:
         return _fake_job(data)          # the same rules again, from the same prompt
-    if instructions in (JOB_POST_PROMPT, JOB_POST_REVISE_PROMPT):
-        return _fake_post(data["job"], data.get("change_request", ""))
     return {"ok": True}
-
-
-def _fake_post(job: dict, change_request: str = "") -> dict:
-    """A short channel post made from the job's own fields."""
-    lines = [job["title"], "",
-             f"We are hiring a {job['title']}. You will work with a friendly team on real products, "
-             "share what you know and keep learning. We value clear communication, careful work and people "
-             "who ask questions early.", "", "What we are looking for:"]
-    lines += [f"- {skill}" for skill in job["required_skills"][:6]]
-    if job["min_years"]:
-        lines.append(f"- {job['min_years']} or more years of relevant experience")
-    if job["qualifications"]:
-        lines.append(f"- {job['qualifications']}")
-    if change_request:
-        lines += ["", f"Changed as asked: {change_request}."]
-    lines += ["", "(Fake AI text for offline tests.)"]
-    return {"text": "\n".join(lines)}
 
 
 def _fake_job(data: dict) -> dict:

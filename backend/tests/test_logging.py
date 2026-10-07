@@ -12,11 +12,11 @@ def test_every_api_call_is_logged_with_its_result(client, caplog):
     caplog.set_level(logging.INFO)
     client.get("/api/health")
     client.get("/api/jobs/999999")
-    client.post("/api/jobs", json={"title": "A"})
+    client.post("/api/assistant/actions/999999", json={})
     api = lines(caplog, "api")
     assert any(line.startswith("GET /api/health 200 ") and line.endswith("ms") for line in api)
     assert any(line.startswith("GET /api/jobs/999999 404 ") for line in api)          # failures are logged too
-    assert any(line.startswith("POST /api/jobs 422 ") for line in api)
+    assert any(line.startswith("POST /api/assistant/actions/999999 422 ") for line in api)
 
 
 def test_the_log_has_no_private_text(client, anonymous, caplog):
@@ -29,14 +29,17 @@ def test_the_log_has_no_private_text(client, anonymous, caplog):
     assert "secret" not in everything and "a-wrong-passcode" not in everything and "test-passcode" not in everything
 
 
-def test_a_telegram_post_is_logged(client, caplog):
-    job = client.post("/api/jobs", json={"title": "Log Tester", "required_skills": ["Python"],
-                                         "description": "A made-up job that is used to test the log file."}).json()
-    client.post(f"/api/jobs/{job['id']}/approve", json={"add_to_library": False})
+def test_a_job_post_is_logged(make_job, caplog):
+    from sqlmodel import Session
+    from app.core.database import engine
+    from app.features.jobs.models import Job
+    from app.features.jobs.services.job_posting_service import post_job
+    job = make_job(approve=True, title="Log Tester", description="A made-up job that is used to test the log file.")
     caplog.set_level(logging.INFO)
-    client.post(f"/api/jobs/{job['id']}/post", json={"text": "Log Tester wanted for a made-up team.",
-                                                      "apply_url": "https://docs.google.com/forms/made-up"})
-    assert f"telegram post job={job['id']} posted" in lines(caplog, "job_posting")
+    with Session(engine) as session:
+        post_job(session, session.get(Job, job["id"]), "Log Tester wanted for a made-up team.",
+                 "https://docs.google.com/forms/made-up")
+    assert f"blogger post job={job['id']} posted" in lines(caplog, "job_posting")
 
 
 def test_log_lines_are_saved_in_a_file(tmp_path):

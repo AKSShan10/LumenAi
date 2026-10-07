@@ -1,16 +1,7 @@
-"""Request and response bodies for the company documents."""
+"""Response bodies for the company documents."""
 from datetime import datetime
-from typing import Literal
 
-from pydantic import BaseModel, Field
-
-Kind = Literal["job_description", "policy"]
-
-
-class DocumentIn(BaseModel):
-    kind: Kind = "job_description"
-    title: str = Field(min_length=2, max_length=120)
-    text: str = Field(min_length=1, max_length=20000)
+from pydantic import BaseModel
 
 
 class DocumentOut(BaseModel):

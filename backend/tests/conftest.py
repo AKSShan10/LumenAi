@@ -12,7 +12,7 @@ TEST_DB = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 os.environ.update({
     "DATABASE_URL": TEST_DB,
     "LLM_PROVIDER": "fake",
-    "TELEGRAM_PROVIDER": "fake",
+    "BLOGGER_PROVIDER": "fake",
     "LOG_FILE": "",                       # tests write no log file
     "INTERVIEWER_PASSCODE": "test-passcode",
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",
@@ -47,3 +47,38 @@ def anonymous():
     """Someone who is not logged in (for example, a candidate)."""
     with TestClient(app) as c:
         yield c
+
+
+# ---------- helpers: jobs and documents are made by the same code the assistant's tools use ----------
+
+def _as_dict(row) -> dict:
+    return row.model_dump(mode="json")
+
+
+@pytest.fixture
+def make_job():
+    """make_job(approve=False, **fields) saves a job the way the assistant's save tool does. Returns it as a dict."""
+    from sqlmodel import Session
+    from app.features.jobs.schemas import JobCreate
+    from app.features.jobs.services.job_service import approve_job, create_job
+
+    def make(approve=False, **fields) -> dict:
+        body = JobCreate(**{"title": "Backend Developer", "required_skills": ["Python"], **fields})
+        with Session(engine) as session:
+            job = create_job(session, body)
+            if approve:
+                job = approve_job(session, job, add_to_library=False)
+            return _as_dict(job)
+    return make
+
+
+@pytest.fixture
+def add_doc():
+    """add_doc(kind, title, text) stores a company document the way the assistant's tool does. Returns it as a dict."""
+    from sqlmodel import Session
+    from app.features.job_library.services.company_document_service import add_document, document_out
+
+    def add(kind, title, text) -> dict:
+        with Session(engine) as session:
+            return _as_dict(document_out(add_document(session, title, text, kind=kind)))
+    return add

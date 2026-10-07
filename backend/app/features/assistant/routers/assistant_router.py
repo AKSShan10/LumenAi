@@ -1,9 +1,11 @@
 """The assistant chat (interviewer only).
 
-  GET    /api/assistant/chat                    the conversation and the questions waiting for Yes / No
+  GET    /api/assistant/chat                    the current chat, the questions waiting for Yes / No, the list of chats
+  GET    /api/assistant/chat?chat_id=3          read an earlier chat
+  POST   /api/assistant/chat/3/continue         make an earlier chat the current one again
   POST   /api/assistant/chat                    send a message, with an optional file (PDF, DOCX or TXT)
-  POST   /api/assistant/actions/{action_id}     answer Yes or No to an approval or a Telegram post
-  DELETE /api/assistant/chat                    start a new conversation
+  POST   /api/assistant/actions/{action_id}     answer Yes or No to an approval or a job post
+  POST   /api/assistant/chat/new                start a new chat (the earlier ones are kept)
 """
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlmodel import Session
@@ -11,7 +13,7 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.core.security import require_interviewer
 from app.features.assistant.schemas import ChatOut, ConfirmIn
-from app.features.assistant.services.assistant_service import chat_out, clear_chat, confirm_action, send_message
+from app.features.assistant.services.assistant_service import chat_out, confirm_action, continue_chat, new_chat, send_message
 from app.utils.file_text_utils import text_from_file
 
 router = APIRouter(prefix="/api/assistant", tags=["Assistant"], dependencies=[Depends(require_interviewer)])
@@ -19,8 +21,8 @@ MAX_MESSAGE_CHARS = 4000
 
 
 @router.get("/chat", response_model=ChatOut)
-def get_chat(session: Session = Depends(get_session)):
-    return chat_out(session)
+def get_chat(chat_id: int | None = None, session: Session = Depends(get_session)):
+    return chat_out(session, chat_id)
 
 
 @router.post("/chat", response_model=ChatOut)
@@ -44,6 +46,11 @@ def answer_question(action_id: int, body: ConfirmIn, session: Session = Depends(
     return confirm_action(session, action_id, body.yes)
 
 
-@router.delete("/chat", response_model=ChatOut)
-def new_chat(session: Session = Depends(get_session)):
-    return clear_chat(session)
+@router.post("/chat/new", response_model=ChatOut)
+def start_new_chat(session: Session = Depends(get_session)):
+    return new_chat(session)
+
+
+@router.post("/chat/{chat_id}/continue", response_model=ChatOut)
+def continue_earlier_chat(chat_id: int, session: Session = Depends(get_session)):
+    return continue_chat(session, chat_id)
