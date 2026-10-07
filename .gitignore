@@ -9,6 +9,12 @@ uploads/
 backend/storage/
 *.db
 *.sqlite
+*.sqlite3
+# Database exports and backups (they hold real data)
+*.sql
+*.dump
+# Zipped copies of the project
+*.zip
 
 # Python
 __pycache__/

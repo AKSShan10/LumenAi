@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { systemApi } from "./systemApi.js";
 import CheckButton from "./CheckButton.jsx";
+import ChangePasswordCard from "../auth/ChangePasswordCard.jsx";
+import UsersCard from "../auth/UsersCard.jsx";
 
 // The log stores UTC times without a time zone; add "Z" so the browser shows local time.
 const asUtc = (text) => new Date(/Z|[+-]\d\d:\d\d$/.test(text) ? text : text + "Z");
@@ -20,6 +22,9 @@ export default function SettingsPage() {
         <p><CheckButton label="Test job posting" check={systemApi.postingCheck} /></p>
         <p><CheckButton label="Test Google Drive" check={systemApi.driveCheck} /></p>
       </div>
+
+      <ChangePasswordCard />
+      <UsersCard />
 
       <div className="card">
         <h2>Workflow runs</h2>

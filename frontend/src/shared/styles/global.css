@@ -113,5 +113,6 @@ button.danger { background: #fff; color: var(--red); border: 1px solid #f0b8b3; 
 .login h1 { margin-bottom: 4px; }
 .sidebar-user { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid #22304d; font-size: 14px; }
 .sidebar-user b { display: block; color: #fff; }
+.sidebar-user span.small { display: block; color: #93a0ba; font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user button.link { color: #93a0ba; font-size: 12px; margin: 0; }
 .avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }

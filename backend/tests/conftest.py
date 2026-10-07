@@ -17,7 +17,6 @@ os.environ.update({
     "DRIVE_PROVIDER": "fake",
     "STORAGE_DIR": tempfile.mkdtemp(prefix="lumenai-test-cvs-"),      # CV files of the tests; never the real folder
     "LOG_FILE": "",                       # tests write no log file
-    "INTERVIEWER_PASSCODE": "test-passcode",
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",
 })
 if os.path.exists("test.db"):
@@ -35,19 +34,24 @@ if TEST_DB.startswith("postgresql"):
     SQLModel.metadata.drop_all(engine)   # start every test run with empty tables
 
 
+LOGIN = {"email": "interviewer@example.com", "password": "test-passcode"}      # the made-up account of the tests
+
+
 @pytest.fixture(scope="session")
 def client():
     """A logged-in interviewer."""
     with TestClient(app) as c:
-        token = c.post("/api/auth/login", json={"passcode": "test-passcode"}).json()["token"]
+        # the first run creates the interviewer account; after that it is a normal login
+        c.post("/api/auth/setup", json={"full_name": "Test Interviewer", **LOGIN})
+        token = c.post("/api/auth/login", json=LOGIN).json()["token"]
         c.headers["Authorization"] = f"Bearer {token}"
         c.token = token
         yield c
 
 
 @pytest.fixture(scope="session")
-def anonymous():
-    """Someone who is not logged in (for example, a candidate)."""
+def anonymous(client):
+    """Someone who is not logged in (for example, a candidate). The interviewer account already exists."""
     with TestClient(app) as c:
         yield c
 

@@ -30,5 +30,6 @@ def test_bad_token_is_rejected(anonymous, header):
 
 
 def test_health_and_login_are_public(anonymous):
+    assert anonymous.get("/api/auth/status").status_code == 200
     assert anonymous.get("/api/health").status_code == 200
-    assert anonymous.post("/api/auth/login", json={"passcode": "test-passcode"}).status_code == 200
+    assert anonymous.post("/api/auth/login", json={"email": "interviewer@example.com", "password": "test-passcode"}).status_code == 200

@@ -33,8 +33,8 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL") or (
     "gemini-embedding-001" if LLM_PROVIDER == "gemini" else "text-embedding-3-small")
 
 # ---------------- Login (simple JWT) ----------------
-# One shared interviewer passcode; candidates never log in, they use their private link.
-INTERVIEWER_PASSCODE = os.getenv("INTERVIEWER_PASSCODE", "")
+# The interviewer's email and password are in the database (table app_user), not here.
+# Candidates never log in, they use their private link.
 SECRET_KEY = os.getenv("SECRET_KEY", "")          # signs our login tokens; any long random text
 TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))
 

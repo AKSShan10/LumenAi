@@ -48,8 +48,8 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-user">
-          <span className="avatar">IN</span>
-          <div><b>Interviewer</b><button className="link" onClick={() => { auth.clear(); setLoggedIn(false); }}>Log out</button></div>
+          <span className="avatar">{(auth.name() || auth.email() || "IN").slice(0, 2).toUpperCase()}</span>
+          <div><b>{auth.name() || "Interviewer"}</b>{auth.email() && <span className="small">{auth.email()}</span>}<button className="link" onClick={() => { auth.clear(); setLoggedIn(false); }}>Log out</button></div>
         </div>
       </aside>
 

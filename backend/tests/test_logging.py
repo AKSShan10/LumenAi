@@ -22,11 +22,12 @@ def test_every_api_call_is_logged_with_its_result(client, caplog):
 def test_the_log_has_no_private_text(client, anonymous, caplog):
     caplog.set_level(logging.INFO)
     client.get("/api/company-documents/search", params={"q": "secret words typed by the interviewer"})
-    anonymous.post("/api/auth/login", json={"passcode": "a-wrong-passcode"})
+    anonymous.post("/api/auth/login", json={"email": "interviewer@example.com", "password": "a-wrong-passcode"})
     everything = " ".join(record.getMessage() for record in caplog.records)
     assert "GET /api/company-documents/search 200" in everything
     assert "POST /api/auth/login 401" in everything
     assert "secret" not in everything and "a-wrong-passcode" not in everything and "test-passcode" not in everything
+    assert "interviewer@example.com" not in everything                     # the email is not logged either
 
 
 def test_a_job_post_is_logged(make_job, caplog):
