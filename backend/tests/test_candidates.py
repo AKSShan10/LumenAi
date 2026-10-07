@@ -4,14 +4,14 @@ import random
 import pytest
 from sqlmodel import Session, select
 
+from app.core import config
 from app.core.database import engine
 from app.features.candidates.models import Candidate
 
 from app.features.candidates.services import application_service
 from app.features.candidates.services.application_service import SheetProblem, read_applications
 from app.features.candidates.services.cv_storage_service import cv_file, storage_dir
-from app.features.candidates.services.drive_service import file_id_from
-from app.mcp_servers.client import McpError
+from app.features.candidates.services.drive_service import DriveError, file_id_from
 
 SHEET = "https://docs.google.com/spreadsheets/d/made-up-sheet-id/edit"
 HEADER = ("Timestamp", "Full Name", "Email", "Phone Number", "CV")
@@ -30,9 +30,8 @@ def approved_job(client, make_job) -> dict:
 
 @pytest.fixture
 def fake_drive(tmp_path, monkeypatch):
-    """A folder that plays Google Drive. write(rows, files) fills it. The Drive MCP server (a child
-    process) reads the folder name from the environment when it starts."""
-    monkeypatch.setenv("DRIVE_FAKE_FOLDER", str(tmp_path))
+    """A folder that plays Google Drive. write(rows, files) fills it."""
+    monkeypatch.setattr(config, "DRIVE_FAKE_FOLDER", str(tmp_path))
 
     def write(rows: list[list[str]], files: dict[str, bytes], header=HEADER):
         import csv
@@ -99,7 +98,7 @@ def test_unusual_rows_get_a_warning():
     assert "does not look right" in bad_email.warnings[0]
 
 
-# ---------- checking and fetching (through the real Drive MCP server, reading a folder on this computer) ----------
+# ---------- checking and fetching (reading a folder on this computer that plays Google Drive) ----------
 
 def test_every_person_stays_with_their_own_cv(client, approved_job, fake_drive):
     """The file names say nothing about the owner, two people use the same file name pattern, and the rows
@@ -188,11 +187,11 @@ def test_a_sheet_that_cannot_be_used_is_explained(client, approved_job, fake_dri
         assert result["ok"] is False and "name" in result["message"]
     assert candidates(client, approved_job) == []
 
-    def broken(server, tool, arguments=None):
-        raise McpError("TimeoutError while calling the MCP server")
-    monkeypatch.setattr(application_service, "call_tool", broken)
+    def broken(sheet):
+        raise DriveError("Google Drive could not be reached (ConnectTimeout)")
+    monkeypatch.setattr(application_service.drive_service, "read_response_sheet", broken)
     result = fetch(client, approved_job)
-    assert result["ok"] is False and "did not answer" in result["message"]
+    assert result["ok"] is False and "could not be reached" in result["message"]
 
 
 def test_only_a_few_cvs_are_downloaded_per_click(client, approved_job, fake_drive, monkeypatch):

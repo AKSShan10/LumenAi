@@ -5,7 +5,7 @@
     download_file()          one file as bytes
     check_drive()            the "Test Google Drive" button
 
-Only the Drive MCP server (app/mcp_servers/drive_server.py) uses this file.
+Only application_service.py uses this file.
 
 Access is through a Google "service account": a robot account with its own email address. You share the
 job's folder (form, response sheet, CV folder) with that address as Viewer. Its key file is
@@ -130,7 +130,7 @@ def _fake_download(file_id: str) -> tuple[str, bytes]:
     return name, path.read_bytes()
 
 
-# ---------------------------------------------------------------- what the MCP server calls
+# ---------------------------------------------------------------- what application_service.py calls
 
 def read_response_sheet(sheet: str) -> list[list[str]]:
     """All rows of the response sheet, the header row first."""

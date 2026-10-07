@@ -10,10 +10,9 @@ that row holds the name, the email, the phone number and the link to the uploade
 from the same row and download exactly the file that link points to (by its Google Drive id). A file name is
 never used to decide whose CV it is.
 
-The backend code calls the Drive MCP tools, after the interviewer clicked a button. The AI is not involved.
+The backend code reads Google Drive directly (drive_service.py), after the interviewer clicked a button or
+the page's timer asked. No MCP server and no AI are involved in this part.
 """
-import base64
-import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -23,16 +22,14 @@ from sqlmodel import Session, select
 from app.features.candidates.models import Candidate
 from app.features.candidates.schemas import CheckOut, FetchOut
 from app.features.candidates.services.cv_storage_service import save_cv_file
-from app.features.candidates.services.drive_service import file_id_from
+from app.features.candidates.services import drive_service
+from app.features.candidates.services.drive_service import DriveError, file_id_from
 from app.features.jobs.models import Job
-from app.mcp_servers.client import McpError, call_tool, call_tools
 from app.utils.file_text_utils import text_from_file
 
 log = logging.getLogger("applications")
 
-DRIVE_SERVER = "app.mcp_servers.drive_server"
 MAX_PER_CLICK = 10               # CVs downloaded in one click; click again for the rest
-SECONDS_PER_FILE = 20
 
 # Words that show which column of the sheet holds what (Google uses your question titles as headers)
 NAME_WORDS = ("name",)
@@ -111,22 +108,15 @@ def _name_is_in(name: str, cv_text: str) -> bool:
     return not words or any(word in text for word in words)
 
 
-def _tool_json(server: str, tool: str, arguments: dict) -> dict:
-    try:
-        return json.loads(call_tool(server, tool, arguments))
-    except (McpError, ValueError) as problem:
-        return {"error": f"the Google Drive tool did not answer ({problem})"}
-
-
 def _sheet_applications(job: Job) -> tuple[list[Application], str]:
-    """Reads the response sheet of the job through the Drive MCP tool. Returns (applications, problem)."""
+    """Reads the response sheet of the job from Google Drive. Returns (applications, problem)."""
     if not job.response_sheet_url:
         return [], "Save the link of the response sheet for this job first."
-    sheet = _tool_json(DRIVE_SERVER, "read_response_sheet", {"sheet": job.response_sheet_url})
-    if "error" in sheet:
-        return [], "The response sheet could not be read: " + sheet["error"]
     try:
-        return read_applications(sheet.get("rows") or []), ""
+        rows = drive_service.read_response_sheet(job.response_sheet_url)
+        return read_applications(rows), ""
+    except DriveError as problem:
+        return [], f"The response sheet could not be read: {problem}"
     except SheetProblem as problem:
         return [], str(problem)
 
@@ -160,29 +150,18 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
     new = _new_only(session, job, applications)
     now, later = new[:MAX_PER_CLICK], new[MAX_PER_CLICK:]
 
-    # 2. download exactly the file each row points to (one start of the Drive server for all of them)
-    with_file = [a for a in now if a.file_id]
-    try:
-        answers = call_tools(DRIVE_SERVER, [("download_file", {"file_id": a.file_id}) for a in with_file],
-                             timeout=45 + SECONDS_PER_FILE * len(with_file)) if with_file else []
-    except McpError as problem:
-        return FetchOut(ok=False, message=f"The CVs could not be downloaded: the Google Drive tool did not answer ({problem})")
-    downloads = {a.file_id: answer for a, answer in zip(with_file, answers)}
-
-    # 3. one candidate per form answer: the name, the email, the phone and the CV of the SAME row
+    # 2. one candidate per form answer: the name, the email, the phone and the CV of the SAME row.
+    #    The CV is downloaded by the Drive id in that row, so it is exactly that person's file.
     emails = {email.lower() for email in session.exec(select(Candidate.email).where(Candidate.job_id == job.id)).all() if email}
     needs_review = 0
     for application in now:
         file_name, data, cv_text, warnings = "", b"", "", list(application.warnings)
         if application.file_id:
             try:
-                download = json.loads(downloads[application.file_id])
-            except ValueError:
-                download = {"error": "the tool gave an answer that could not be read"}
-            if "error" in download:
-                warnings.append("The CV could not be downloaded: " + download["error"])
-            else:
-                file_name, data = download["name"], base64.b64decode(download["data_base64"])
+                file_name, data = drive_service.download_file(application.file_id)
+            except (DriveError, OSError) as problem:
+                warnings.append(f"The CV could not be downloaded: {problem}")
+            if data:
                 try:
                     cv_text = text_from_file(file_name, data)
                 except ValueError as problem:
@@ -220,5 +199,4 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
 
 
 def drive_check() -> dict:
-    answer = _tool_json(DRIVE_SERVER, "check_drive_settings", {})
-    return answer if "ok" in answer else {"ok": False, "message": answer.get("error", "unknown problem")}
+    return drive_service.check_drive()
