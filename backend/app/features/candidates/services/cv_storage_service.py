@@ -30,13 +30,13 @@ from app.core import config
 from app.features.candidates.models import Candidate
 from app.features.candidates.schemas import CandidateOut, UploadOut
 from app.features.jobs.models import Job
-from app.utils.file_text_utils import text_from_file
+from app.features.candidates.services.cv_reading_service import read_cv
 
 log = logging.getLogger("candidates")
 
 BACKEND_DIR = Path(__file__).resolve().parents[4]
 MAX_FILE_BYTES = 5 * 1024 * 1024
-ALLOWED = (".pdf", ".docx", ".txt")
+ALLOWED = (".pdf", ".docx", ".doc", ".txt")
 FOLDERS = {"google_form": "google_form", "upload": "uploaded"}     # one folder per way a CV arrived
 
 
@@ -81,6 +81,7 @@ def delete_candidate(session: Session, candidate: Candidate) -> None:
     path = cv_file(candidate)
     if path:
         path.unlink()                                 # the file in Google Drive is not touched
+    forget_screening(session, candidate)
     session.delete(candidate)
     session.commit()
 
@@ -90,7 +91,7 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
     """Manual upload, for a CV the organization received in another way. The name, email and phone are
     whatever the interviewer typed with this file (they may be empty)."""
     if os.path.splitext(filename)[1].lower() not in ALLOWED:
-        return UploadOut(ok=False, message=f"{filename}: only PDF, DOCX and TXT files can be uploaded.")
+        return UploadOut(ok=False, message=f"{filename}: only PDF, DOCX, DOC and TXT files can be uploaded.")
     if len(data) > MAX_FILE_BYTES:
         return UploadOut(ok=False, message=f"{filename}: the file is larger than 5 MB.")
 
@@ -98,27 +99,49 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
     if session.exec(select(Candidate).where(Candidate.job_id == job.id, Candidate.source_key == key)).first():
         return UploadOut(ok=False, message=f"{filename}: this exact file was already added to this job.")
 
-    warnings, cv_text = [], ""
-    try:
-        cv_text = text_from_file(filename, data)
-    except ValueError as problem:
-        warnings.append("The CV could not be read: " + str(problem))
+    reading = read_cv(filename, data)                 # plain code; the AI reads a scanned PDF later, in the screening
+    warnings = [reading.problem] if reading.problem else []
     if not full_name.strip():
         warnings.append("No name was given with this file")
 
     candidate = Candidate(job_id=job.id, number=next_number(session, job.id), full_name=full_name.strip(), email=email.strip(), phone=phone.strip(),
-                          source="upload", source_key=key, original_file_name=filename[:200], cv_text=cv_text,
-                          status="new" if cv_text else "needs_review", warnings=warnings)
+                          source="upload", source_key=key, original_file_name=filename[:200], cv_text=reading.text,
+                          text_source=reading.source, read_problem=reading.problem,
+                          status="needs_review" if reading.problem else "new", warnings=warnings)
     session.add(candidate)
     session.flush()                                   # gives the row its id
     candidate.file_path = save_cv_file(candidate, filename, data)
     session.commit()
     log.info("cv uploaded job=%s candidate=%s number=%s status=%s", job.id, candidate.id, candidate.number, candidate.status)
+    from app.features.screening.services.screening_worker import start_screening
+    start_screening(job.id)                           # the backend screens the new CV by itself, in the background
     return UploadOut(ok=True, message=f"{filename} was added.", candidate_id=candidate.id)
 
 
-def candidate_out(row: Candidate) -> CandidateOut:
-    return CandidateOut(id=row.id, number=row.number, job_id=row.job_id, full_name=row.full_name, email=row.email, phone=row.phone,
+def forget_screening(session: Session, candidate: Candidate) -> None:
+    """Removes the screening result of a candidate that is deleted."""
+    from app.features.screening.models import ScreeningResult      # the screening feature uses the candidates
+    for result in session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).all():
+        session.delete(result)
+
+
+SCREENING_STATES = {"passed": "included", "excluded": "excluded", "needs_review": "needs_review"}
+
+
+def candidate_out(row: Candidate, screening=None) -> CandidateOut:
+    """screening: the candidate's ScreeningResult, or None (not screened yet)."""
+    if screening is None or screening.stale:
+        state, reason = "waiting", ""
+    else:
+        state = screening.decision or SCREENING_STATES.get(screening.result, "needs_review")
+        reason = screening.reason
+    warnings = list(row.warnings or [])
+    text_source = row.text_source
+    if screening is not None and not screening.stale and screening.text_source:
+        text_source = screening.text_source           # the screening may have read more (a scanned PDF, by the AI)
+        if not screening.read_problem and row.read_problem:
+            warnings = [w for w in warnings if w != row.read_problem]   # the screening could read it after all
+    return CandidateOut(screening_state=state, screening_reason=reason, decided=bool(screening and screening.decision),id=row.id, number=row.number, job_id=row.job_id, full_name=row.full_name, email=row.email, phone=row.phone,
                         applied_at=row.applied_at, source=row.source, original_file_name=row.original_file_name,
-                        has_file=cv_file(row) is not None, saved_as=row.file_path, cv_words=len(row.cv_text.split()), status=row.status,
-                        warnings=row.warnings or [], created_at=row.created_at)
+                        has_file=cv_file(row) is not None, saved_as=row.file_path, cv_words=len(row.cv_text.split()), text_source=text_source, status=row.status,
+                        warnings=warnings, created_at=row.created_at)

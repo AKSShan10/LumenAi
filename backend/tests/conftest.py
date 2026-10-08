@@ -15,6 +15,7 @@ os.environ.update({
     "LLM_PROVIDER": "fake",
     "BLOGGER_PROVIDER": "fake",
     "DRIVE_PROVIDER": "fake",
+    "SCREENING_MODE": "manual",           # nothing screens by itself in the background during tests
     "STORAGE_DIR": tempfile.mkdtemp(prefix="lumenai-test-cvs-"),      # CV files of the tests; never the real folder
     "LOG_FILE": "",                       # tests write no log file
     "SECRET_KEY": "test-secret-key-that-is-long-enough-123",

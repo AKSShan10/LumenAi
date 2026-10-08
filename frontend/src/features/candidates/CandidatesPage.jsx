@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import { candidatesApi } from "./candidatesApi.js";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
+import ScreeningCard from "../screening/ScreeningCard.jsx";
+import DecisionControl from "../screening/DecisionControl.jsx";
+import { screeningApi } from "../screening/screeningApi.js";
 
 const SOURCES = { google_form: "Google Form", upload: "Uploaded by hand" };
 const CHECK_EVERY_MS = 60000;      // the response sheet is looked at again every minute
@@ -104,6 +107,13 @@ export default function CandidatesPage() {
     } catch (e) { setError(e.message); } finally { setUploadNotes(notes); setBusy(""); }
   }
 
+  async function screenAgain(candidate) {
+    setError(""); setBusy(`screen-${candidate.id}`);
+    setResult({ ok: true, message: `Screening ${candidate.full_name || "this candidate"}...` });
+    try { setResult(await screeningApi.screenOne(candidate.id)); setCandidates(await candidatesApi.list(jobId)); }
+    catch (e) { setError(e.message); } finally { setBusy(""); }
+  }
+
   async function remove() {
     const candidate = toDelete;
     setToDelete(null); setError("");
@@ -169,8 +179,8 @@ export default function CandidatesPage() {
       <div className="card">
         <h3>Upload CVs by hand <small className="muted">(for CVs received in another way)</small></h3>
         <form onSubmit={upload}>
-          <label>CV files <small>(PDF, DOCX or TXT, 5 MB each; you can choose several)</small>
-            <input type="file" accept=".pdf,.docx,.txt" multiple ref={fileInput} onChange={(e) => setFiles([...e.target.files])} />
+          <label>CV files <small>(PDF, DOCX, DOC or TXT, 5 MB each; you can choose several)</small>
+            <input type="file" accept=".pdf,.docx,.doc,.txt" multiple ref={fileInput} onChange={(e) => setFiles([...e.target.files])} />
           </label>
           {files.length === 1 && (
             <div className="two-columns">
@@ -205,7 +215,7 @@ export default function CandidatesPage() {
         </div>
         {shown.length === 0 ? <p className="muted">No candidates here yet.</p> : (
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>CV file</th><th>From</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>CV file</th><th>From</th><th></th></tr></thead>
             <tbody>
               {shown.map((c) => (
                 <tr key={c.id}>
@@ -213,6 +223,18 @@ export default function CandidatesPage() {
                   <td>
                     <b>{c.full_name || "(name not given)"}</b>
                     {c.warnings.map((warning) => <div key={warning} className="warn small">{warning}</div>)}
+                    {/* Screened CVs are shown in the Screening card below. Here only: not screened yet, or needs a look. */}
+                    {c.screening_state === "waiting" && <div><span className="badge">waiting for screening</span></div>}
+                    {c.screening_state === "needs_review" && (
+                      <div className="small">
+                        <span className="badge draft">needs a look</span>
+                        <div className="warn small">{c.screening_reason}</div>
+                        <button className="link" onClick={() => screenAgain(c)} disabled={busy !== ""}>
+                          {busy === `screen-${c.id}` ? "Screening..." : "Screen again"}</button>{" "}
+                        <DecisionControl candidateId={c.id} final="needs_review" decided={false}
+                                         onDone={(answer) => { setResult(answer); candidatesApi.list(jobId).then(setCandidates); }} />
+                      </div>
+                    )}
                   </td>
                   <td className="small">{c.email}</td>
                   <td className="small">{c.phone}</td>
@@ -220,10 +242,10 @@ export default function CandidatesPage() {
                     {c.has_file ? <button className="link" onClick={() => candidatesApi.downloadCv(c).catch((e) => setError(e.message))}>{c.original_file_name || "Download"}</button>
                                 : "(no file)"}
                     {c.saved_as && <div className="muted">{c.saved_as}</div>}
+                    {c.text_source === "ai_read" && <div className="muted">Text read by the AI from the PDF during screening (scanned or picture CV)</div>}
                   </td>
                   <td className="small"><span className={`badge ${c.source === "upload" ? "draft" : "approved"}`}>{SOURCES[c.source] || c.source}</span>
                     {c.applied_at && <div className="muted">{c.applied_at}</div>}</td>
-                  <td><span className={`badge ${c.status === "new" ? "done" : "failed"}`}>{c.status === "new" ? "saved" : "needs review"}</span></td>
                   <td><button className="link" onClick={() => setToDelete(c)}>Delete</button></td>
                 </tr>
               ))}
@@ -231,6 +253,9 @@ export default function CandidatesPage() {
           </table>
         )}
       </div>
+
+      <ScreeningCard jobId={jobId} candidates={candidates}
+                     onScreened={() => candidatesApi.list(jobId).then(setCandidates).catch((e) => setError(e.message))} />
 
       {toDelete && (
         <ConfirmDialog question={`Delete ${toDelete.full_name || "this candidate"}?`}

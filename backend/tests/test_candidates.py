@@ -367,7 +367,7 @@ def test_manual_upload_saves_the_file_and_the_person(client, approved_job):
 
 
 def test_bad_uploads_are_refused(client, approved_job):
-    assert "only PDF, DOCX and TXT" in upload(client, approved_job, "photo.png", b"x")["message"]
+    assert "only PDF, DOCX, DOC and TXT" in upload(client, approved_job, "photo.png", b"x")["message"]
     assert "larger than 5 MB" in upload(client, approved_job, "big.txt", b"a" * (5 * 1024 * 1024 + 1))["message"]
     assert candidates(client, approved_job) == []
     scan = upload(client, approved_job, "scan.pdf", b"this is not a real pdf")       # kept, for a person to look at

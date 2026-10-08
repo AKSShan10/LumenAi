@@ -54,6 +54,10 @@ class CandidateOut(BaseModel):
     has_file: bool                   # is the CV saved on this computer?
     saved_as: str                    # where it is saved, inside the storage folder
     cv_words: int
+    screening_state: str = "waiting"  # waiting (not screened yet) | needs_review | included | excluded
+    screening_reason: str = ""        # why (for needs_review it says what a person should look at)
+    decided: bool = False             # the state comes from the interviewer's decision, not the system
+    text_source: str = ""            # file (read by code) | ai_read (the AI read the PDF in the screening) | ""
     status: str
     warnings: list[str] = []
     created_at: datetime

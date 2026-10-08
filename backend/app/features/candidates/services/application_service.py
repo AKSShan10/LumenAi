@@ -31,7 +31,7 @@ from app.features.candidates.services.cv_storage_service import next_number, sav
 from app.features.candidates.services import drive_service
 from app.features.candidates.services.drive_service import DriveError, file_id_from
 from app.features.jobs.models import Job
-from app.utils.file_text_utils import text_from_file
+from app.features.candidates.services.cv_reading_service import read_cv
 
 log = logging.getLogger("applications")
 
@@ -176,17 +176,18 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
     emails = {email.lower() for email in session.exec(select(Candidate.email).where(Candidate.job_id == job.id)).all() if email}
     needs_review = 0
     for application in now:
-        file_name, data, cv_text, warnings = "", b"", "", list(application.warnings)
+        file_name, data, warnings = "", b"", list(application.warnings)
+        reading = None
         if application.file_id:
             try:
                 file_name, data = drive_service.download_file(application.file_id)
             except (DriveError, OSError) as problem:
                 warnings.append(f"The CV could not be downloaded: {problem}")
             if data:
-                try:
-                    cv_text = text_from_file(file_name, data)
-                except ValueError as problem:
-                    warnings.append("The CV was saved, but its text could not be read: " + str(problem))
+                reading = read_cv(file_name, data)    # plain code; the AI reads a scanned PDF later, in the screening
+                if reading.problem:
+                    warnings.append(reading.problem)
+        cv_text = reading.text if reading else ""
         if cv_text and not _name_is_in(application.name, cv_text):
             warnings.append("The name from the form was not found in the CV. Please check that it is the right file")
         if application.email and application.email.lower() in emails:
@@ -197,7 +198,9 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
                               phone=application.phone, applied_at=application.submitted, source="google_form",
                               source_key=application.key, drive_file_id=application.file_id,
                               original_file_name=file_name[:200], cv_text=cv_text,
-                              status="new" if cv_text else "needs_review", warnings=warnings)
+                              text_source=reading.source if reading else "", read_problem=reading.problem if reading else "",
+                              status="new" if cv_text and not (reading and reading.problem) else "needs_review",
+                              warnings=warnings)
         session.add(candidate)
         session.flush()                               # saves the row now, so the next candidate gets the next number
         if data:
@@ -205,6 +208,9 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
         needs_review += candidate.status == "needs_review"
     session.commit()
     _move_checkpoint(session, job, later, last_row_read)          # 3. the fetched rows are finished
+    if now:
+        from app.features.screening.services.screening_worker import start_screening
+        start_screening(job.id)                       # 4. the backend screens the new CVs by itself, in the background
     log.info("applications job=%s added=%d needs_review=%d left=%d checkpoint_row=%d", job.id, len(now), needs_review,
              len(later), job.sheet_checkpoint_row)
 

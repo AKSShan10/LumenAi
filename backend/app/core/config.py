@@ -53,6 +53,14 @@ DRIVE_PROVIDER = os.getenv("DRIVE_PROVIDER", "google")
 GOOGLE_DRIVE_KEY_FILE = os.getenv("GOOGLE_DRIVE_KEY_FILE", "secrets/google-drive.json")   # service-account key; never committed
 DRIVE_FAKE_FOLDER = os.getenv("DRIVE_FAKE_FOLDER", "tests/fake_drive")
 
+# ---------------- CV screening ----------------
+# SCREENING_MODE:
+#   background - every new CV is screened by the backend by itself, one after another (the normal app)
+#   manual     - nothing runs by itself; "Screen all again" screens while you wait (tests)
+SCREENING_MODE = os.getenv("SCREENING_MODE", "background")
+# When the free Gemini key says "too many requests", the background screening waits this long and tries again.
+SCREENING_RATE_LIMIT_WAIT = int(os.getenv("SCREENING_RATE_LIMIT_WAIT", "60"))
+
 # ---------------- Job posts on Blogger (through the Blogger MCP server) ----------------
 # BLOGGER_PROVIDER:
 #   blogger - really publish on the blog (needs the four values below)

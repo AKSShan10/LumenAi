@@ -116,3 +116,13 @@ button.danger { background: #fff; color: var(--red); border: 1px solid #f0b8b3; 
 .sidebar-user span.small { display: block; color: #93a0ba; font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user button.link { color: #93a0ba; font-size: 12px; margin: 0; }
 .avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+form.weights { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 12px; }
+form.weights label.inline { margin-bottom: 0; }
+form.weights input { display: inline-block; margin-top: 0; padding: 4px 6px; }
+.decision { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+.decision input { margin-top: 0; }
+.decision button { margin: 0 6px 0 0; padding: 4px 10px; }
+td.actions { white-space: nowrap; }
+td.actions button.link { display: block; margin: 2px 0; text-align: left; padding: 0; }
+.progress-line { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.progress-line progress { width: 260px; height: 10px; accent-color: var(--blue); }

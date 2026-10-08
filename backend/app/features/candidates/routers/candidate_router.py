@@ -79,8 +79,10 @@ def upload(job_id: int, file: UploadFile = File(...), full_name: str = Form(""),
 @router.get("/jobs/{job_id}/candidates", response_model=list[CandidateOut])
 def list_candidates(job_id: int, session: Session = Depends(get_session)):
     get_job_or_404(session, job_id)
+    from app.features.screening.models import ScreeningResult
     rows = session.exec(select(Candidate).where(Candidate.job_id == job_id).order_by(Candidate.id.desc())).all()
-    return [candidate_out(row) for row in rows]
+    results = {r.candidate_id: r for r in session.exec(select(ScreeningResult).where(ScreeningResult.job_id == job_id)).all()}
+    return [candidate_out(row, results.get(row.id)) for row in rows]
 
 
 @router.get("/candidates/{candidate_id}/cv")

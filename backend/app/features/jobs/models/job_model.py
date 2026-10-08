@@ -19,4 +19,11 @@ class Job(SQLModel, table=True):
     approved_at: Optional[datetime] = None
     response_sheet_url: str = ""                      # the response sheet of this job's Google Form (applications)
     sheet_checkpoint_row: int = 1                     # the last row of that sheet that is finished (row 1 = the titles)
+    # How much each part of the CV counts in the weighted score (F4). Set by the interviewer; they add up to 100.
+    weight_skills: int = 50
+    weight_experience: int = 30
+    weight_qualifications: int = 20
+    # The keywords an ATS would look for in a CV for this job, made once by the AI (screening_service.ats_keywords):
+    # {"source": fingerprint of the job text they were made from, "keywords": [...]}. Made again when the job changes.
+    ats_keywords: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

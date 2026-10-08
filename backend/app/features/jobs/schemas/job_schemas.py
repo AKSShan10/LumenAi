@@ -26,3 +26,6 @@ class JobOut(JobCreate):
     approved_at: datetime | None = None
     response_sheet_url: str = ""    # where the applications of this job arrive (set on the Candidates page)
     sheet_checkpoint_row: int = 1
+    weight_skills: int = 50          # the scoring weights of this job (they add up to 100)
+    weight_experience: int = 30
+    weight_qualifications: int = 20
