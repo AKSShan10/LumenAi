@@ -1,5 +1,6 @@
 """CV files on this computer, and the candidates that are added by hand.
 
+    next_number()        the next candidate number inside one job (1, 2, 3 ... per job)
     save_cv_file()       writes one CV into the storage folder and returns where it is
     cv_file()            the saved file of one candidate (to open or download it)
     delete_candidate()   removes the candidate and the saved file
@@ -10,9 +11,10 @@ Where files go:
     <STORAGE_DIR>/cvs/job_<job id>/google_form/candidate_<number>_<name>.<ext>     fetched from the Google Form
     <STORAGE_DIR>/cvs/job_<job id>/uploaded/candidate_<number>_<name>.<ext>        uploaded by hand
 
-What keeps two CVs apart is the candidate's NUMBER. It is the row's id in the database, and no two candidates
-ever share one, in any job. So two people who both send "CV.pdf", or two people with the same name, get two
-different files. The name in the file name is only there so a person can read the folder; the code never
+What keeps two CVs apart is the candidate's NUMBER inside the job (candidate.number). Every job counts on its
+own: 1, 2, 3 ... Inside one job no two candidates share a number, and every job has its own folder. So two
+people who both send "CV.pdf", or two people with the same name, get two different files. When the last
+candidate of a job is deleted, the next new one gets that number again (its old file was deleted with it). The name in the file name is only there so a person can read the folder; the code never
 uses it to find a file. The exact place of each file is saved in candidate.file_path.
 The storage folder holds real CVs: it is in .gitignore and must never be committed.
 """
@@ -22,7 +24,7 @@ import os
 import re
 from pathlib import Path
 
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from app.core import config
 from app.features.candidates.models import Candidate
@@ -49,11 +51,17 @@ def _for_file_name(full_name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", full_name.lower()).strip("-")[:40]
 
 
+def next_number(session: Session, job_id: int) -> int:
+    """The highest number in this job plus one. Candidates of other jobs are not counted."""
+    highest = session.exec(select(func.max(Candidate.number)).where(Candidate.job_id == job_id)).one()
+    return (highest or 0) + 1
+
+
 def save_cv_file(candidate: Candidate, original_name: str, data: bytes) -> str:
     """Writes the file and returns its place inside the storage folder (saved in candidate.file_path)."""
     extension = os.path.splitext(original_name)[1].lower()[:10]
     name = _for_file_name(candidate.full_name)
-    file_name = f"candidate_{candidate.id}_{name}{extension}" if name else f"candidate_{candidate.id}{extension}"
+    file_name = f"candidate_{candidate.number}_{name}{extension}" if name else f"candidate_{candidate.number}{extension}"
     relative = Path("cvs") / f"job_{candidate.job_id}" / FOLDERS.get(candidate.source, "other") / file_name
     target = storage_dir() / relative
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -98,19 +106,19 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
     if not full_name.strip():
         warnings.append("No name was given with this file")
 
-    candidate = Candidate(job_id=job.id, full_name=full_name.strip(), email=email.strip(), phone=phone.strip(),
+    candidate = Candidate(job_id=job.id, number=next_number(session, job.id), full_name=full_name.strip(), email=email.strip(), phone=phone.strip(),
                           source="upload", source_key=key, original_file_name=filename[:200], cv_text=cv_text,
                           status="new" if cv_text else "needs_review", warnings=warnings)
     session.add(candidate)
-    session.flush()                                   # gives the candidate its number, needed for the file name
+    session.flush()                                   # gives the row its id
     candidate.file_path = save_cv_file(candidate, filename, data)
     session.commit()
-    log.info("cv uploaded job=%s candidate=%s status=%s", job.id, candidate.id, candidate.status)
+    log.info("cv uploaded job=%s candidate=%s number=%s status=%s", job.id, candidate.id, candidate.number, candidate.status)
     return UploadOut(ok=True, message=f"{filename} was added.", candidate_id=candidate.id)
 
 
 def candidate_out(row: Candidate) -> CandidateOut:
-    return CandidateOut(id=row.id, job_id=row.job_id, full_name=row.full_name, email=row.email, phone=row.phone,
+    return CandidateOut(id=row.id, number=row.number, job_id=row.job_id, full_name=row.full_name, email=row.email, phone=row.phone,
                         applied_at=row.applied_at, source=row.source, original_file_name=row.original_file_name,
                         has_file=cv_file(row) is not None, saved_as=row.file_path, cv_words=len(row.cv_text.split()), status=row.status,
                         warnings=row.warnings or [], created_at=row.created_at)

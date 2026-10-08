@@ -18,4 +18,5 @@ class Job(SQLModel, table=True):
     status: str = "draft"                             # draft | approved; editing an approved job makes it a draft again
     approved_at: Optional[datetime] = None
     response_sheet_url: str = ""                      # the response sheet of this job's Google Form (applications)
+    sheet_checkpoint_row: int = 1                     # the last row of that sheet that is finished (row 1 = the titles)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

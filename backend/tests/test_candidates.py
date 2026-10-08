@@ -1,5 +1,6 @@
 """Candidates: fetching applications from the Google Form and manual upload. Every person must stay with their own CV."""
 import random
+import re
 
 import pytest
 from sqlmodel import Session, select
@@ -136,7 +137,7 @@ def test_files_are_named_by_the_candidate_number(client, approved_job, fake_driv
         for row in rows:
             if row.file_path:
                 name = row.full_name.lower().replace(" ", "-")
-                assert row.file_path == f"cvs/job_{row.job_id}/google_form/candidate_{row.id}_{name}.txt"
+                assert row.file_path == f"cvs/job_{row.job_id}/google_form/candidate_{row.number}_{name}.txt"
                 assert (storage_dir() / row.file_path).is_file()
 
 
@@ -145,12 +146,12 @@ def test_the_check_counts_new_answers_and_downloads_nothing(client, approved_job
     files = {"r.txt": b"Rahim Uddin\nMade-up CV.", "k.txt": b"Karima Akter\nMade-up CV."}
     fake_drive(first, files)
     answer = check(client, approved_job)
-    assert (answer["ok"], answer["in_sheet"], answer["new"], answer["already_fetched"]) == (True, 1, 1, 0)
+    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 1)
     assert candidates(client, approved_job) == []                                     # checking saves nothing
 
     assert fetch(client, approved_job)["added"] == 1
     answer = check(client, approved_job)
-    assert (answer["new"], answer["already_fetched"]) == (0, 1) and "No new applications" in answer["message"]
+    assert (answer["new"], answer["rows_read"]) == (0, 0) and "No new applications" in answer["message"]
     again = fetch(client, approved_job)
     assert again["added"] == 0 and "No new applications" in again["message"]          # nobody is added twice
 
@@ -187,9 +188,9 @@ def test_a_sheet_that_cannot_be_used_is_explained(client, approved_job, fake_dri
         assert result["ok"] is False and "name" in result["message"]
     assert candidates(client, approved_job) == []
 
-    def broken(sheet):
+    def broken(sheet, from_row):
         raise DriveError("Google Drive could not be reached (ConnectTimeout)")
-    monkeypatch.setattr(application_service.drive_service, "read_response_sheet", broken)
+    monkeypatch.setattr(application_service.drive_service, "read_sheet_rows", broken)
     result = fetch(client, approved_job)
     assert result["ok"] is False and "could not be reached" in result["message"]
 
@@ -237,7 +238,108 @@ def test_a_name_in_another_alphabet_still_gets_a_file(client, approved_job):
                          files={"file": ("cv.txt", b"A made-up CV with a name in Bangla letters.")}).json()
     with Session(engine) as session:
         row = session.get(Candidate, answer["candidate_id"])
-        assert row.file_path == f"cvs/job_{row.job_id}/uploaded/candidate_{row.id}.txt" and cv_file(row).is_file()
+        assert row.file_path == f"cvs/job_{row.job_id}/uploaded/candidate_{row.number}.txt" and cv_file(row).is_file()
+
+
+# ---------- the checkpoint: only the rows after it are read ----------
+
+def person(n: int) -> list[str]:
+    return [f"t{n}", f"Person{n} Family{n}", f"p{n}@example.com", str(n), link(f"{n}.txt")]
+
+
+def cv_files(count: int) -> dict[str, bytes]:
+    return {f"{n}.txt": f"Person{n} Family{n}\nMade-up CV.".encode() for n in range(1, count + 1)}
+
+
+@pytest.fixture
+def asked_rows(monkeypatch) -> list[int]:
+    """Remembers from which sheet row each read started."""
+    asked, real = [], application_service.drive_service.read_sheet_rows
+
+    def remember(sheet, from_row=2):
+        asked.append(from_row)
+        return real(sheet, from_row)
+    monkeypatch.setattr(application_service.drive_service, "read_sheet_rows", remember)
+    return asked
+
+
+def test_the_checkpoint_moves_forward_and_old_rows_are_not_read_again(client, approved_job, fake_drive, asked_rows):
+    assert approved_job["sheet_checkpoint_row"] == 1                                  # row 1 holds the titles
+    fake_drive([person(1), person(2), person(3)], cv_files(5))
+
+    answer = check(client, approved_job)                                              # the first check starts at row 2
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (3, 3, 1)   # not fetched yet: it stays
+    assert fetch(client, approved_job)["added"] == 3
+
+    answer = check(client, approved_job)                                              # rows 2 to 4 are finished
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (0, 0, 4)
+
+    fake_drive([person(1), person(2), person(3), person(4), person(5)], cv_files(5))
+    answer = check(client, approved_job)
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (2, 2, 4)   # only the two new rows were read
+    assert fetch(client, approved_job)["added"] == 2
+    assert check(client, approved_job)["checkpoint_row"] == 6
+    assert asked_rows == [2, 2, 5, 5, 5, 7]                                           # never from the start again
+    assert len(candidates(client, approved_job)) == 5
+
+
+def test_the_checkpoint_waits_for_cvs_that_are_not_fetched_yet(client, approved_job, fake_drive, monkeypatch):
+    monkeypatch.setattr(application_service, "MAX_PER_CLICK", 2)
+    fake_drive([person(n) for n in range(1, 6)], cv_files(5))
+    assert fetch(client, approved_job)["left_for_next_time"] == 3
+    assert check(client, approved_job)["checkpoint_row"] == 3                         # rows 2 and 3 are done, row 4 waits
+    fetch(client, approved_job), fetch(client, approved_job)
+    assert check(client, approved_job)["checkpoint_row"] == 6
+    assert len(candidates(client, approved_job)) == 5
+
+
+def test_check_the_whole_sheet_again(client, approved_job, fake_drive, asked_rows):
+    fake_drive([person(1), person(2)], cv_files(3))
+    fetch(client, approved_job)
+    # somebody typed a late answer into row 2, above the checkpoint: a normal check does not see it
+    fake_drive([person(3), person(1), person(2)], cv_files(3))
+    answer = check(client, approved_job)
+    assert (answer["new"], answer["rows_read"]) == (0, 1)                             # only row 4 was read; that person is saved
+    answer = client.post(f"/api/jobs/{approved_job['id']}/applications/recheck").json()
+    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 3)        # the whole sheet, and only Person3 is new
+    assert asked_rows[-1] == 2
+    assert fetch(client, approved_job)["added"] == 1
+    assert len(candidates(client, approved_job)) == 3                                 # nobody twice
+
+
+def test_another_sheet_link_starts_at_the_first_row_again(client, approved_job, fake_drive):
+    fake_drive([person(1), person(2)], cv_files(2))
+    fetch(client, approved_job)
+    put = lambda url: client.put(f"/api/jobs/{approved_job['id']}/response-sheet", json={"sheet_url": url}).json()   # noqa: E731
+    assert put(SHEET)["sheet_checkpoint_row"] == 3                                    # the same link: nothing changes
+    assert put(SHEET + "?another")["sheet_checkpoint_row"] == 1
+
+
+# ---------- the candidate number counts inside each job ----------
+
+def test_every_job_counts_its_own_candidates(client, approved_job, fake_drive, make_job):
+    other = make_job(approve=True, title="Data Analyst", description="A second made-up job for the numbering test.")
+    upload(client, other, "a.txt", b"Other Person\nMade-up CV.", full_name="Other Person")      # job 2 gets number 1
+    upload(client, other, "b.txt", b"Second Person\nMade-up CV.", full_name="Second Person")    # and number 2
+
+    fake_drive([person(1), person(2)], cv_files(3))
+    fetch(client, approved_job)
+    upload(client, approved_job, "hand.txt", b"Hand Upload\nMade-up CV.", full_name="Hand Upload")
+    numbers = {c["full_name"]: c["number"] for c in candidates(client, approved_job)}
+    assert numbers == {"Person1 Family1": 1, "Person2 Family2": 2, "Hand Upload": 3}     # not 3, 4, 5
+    assert sorted(c["number"] for c in candidates(client, other)) == [1, 2]
+
+    with Session(engine) as session:
+        row = session.exec(select(Candidate).where(Candidate.job_id == approved_job["id"], Candidate.number == 3)).one()
+        assert row.file_path.endswith("/uploaded/candidate_3_hand-upload.txt")
+
+
+def test_after_deleting_the_last_one_its_number_is_used_again(client, approved_job):
+    upload(client, approved_job, "a.txt", b"First Person\nMade-up CV.", full_name="First Person")
+    second = upload(client, approved_job, "b.txt", b"Second Person\nMade-up CV.", full_name="Second Person")
+    client.delete(f"/api/candidates/{second['candidate_id']}")
+    upload(client, approved_job, "c.txt", b"Third Person\nMade-up CV.", full_name="Third Person")
+    assert {c["full_name"]: c["number"] for c in candidates(client, approved_job)} == {"First Person": 1, "Third Person": 2}
 
 
 # ---------- manual upload ----------
@@ -255,7 +357,7 @@ def test_manual_upload_saves_the_file_and_the_person(client, approved_job):
     assert row["original_file_name"] == "internal referral.txt" and row["has_file"] is True and row["status"] == "new"
     assert saved_file(row["id"]) == b"Nadia Islam\nMade-up CV from a colleague."
     with Session(engine) as session:                                                  # uploads have their own folder
-        assert session.get(Candidate, row["id"]).file_path == f"cvs/job_{approved_job['id']}/uploaded/candidate_{row['id']}_nadia-islam.txt"
+        assert session.get(Candidate, row["id"]).file_path == f"cvs/job_{approved_job['id']}/uploaded/candidate_1_nadia-islam.txt"
 
     # the same file again is skipped; a file without a name is kept and flagged
     assert upload(client, approved_job, "copy.txt", b"Nadia Islam\nMade-up CV from a colleague.")["ok"] is False
@@ -311,13 +413,18 @@ def test_settings_check(client):
 
 # ---------- the Google path, with a pretend Google answering ----------
 
+SHEET_ROWS = [["Timestamp", "Full Name", "Email", "Phone Number", "CV"],
+              ["t1", "Uddin, Rahim", "rahim@example.com", 1700000001, "https://drive.google.com/open?id=FILE1"],
+              ["t2", "Karima Akter", "karima@example.com", "01700000002", "https://drive.google.com/open?id=DOC1"]]
+
+
 class PretendGoogle:
-    """Answers like the Google Drive API for one sheet and two files."""
+    """Answers like the Google Sheets API (one sheet) and the Google Drive API (two files)."""
     def __init__(self):
         self.asked = []
 
     def get(self, url, params=None, timeout=None):
-        self.asked.append((url.split("/drive/v3")[1], dict(params or {})))
+        self.asked.append((re.split(r"/drive/v3|/v4", url)[1], dict(params or {})))
         path = self.asked[-1][0]
 
         class Answer:
@@ -327,11 +434,14 @@ class PretendGoogle:
             def json(self):
                 return self._json
         answer = Answer()
-        if path == "/files/SHEET1":
-            answer._json = {"mimeType": "application/vnd.google-apps.spreadsheet"}
-        elif path == "/files/SHEET1/export":
-            answer.content = ("\ufeffTimestamp,Full Name,Email,Phone Number,CV\r\n"
-                              "t1,\"Uddin, Rahim\",rahim@example.com,01700000001,https://drive.google.com/open?id=FILE1\r\n").encode()
+        if path == "/spreadsheets/SHEET1/values:batchGet":
+            first = int(params["ranges"][1][1:].split(":")[0])                        # "A3:ZZ" -> 3
+            answer._json = {"valueRanges": [{"range": "Sheet1!A1:Z1", "values": SHEET_ROWS[:1]},
+                                            {"range": "Sheet1!A3:ZZ", "values": SHEET_ROWS[first - 1:]}]}
+            if not SHEET_ROWS[first - 1:]:
+                del answer._json["valueRanges"][1]["values"]                          # Google leaves an empty range out
+        elif path == "/spreadsheets/NOT_A_SHEET/values:batchGet":
+            answer.status_code = 400
         elif path == "/files/FILE1":
             answer._json = {"name": "Rahim CV.pdf", "mimeType": "application/pdf"}
             answer.content = b"%PDF-made-up"
@@ -339,8 +449,6 @@ class PretendGoogle:
             answer._json = {"name": "Karima CV", "mimeType": "application/vnd.google-apps.document"}
         elif path == "/files/DOC1/export":
             answer.content = b"%PDF-exported"
-        elif path == "/files/NOT_A_SHEET":
-            answer._json = {"mimeType": "application/pdf"}
         else:
             answer.status_code = 404
         return answer
@@ -353,17 +461,24 @@ def test_google_answers_are_read_correctly(monkeypatch):
     monkeypatch.setattr(config, "DRIVE_PROVIDER", "google")
     monkeypatch.setattr(drive_service, "_session", lambda: google)
 
-    rows = drive_service.read_response_sheet("https://docs.google.com/spreadsheets/d/SHEET1/edit#gid=0")
-    assert rows == [["Timestamp", "Full Name", "Email", "Phone Number", "CV"],
-                    ["t1", "Uddin, Rahim", "rahim@example.com", "01700000001", "https://drive.google.com/open?id=FILE1"]]
-    assert read_applications(rows)[0].file_id == "FILE1"
+    sheet = "https://docs.google.com/spreadsheets/d/SHEET1/edit#gid=0"
+    header, rows = drive_service.read_sheet_rows(sheet)
+    assert header == SHEET_ROWS[0] and len(rows) == 2 and rows[0][3] == "1700000001"      # every cell becomes text
+    assert read_applications([header] + rows)[0].file_id == "FILE1"
+
+    # with a checkpoint, Google is asked for the title row and the rows after it only
+    header, rows = drive_service.read_sheet_rows(sheet, from_row=3)
+    assert google.asked[-1] == ("/spreadsheets/SHEET1/values:batchGet", {"ranges": ["1:1", "A3:ZZ"]})
+    assert header == SHEET_ROWS[0] and [row[1] for row in rows] == ["Karima Akter"]
+    assert read_applications([header] + rows, first_row=3)[0].row == 3
+    assert drive_service.read_sheet_rows(sheet, from_row=4) == (SHEET_ROWS[0], [])        # nothing new
 
     assert drive_service.download_file("FILE1") == ("Rahim CV.pdf", b"%PDF-made-up")
     assert drive_service.download_file("DOC1") == ("Karima CV.pdf", b"%PDF-exported")      # a Google Doc becomes a PDF
     assert ("/files/DOC1/export", {"mimeType": "application/pdf"}) in google.asked
 
     with pytest.raises(drive_service.DriveError) as problem:
-        drive_service.read_response_sheet("https://drive.google.com/file/d/NOT_A_SHEET/view")
+        drive_service.read_sheet_rows("https://drive.google.com/file/d/NOT_A_SHEET/view")
     assert "does not open a Google Sheet" in str(problem.value)
     with pytest.raises(drive_service.DriveError) as problem:
         drive_service.download_file("GONE")

@@ -1,7 +1,7 @@
 """Google Drive: the only code that talks to Google Drive. It only reads; it never changes or deletes anything.
 
     file_id_from()           the file id inside a Google link
-    read_response_sheet()    the rows of the form's response sheet
+    read_sheet_rows()        the rows of the form's response sheet, from a given row on (never the whole sheet again)
     download_file()          one file as bytes
     check_drive()            the "Test Google Drive" button
 
@@ -16,6 +16,7 @@ for tests and for trying the feature without a Google account.
 """
 import csv
 import io
+import logging
 import os
 import re
 from pathlib import Path
@@ -23,10 +24,12 @@ from pathlib import Path
 from app.core import config
 
 DRIVE_API = "https://www.googleapis.com/drive/v3"
+SHEETS_API = "https://sheets.googleapis.com/v4"
 READ_ONLY = ["https://www.googleapis.com/auth/drive.readonly"]
 GOOGLE_DOC = "application/vnd.google-apps.document"
-GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet"
 BACKEND_DIR = Path(__file__).resolve().parents[4]
+
+log = logging.getLogger("drive")
 
 
 class DriveError(Exception):
@@ -69,32 +72,46 @@ def _session():
     return AuthorizedSession(_credentials())
 
 
+def _google_reason(response) -> str:
+    """Google's own sentence about the error, for example "Google Sheets API has not been used in project ...". """
+    try:
+        return str(response.json().get("error", {}).get("message", ""))[:400]
+    except Exception:
+        return ""
+
+
 def _get(session, url: str, params: dict):
     try:
         response = session.get(url, params=params, timeout=60)
     except Exception as exc:
         raise DriveError(f"Google Drive could not be reached ({type(exc).__name__})")
-    if response.status_code == 404:
-        raise DriveError("the file was not found. Share the job's folder with the service account's email address")
-    if response.status_code == 403:
-        raise DriveError("Google refused access. Enable the Google Drive API in the Google Cloud project, "
-                         "and share the job's folder with the service account's email address")
     if response.status_code != 200:
-        raise DriveError(f"Google Drive answered with error {response.status_code}")
+        reason = _google_reason(response)
+        log.warning("google error %s on %s: %s", response.status_code, url.split("?")[0], reason)
+        if reason:
+            reason = f" (Google says: {reason})"
+    if response.status_code == 404:
+        raise DriveError("the file was not found. Share the job's folder with the service account's email address" + reason)
+    if response.status_code == 403:
+        raise DriveError("Google refused access. Enable the Google Drive API and the Google Sheets API in the Google "
+                         "Cloud project, and share the job's folder with the service account's email address" + reason)
+    if response.status_code == 400 and "sheets.googleapis.com" in url:
+        raise DriveError("the link does not open a Google Sheet. Paste the link of the form's response sheet" + reason)
+    if response.status_code != 200:
+        raise DriveError(f"Google Drive answered with error {response.status_code}" + reason)
     return response
 
 
-def _google_sheet_rows(sheet: str) -> list[list[str]]:
+def _google_sheet_rows(sheet: str, from_row: int) -> tuple[list[str], list[list[str]]]:
+    """Asks the Google Sheets API for two small ranges in one call: row 1 (the titles) and the rows from
+    `from_row` to the end. Rows above `from_row` are not sent by Google at all."""
     sheet_id = file_id_from(sheet)
     if not sheet_id:
         raise DriveError("this is not a link to a Google Sheet")
-    session = _session()
-    info = _get(session, f"{DRIVE_API}/files/{sheet_id}", {"fields": "mimeType", "supportsAllDrives": "true"}).json()
-    if info.get("mimeType") != GOOGLE_SHEET:
-        raise DriveError("the link does not open a Google Sheet. Paste the link of the form's response sheet")
-    # Google gives the first tab of the sheet as CSV text; that tab holds the form answers.
-    text = _get(session, f"{DRIVE_API}/files/{sheet_id}/export", {"mimeType": "text/csv"}).content.decode("utf-8-sig")
-    return list(csv.reader(io.StringIO(text)))
+    answer = _get(_session(), f"{SHEETS_API}/spreadsheets/{sheet_id}/values:batchGet",
+                  {"ranges": ["1:1", f"A{from_row}:ZZ"]}).json()          # no tab name = the first tab (the form answers)
+    header, rows = [(part.get("values") or []) for part in answer.get("valueRanges", [{}, {}])]
+    return [str(cell) for cell in (header[0] if header else [])], [[str(cell) for cell in row] for row in rows]
 
 
 def _google_download(file_id: str) -> tuple[str, bytes]:
@@ -115,11 +132,12 @@ def _fake_folder() -> Path:
     return folder
 
 
-def _fake_sheet_rows() -> list[list[str]]:
+def _fake_sheet_rows(from_row: int) -> tuple[list[str], list[list[str]]]:
     sheet = _fake_folder() / "responses.csv"
     if not sheet.exists():
         raise DriveError("responses.csv was not found in the fake Drive folder")
-    return list(csv.reader(io.StringIO(sheet.read_text(encoding="utf-8-sig"))))
+    rows = list(csv.reader(io.StringIO(sheet.read_text(encoding="utf-8-sig"))))
+    return (rows[0] if rows else []), rows[from_row - 1:]            # row 1 is rows[0]
 
 
 def _fake_download(file_id: str) -> tuple[str, bytes]:
@@ -132,9 +150,10 @@ def _fake_download(file_id: str) -> tuple[str, bytes]:
 
 # ---------------------------------------------------------------- what application_service.py calls
 
-def read_response_sheet(sheet: str) -> list[list[str]]:
-    """All rows of the response sheet, the header row first."""
-    return _fake_sheet_rows() if config.DRIVE_PROVIDER == "fake" else _google_sheet_rows(sheet)
+def read_sheet_rows(sheet: str, from_row: int = 2) -> tuple[list[str], list[list[str]]]:
+    """(titles of the columns, the rows from sheet row `from_row` to the end). Row 1 holds the titles, so the
+    first form answer is row 2. Only the rows from `from_row` on are read: the checkpoint of a job says where."""
+    return _fake_sheet_rows(from_row) if config.DRIVE_PROVIDER == "fake" else _google_sheet_rows(sheet, from_row)
 
 
 def download_file(file_id: str) -> tuple[str, bytes]:

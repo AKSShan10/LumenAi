@@ -1,9 +1,15 @@
 """Applications from the Google Form of one job.
 
-    read_applications()     turns the rows of the response sheet into applications (name, email, phone, CV link)
-    check_applications()    how many answers are in the sheet, and how many are new. Downloads nothing
+    read_applications()     turns rows of the response sheet into applications (name, email, phone, CV link)
+    check_applications()    how many answers after the checkpoint are new. Downloads nothing
     fetch_applications()    downloads each new CV, saves the file and one candidate per form answer
+    reset_checkpoint()      "Check the whole sheet again": the next check starts at the first answer
     drive_check()           is the Google Drive access set up? (used by the Settings page)
+
+The checkpoint: job.sheet_checkpoint_row is the last row of the sheet that is finished. A check or a fetch asks
+Google only for the rows AFTER it, so the whole sheet is not read again each time. Row 1 holds the column
+titles, so a new job starts with checkpoint 1. The checkpoint moves forward over every row that is done
+(fetched, or empty). If rows were sorted or deleted in the sheet, use "Check the whole sheet again".
 
 How a person stays with their own CV: Google writes one form answer as ONE ROW of the response sheet, and
 that row holds the name, the email, the phone number and the link to the uploaded CV. We take all of them
@@ -21,7 +27,7 @@ from sqlmodel import Session, select
 
 from app.features.candidates.models import Candidate
 from app.features.candidates.schemas import CheckOut, FetchOut
-from app.features.candidates.services.cv_storage_service import save_cv_file
+from app.features.candidates.services.cv_storage_service import next_number, save_cv_file
 from app.features.candidates.services import drive_service
 from app.features.candidates.services.drive_service import DriveError, file_id_from
 from app.features.jobs.models import Job
@@ -67,8 +73,9 @@ def _column(headers: list[str], words: tuple) -> int:
     return -1
 
 
-def read_applications(rows: list[list[str]]) -> list[Application]:
-    if not rows:
+def read_applications(rows: list[list[str]], first_row: int = 2) -> list[Application]:
+    """rows[0] holds the column titles; the other rows are form answers, the first of them is sheet row `first_row`."""
+    if not rows or not any(str(cell).strip() for cell in rows[0]):
         raise SheetProblem("The sheet is empty. Paste the link of the form's response sheet.")
     headers = [str(cell).strip() for cell in rows[0]]
     name_col, email_col = _column(headers, NAME_WORDS), _column(headers, EMAIL_WORDS)
@@ -78,7 +85,7 @@ def read_applications(rows: list[list[str]]) -> list[Application]:
                            f"Its columns are: {', '.join(h for h in headers if h) or 'none'}.")
 
     applications = []
-    for number, cells in enumerate(rows[1:], start=2):
+    for number, cells in enumerate(rows[1:], start=first_row):
         cell = lambda index: str(cells[index]).strip() if 0 <= index < len(cells) else ""   # noqa: E731
         name, email, links = cell(name_col), cell(email_col), cell(cv_col)
         if not (name or email or links):
@@ -108,46 +115,60 @@ def _name_is_in(name: str, cv_text: str) -> bool:
     return not words or any(word in text for word in words)
 
 
-def _sheet_applications(job: Job) -> tuple[list[Application], str]:
-    """Reads the response sheet of the job from Google Drive. Returns (applications, problem)."""
+def _new_after_checkpoint(session: Session, job: Job) -> tuple[list[Application], int, str]:
+    """Reads only the rows after the job's checkpoint. Returns (new applications, last row read, problem)."""
     if not job.response_sheet_url:
-        return [], "Save the link of the response sheet for this job first."
+        return [], 0, "Save the link of the response sheet for this job first."
+    first_row = job.sheet_checkpoint_row + 1
     try:
-        rows = drive_service.read_response_sheet(job.response_sheet_url)
-        return read_applications(rows), ""
+        header, rows = drive_service.read_sheet_rows(job.response_sheet_url, first_row)
+        applications = read_applications([header] + rows, first_row)
     except DriveError as problem:
-        return [], f"The response sheet could not be read: {problem}"
+        return [], 0, f"The response sheet could not be read: {problem}"
     except SheetProblem as problem:
-        return [], str(problem)
-
-
-def _new_only(session: Session, job: Job, applications: list[Application]) -> list[Application]:
+        return [], 0, str(problem)
+    # An answer that is already saved is skipped by its key, so nobody is added twice, whatever the checkpoint says.
     saved_keys = set(session.exec(select(Candidate.source_key).where(Candidate.job_id == job.id)).all())
-    return [application for application in applications if application.key not in saved_keys]
+    new = [application for application in applications if application.key not in saved_keys]
+    return new, job.sheet_checkpoint_row + len(rows), ""
+
+
+def _move_checkpoint(session: Session, job: Job, still_new: list[Application], last_row_read: int) -> None:
+    """Every row before the first answer that still waits is finished. With nothing waiting, all rows read are finished."""
+    checkpoint = still_new[0].row - 1 if still_new else last_row_read
+    if checkpoint > job.sheet_checkpoint_row:
+        job.sheet_checkpoint_row = checkpoint
+        session.add(job)
+        session.commit()
 
 
 def check_applications(session: Session, job: Job) -> CheckOut:
-    """Counts the form answers that are not fetched yet. Reads the sheet only; no CV is downloaded."""
-    applications, problem = _sheet_applications(job)
+    """Counts the form answers after the checkpoint that are not fetched yet. No CV is downloaded."""
+    new, last_row_read, problem = _new_after_checkpoint(session, job)
     if problem:
-        return CheckOut(ok=False, message=problem)
-    new = len(_new_only(session, job, applications))
-    if not applications:
-        message = "The sheet has no form answers yet."
-    elif new == 0:
-        message = "No new applications. Everything in the sheet was fetched before."
+        return CheckOut(ok=False, message=problem, checkpoint_row=job.sheet_checkpoint_row)
+    rows_read = last_row_read - job.sheet_checkpoint_row
+    _move_checkpoint(session, job, new, last_row_read)
+    if new:
+        message = f"{len(new)} new application(s) in the sheet. Click Fetch new applications to download the CV(s)."
     else:
-        message = f"{new} new application(s) in the sheet. Click Fetch new applications to download the CV(s)."
-    return CheckOut(ok=True, message=message, in_sheet=len(applications), new=new,
-                    already_fetched=len(applications) - new)
+        message = "No new applications since the checkpoint."
+    return CheckOut(ok=True, message=message, new=len(new), rows_read=rows_read, checkpoint_row=job.sheet_checkpoint_row)
+
+
+def reset_checkpoint(session: Session, job: Job) -> CheckOut:
+    """Starts again at the first answer of the sheet, then checks. Nobody is added twice: saved answers are skipped."""
+    job.sheet_checkpoint_row = 1
+    session.add(job)
+    session.commit()
+    return check_applications(session, job)
 
 
 def fetch_applications(session: Session, job: Job) -> FetchOut:
-    # 1. the rows of the response sheet, and of those only the answers that are not saved yet
-    applications, problem = _sheet_applications(job)
+    # 1. only the rows after the checkpoint, and of those only the answers that are not saved yet
+    new, last_row_read, problem = _new_after_checkpoint(session, job)
     if problem:
         return FetchOut(ok=False, message=problem)
-    new = _new_only(session, job, applications)
     now, later = new[:MAX_PER_CLICK], new[MAX_PER_CLICK:]
 
     # 2. one candidate per form answer: the name, the email, the phone and the CV of the SAME row.
@@ -172,23 +193,23 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
             warnings.append("This email address applied more than once")
         emails.add(application.email.lower())
 
-        candidate = Candidate(job_id=job.id, full_name=application.name, email=application.email,
+        candidate = Candidate(job_id=job.id, number=next_number(session, job.id), full_name=application.name, email=application.email,
                               phone=application.phone, applied_at=application.submitted, source="google_form",
                               source_key=application.key, drive_file_id=application.file_id,
                               original_file_name=file_name[:200], cv_text=cv_text,
                               status="new" if cv_text else "needs_review", warnings=warnings)
         session.add(candidate)
-        session.flush()                               # gives the candidate its number, needed for the file name
+        session.flush()                               # saves the row now, so the next candidate gets the next number
         if data:
             candidate.file_path = save_cv_file(candidate, file_name, data)
         needs_review += candidate.status == "needs_review"
     session.commit()
-    log.info("applications job=%s added=%d needs_review=%d left=%d", job.id, len(now), needs_review, len(later))
+    _move_checkpoint(session, job, later, last_row_read)          # 3. the fetched rows are finished
+    log.info("applications job=%s added=%d needs_review=%d left=%d checkpoint_row=%d", job.id, len(now), needs_review,
+             len(later), job.sheet_checkpoint_row)
 
-    if not applications:
-        message = "The sheet has no form answers yet."
-    elif not now:
-        message = "No new applications. Everything in the sheet was fetched before."
+    if not now:
+        message = "No new applications since the checkpoint."
     else:
         message = f"{len(now)} new application(s) fetched and saved."
         if needs_review:

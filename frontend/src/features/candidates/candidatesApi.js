@@ -4,7 +4,8 @@ import { del, download, post, put, request } from "../../shared/api/httpClient.j
 export const candidatesApi = {
   list: (jobId) => request(`/api/jobs/${jobId}/candidates`),
   saveSheet: (jobId, sheetUrl) => request(`/api/jobs/${jobId}/response-sheet`, put({ sheet_url: sheetUrl })),
-  check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // counts new answers; downloads nothing
+  check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // reads only the rows after the checkpoint
+  recheck: (jobId) => request(`/api/jobs/${jobId}/applications/recheck`, post), // moves the checkpoint back to the start
   fetchNew: (jobId) => request(`/api/jobs/${jobId}/applications/fetch`, post), // downloads the new CVs
   upload: (jobId, file, person) => {
     const form = new FormData();          // a file is sent as form data, not as JSON
@@ -14,6 +15,6 @@ export const candidatesApi = {
     form.append("phone", person.phone || "");
     return request(`/api/jobs/${jobId}/candidates/upload`, { method: "POST", body: form });
   },
-  downloadCv: (candidate) => download(`/api/candidates/${candidate.id}/cv`, candidate.original_file_name || `candidate_${candidate.id}`),
+  downloadCv: (candidate) => download(`/api/candidates/${candidate.id}/cv`, candidate.original_file_name || `candidate_${candidate.number}`),
   remove: (id) => request(`/api/candidates/${id}`, del),
 };

@@ -1,7 +1,8 @@
 """Candidates (interviewer only).
 
   PUT    /api/jobs/{job_id}/response-sheet        save the link of the job's response sheet
-  GET    /api/jobs/{job_id}/applications/check    how many form answers are new? Downloads nothing
+  GET    /api/jobs/{job_id}/applications/check    how many form answers after the checkpoint are new? Downloads nothing
+  POST   /api/jobs/{job_id}/applications/recheck  move the checkpoint back to the start and check the whole sheet
   POST   /api/jobs/{job_id}/applications/fetch    download the new CVs and save one candidate per form answer
   POST   /api/jobs/{job_id}/candidates/upload     manual upload: one CV file becomes one candidate
   GET    /api/jobs/{job_id}/candidates            the candidates of one job, newest first
@@ -17,7 +18,8 @@ from app.core.database import get_session
 from app.core.security import require_interviewer
 from app.features.candidates.models import Candidate
 from app.features.candidates.schemas import CandidateOut, CheckOut, FetchOut, SheetIn, UploadOut
-from app.features.candidates.services.application_service import check_applications, drive_check, fetch_applications
+from app.features.candidates.services.application_service import (
+    check_applications, drive_check, fetch_applications, reset_checkpoint)
 from app.features.candidates.services.cv_storage_service import add_uploaded_cv, candidate_out, cv_file, delete_candidate
 from app.features.jobs.models import Job
 from app.features.jobs.schemas import JobOut
@@ -43,6 +45,8 @@ def get_candidate_or_404(session: Session, candidate_id: int) -> Candidate:
 @router.put("/jobs/{job_id}/response-sheet", response_model=JobOut)
 def save_response_sheet(job_id: int, body: SheetIn, session: Session = Depends(get_session)):
     job = get_job_or_404(session, job_id)
+    if body.sheet_url != job.response_sheet_url:
+        job.sheet_checkpoint_row = 1                  # another sheet: its answers start at the first row again
     job.response_sheet_url = body.sheet_url
     session.add(job)
     session.commit()
@@ -53,6 +57,11 @@ def save_response_sheet(job_id: int, body: SheetIn, session: Session = Depends(g
 @router.get("/jobs/{job_id}/applications/check", response_model=CheckOut)
 def check(job_id: int, session: Session = Depends(get_session)):
     return check_applications(session, approved_job_or_400(session, job_id))
+
+
+@router.post("/jobs/{job_id}/applications/recheck", response_model=CheckOut)
+def recheck(job_id: int, session: Session = Depends(get_session)):
+    return reset_checkpoint(session, approved_job_or_400(session, job_id))
 
 
 @router.post("/jobs/{job_id}/applications/fetch", response_model=FetchOut)

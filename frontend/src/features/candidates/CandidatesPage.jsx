@@ -37,10 +37,17 @@ export default function CandidatesPage() {
     }).catch((e) => setError(e.message));
   }, []);
 
-  // Asks the backend how many form answers are new. Nothing is downloaded.
+  // Asks the backend how many form answers are new. Only the rows after the checkpoint are read; nothing is downloaded.
   async function check(id) {
     setBusy("check");
     try { setNews(await candidatesApi.check(id)); setCheckedAt(new Date()); }
+    catch (e) { setError(e.message); } finally { setBusy(""); }
+  }
+
+  // For the rare case that rows were sorted, deleted or typed in above the checkpoint: reads the sheet from the first answer.
+  async function recheck() {
+    setError(""); setResult(null); setBusy("recheck");
+    try { setNews(await candidatesApi.recheck(jobId)); setCheckedAt(new Date()); }
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
@@ -114,6 +121,9 @@ export default function CandidatesPage() {
   const linkOk = sheetUrl.trim().startsWith("https://");
   const linkChanged = sheetUrl.trim() !== savedUrl;
   const shown = candidates.filter((c) => show === "all" || c.source === show);
+  // The # column: 1 for the oldest candidate of this job, then 2, 3 ... with no gaps, also after a delete.
+  // The list comes newest first, so the newest one gets the highest number.
+  const serial = (candidate) => candidates.length - candidates.indexOf(candidate);
 
   return (
     <>
@@ -146,8 +156,11 @@ export default function CandidatesPage() {
         </div>
         {news && !result && <p className={!news.ok ? "error" : news.new > 0 ? "warn" : "muted"}>{news.message}</p>}
         {savedUrl && !linkChanged && (
-          <p className="muted small">The sheet is checked again every minute while this page is open.
-            {checkedAt && <> Last checked at {checkedAt.toLocaleTimeString()}.</>}</p>
+          <p className="muted small">Every minute, while this page is open, only the rows after the checkpoint are read.
+            {news?.ok && <> Checkpoint: row {news.checkpoint_row} of the sheet is the last finished row.</>}
+            {checkedAt && <> Last checked at {checkedAt.toLocaleTimeString()}.</>}
+            {" "}<button type="button" className="link" onClick={recheck} disabled={busy !== ""}>
+              {busy === "recheck" ? "Checking the whole sheet..." : "Check the whole sheet again"}</button></p>
         )}
         {result && <p className={result.ok ? "ok" : "error"}>{result.message}</p>}
         {error && <p className="error">{error}</p>}
@@ -196,7 +209,7 @@ export default function CandidatesPage() {
             <tbody>
               {shown.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.id}</td>
+                  <td>{serial(c)}</td>
                   <td>
                     <b>{c.full_name || "(name not given)"}</b>
                     {c.warnings.map((warning) => <div key={warning} className="warn small">{warning}</div>)}

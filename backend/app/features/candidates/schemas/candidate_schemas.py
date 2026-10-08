@@ -18,12 +18,12 @@ class SheetIn(BaseModel):
 
 
 class CheckOut(BaseModel):
-    """What is in the response sheet, compared with what is already saved. Nothing is downloaded."""
+    """What is new in the response sheet after the job's checkpoint. Nothing is downloaded."""
     ok: bool
     message: str                     # one sentence for the interviewer
-    in_sheet: int = 0                # form answers in the sheet
     new: int = 0                     # answers that are not fetched yet
-    already_fetched: int = 0
+    rows_read: int = 0               # how many rows of the sheet this check had to read (only those after the checkpoint)
+    checkpoint_row: int = 1          # the last row of the sheet that is finished
 
 
 class FetchOut(BaseModel):
@@ -42,7 +42,8 @@ class UploadOut(BaseModel):
 
 class CandidateOut(BaseModel):
     """One row of the candidate list. The CV text is not in it."""
-    id: int
+    id: int                          # inside the code and the links only
+    number: int                      # the number shown on the page: 1, 2, 3 ... inside this job
     job_id: int
     full_name: str
     email: str
