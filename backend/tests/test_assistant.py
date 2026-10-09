@@ -10,6 +10,7 @@ import pytest
 
 from app.features.assistant.services import assistant_service
 from app.graphs import assistant_agent
+from app.graphs.checkpointer import checkpointer
 
 FORM = "https://docs.google.com/forms/d/e/made-up-form/viewform"
 PAST_JOB = ("Backend Developer. You will build REST APIs with Python and FastAPI, write tests and work with "
@@ -20,6 +21,12 @@ PAST_JOB = ("Backend Developer. You will build REST APIs with Python and FastAPI
 def new_chat(client):
     client.post("/api/assistant/chat/new")
     yield
+
+
+def thread_messages(thread_id: str) -> list:
+    """What LangGraph's checkpointer keeps for a chat's thread."""
+    saved = checkpointer().get_tuple({"configurable": {"thread_id": thread_id}})
+    return [m.content for m in saved.checkpoint["channel_values"]["messages"]] if saved else []
 
 
 def say(client, text, file=None) -> dict:
@@ -201,13 +208,15 @@ def test_an_earlier_chat_can_be_continued(client, monkeypatch):
     # a new line goes into it, and the AI is given the earlier lines of that chat only
     seen = {}
 
-    def model(messages):
-        seen["messages"] = messages
+    def model(messages, thread_id):
+        seen["messages"], seen["thread"] = messages, thread_id
         return {"answer": "ok", "tools": [], "error": ""}
     monkeypatch.setattr(assistant_service, "run_assistant", model)
     chat = say(client, "and now?")
     assert chat["chat_id"] == first["chat_id"] and len(chat["messages"]) == 4
-    assert [m["content"] for m in seen["messages"]][0] == "List the jobs" and "hello" not in str(seen["messages"])
+    assert [m["content"] for m in seen["messages"]] == ["and now?"]            # the rest is in the chat's thread
+    assert seen["thread"].startswith(f"chat-{first['chat_id']}-")
+    assert "List the jobs" in str(thread_messages(seen["thread"])) and "hello" not in str(thread_messages(seen["thread"]))
 
     assert client.post("/api/assistant/chat/999999/continue").status_code == 404
 
@@ -230,7 +239,7 @@ def test_the_ai_only_gets_the_current_chat(client, monkeypatch):
     client.post("/api/assistant/chat/new")
     seen = {}
 
-    def model(messages):
+    def model(messages, thread_id):
         seen["messages"] = messages
         return {"answer": "ok", "tools": [], "error": ""}
     monkeypatch.setattr(assistant_service, "run_assistant", model)
@@ -250,7 +259,7 @@ def test_a_waiting_question_is_cancelled_by_a_new_chat(client, make_job):
 def test_the_ai_gets_a_note_about_the_file_not_the_whole_file(client, monkeypatch):
     seen = {}
 
-    def model(messages):
+    def model(messages, thread_id):
         seen["messages"] = messages
         return {"answer": "ok", "tools": [], "error": ""}
     monkeypatch.setattr(assistant_service, "run_assistant", model)
@@ -263,7 +272,7 @@ def test_the_ai_gets_a_note_about_the_file_not_the_whole_file(client, monkeypatc
 
 def test_a_failure_is_shown_in_plain_words(client, monkeypatch):
     monkeypatch.setattr(assistant_service, "run_assistant",
-                        lambda messages: {"answer": "", "tools": [], "error": "the AI service limit is reached"})
+                        lambda messages, thread_id: {"answer": "", "tools": [], "error": "the AI service limit is reached"})
     chat = say(client, "hello")
     assert last(chat)["content"] == "The assistant could not answer: the AI service limit is reached."
     runs = client.get("/api/workflow-runs").json()
@@ -279,3 +288,51 @@ def test_the_assistant_needs_login(anonymous):
     assert anonymous.post("/api/assistant/actions/1", json={"yes": True}).status_code == 401
     assert anonymous.post("/api/assistant/chat/new").status_code == 401
     assert anonymous.post("/api/assistant/chat/1/continue").status_code == 401
+
+
+def test_the_chat_has_langgraph_memory(client, monkeypatch):
+    """Every chat has its own thread in LangGraph's checkpointer: the agent is given only the new lines, and the
+    thread keeps the earlier ones, also the tools it used and the result of a Yes."""
+    sent = []
+    real = assistant_service.run_assistant
+
+    def spy(messages, thread_id):
+        sent.append(([m["content"] for m in messages], thread_id))
+        return real(messages, thread_id)
+    monkeypatch.setattr(assistant_service, "run_assistant", spy)
+
+    say(client, "List the jobs")
+    say(client, "hello")
+    (first, thread), (second, same_thread) = sent
+    assert first == ["List the jobs"] and second == ["hello"] and thread == same_thread
+    remembered = thread_messages(thread)
+    assert remembered[0] == "List the jobs" and "hello" in remembered
+    assert len(remembered) > 4                        # also the tool call and the tool's answer for "List the jobs"
+
+    client.post("/api/assistant/chat/new")
+    say(client, "hi")
+    assert sent[-1][1] != thread                      # a new chat has a new thread
+
+
+def test_the_model_sees_only_the_newest_messages():
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    long_chat = []
+    for n in range(40):
+        long_chat += [HumanMessage(f"question {n}"),
+                      AIMessage("", tool_calls=[{"name": "list_jobs", "args": {}, "id": f"c{n}", "type": "tool_call"}]),
+                      ToolMessage("{}", tool_call_id=f"c{n}", name="list_jobs"), AIMessage(f"answer {n}")]
+    shown = assistant_agent.keep_recent({"messages": long_chat})["llm_input_messages"]
+    assert len(shown) <= assistant_agent.MAX_AI_MESSAGES and shown[0].type == "human"
+    assert shown[-1].content == "answer 39"
+
+
+def test_a_failed_run_starts_a_fresh_thread(client, monkeypatch):
+    threads = []
+
+    def failing(messages, thread_id):
+        threads.append(thread_id)
+        return {"answer": "", "tools": [], "error": "the AI service limit is reached"}
+    monkeypatch.setattr(assistant_service, "run_assistant", failing)
+    say(client, "hello")
+    say(client, "hello again")
+    assert threads[0] != threads[1]                   # an unfinished thread is not continued

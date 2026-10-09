@@ -17,8 +17,10 @@ class Job(SQLModel, table=True):
     prompt: str = Field(default="", sa_column=Column(Text))        # the short text the interviewer typed for the AI
     status: str = "draft"                             # draft | approved; editing an approved job makes it a draft again
     approved_at: Optional[datetime] = None
-    response_sheet_url: str = ""                      # the response sheet of this job's Google Form (applications)
-    sheet_checkpoint_row: int = 1                     # the last row of that sheet that is finished (row 1 = the titles)
+    # The job's Google Form, found from the "Apply now" link of its post (job_posting.apply_url)
+    google_form_link: str = ""                        # the link the form id below was found for
+    google_form_id: str = ""                          # the form's own id (the Google Forms API needs it)
+    form_checkpoint_row: int = 1                      # the last answer row that is finished (row 1 = the titles)
     # How much each part of the CV counts in the weighted score (F4). Set by the interviewer; they add up to 100.
     weight_skills: int = 50
     weight_experience: int = 30

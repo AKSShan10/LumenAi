@@ -8,6 +8,8 @@ import hashlib
 import math
 import re
 
+from app.utils.skill_names import find_skill
+
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 
@@ -68,13 +70,26 @@ def _fake_cv_fields(data: dict) -> dict:
     letters = [c for c in text if c.isalpha()]
     english = not letters or sum(c.isascii() for c in letters) / len(letters) > 0.7
     education = [{"degree": d, "institute": ""} for d in degrees]
-    qualification = _fake_qualification({"required": data["required_qualification"], "education": education}) \
-        if data["required_qualification"] else {"met": None, "reason": ""}
-    status = {True: "met", False: "unmet", None: None}[qualification["met"]]
-    return {"skills": skills, "total_years": max(years, default=0), "education": education,
+    total = max(years, default=0)
+    qualification = None
+    if data["required_qualification"]:
+        q = _fake_qualification({"required": data["required_qualification"], "education": education})
+        qualification = {"status": "met" if q["met"] else "unmet", "reason": q["reason"],
+                         "evidence": degrees[0] if q["met"] and degrees else ""}
+    return {"skills": skills, "total_years": total, "education": education,
             "experience": [], "language": "en" if english else "bn",
             "requirement_checks": [_fake_requirement_check(r, text) for r in data.get("requirements", [])],
-            "qualification_status": status, "qualification_reason": qualification["reason"]}
+            "years_check": _fake_years_check(total, data.get("min_years") or 0, text),
+            "qualification_check": qualification}
+
+
+def _fake_years_check(years: float, minimum: float, cv: str) -> dict | None:
+    """A stand-in for the AI judging the years: enough = met, a little less (3/4 or more) = partial."""
+    if not minimum:
+        return None
+    status = "met" if years >= minimum else "partial" if years >= 0.75 * minimum else "unmet"
+    line = _first_line(cv, r"\d+(?:\.\d+)?\s*\+?\s*years") if years else ""
+    return {"status": status, "reason": f"Fake check: about {years:g} of {minimum:g} years.", "evidence": line}
 
 
 # Words that are "close but not the same" for the fake AI's Partially met (a stand-in for judging by meaning).
@@ -82,17 +97,31 @@ FAKE_CLOSE = {"postgresql": ["mysql", "sql server"], "fastapi": ["flask", "djang
 
 
 def _fake_requirement_check(requirement: str, cv: str) -> dict:
-    """met: a word of 4+ letters of the requirement is in a CV line (e.g. "test plans" for "Test planning");
-    partial: a close tool is named (MySQL for PostgreSQL); else unmet. The evidence is a real CV line."""
-    for word in re.findall(r"[a-z]{4,}", requirement.lower()):
-        line = _first_line(cv, rf"\b{re.escape(word[:5])}")
+    """A stand-in for the AI judging by meaning (lines that only wish for a skill do not count, like the real AI):
+    met: the skill, or a word of 4+ letters of it, is in a CV line (e.g. "test plans" for "Test planning");
+    partial: a close tool is named (MySQL for PostgreSQL); else unmet. The evidence is a real CV line,
+    except "FAKE-WRONG-QUOTE" in the CV, which makes the fake AI quote words that are not in the CV."""
+    lines = [l for l in cv.splitlines() if not re.search(r"interested in|want to learn|not used|no experience", l, re.I)]
+    usable = "\n".join(lines)
+    how = find_skill(requirement, [], usable)          # also another name of it ("Postgres" for PostgreSQL)
+    if how:
+        line = _first_line(usable, re.escape(how.split('"')[1])) if '"' in how else ""
+        evidence = "a made-up quote" if "FAKE-WRONG-QUOTE" in cv else line
+        return {"requirement": requirement, "status": "met", "reason": f"Fake check: {how}.", "evidence": evidence}
+    words = re.findall(r"[a-z]{4,}", requirement.lower())
+    for word in words:
+        line = _first_line(usable, rf"\b{re.escape(word[:5])}")
         if line:
-            return {"requirement": requirement, "status": "met", "evidence": line}
+            evidence = "a made-up quote" if "FAKE-WRONG-QUOTE" in cv else line
+            return {"requirement": requirement, "status": "met", "reason": f"Fake check: the CV shows {requirement}.",
+                    "evidence": evidence}
     for close in FAKE_CLOSE.get(requirement.lower(), []):
-        line = _first_line(cv, rf"\b{re.escape(close)}\b")
+        line = _first_line(usable, rf"\b{re.escape(close)}\b")
         if line:
-            return {"requirement": requirement, "status": "partial", "evidence": line}
-    return {"requirement": requirement, "status": "unmet", "evidence": ""}
+            return {"requirement": requirement, "status": "partial",
+                    "reason": f"Fake check: {close} is close to {requirement}.", "evidence": line}
+    return {"requirement": requirement, "status": "unmet", "reason": f"Fake check: no {requirement} in the CV.",
+            "evidence": ""}
 
 
 def _fake_ats_keywords(data: dict) -> dict:

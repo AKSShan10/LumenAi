@@ -32,11 +32,12 @@
     validate_extraction   PYTHON      enough text? not garbled? English only?
     ocr_once              AI VISION   Gemini reads the PDF pages like pictures (a scanned CV). Only once
     needs_review          PYTHON      the reason is saved; the file is kept, so it can be screened again
-    extract_profile       AI          ONE call: skills, work history, education, years, and whether the education
-                                      meets the job's qualification (email and phone are removed first)
-    match_requirements    PYTHON      each requirement: Met / Partially met / Unmet, how we know and words from the CV.
-                                      Code first (skill names); then the AI's judgement by meaning from extract_profile,
-                                      kept only if its words are really in the CV. Years by code (75% = partly met)
+    extract_profile       AI          ONE call: skills, work history, education, years, AND the semantic judgement of
+                                      every requirement (each skill, the years, the qualification): Met / Partially met /
+                                      Unmet by meaning, with an explanation and evidence copied from the CV
+                                      (email and phone are removed first)
+    match_requirements    PYTHON      puts the AI's judgements in one list. It does not change them: it only marks
+                                      whether the AI's evidence is really in the CV ("verified"), for the interviewer
     justifications        PYTHON      the fixed rule: a must-have Unmet -> excluded, with the reason; otherwise included
                                       (Partially met is not missing: it is named in the reason)
     score_sections        AI          F4, ONE call: skills, experience and qualifications, each 0-100 + reason + quote
@@ -56,9 +57,8 @@ kept, and the page shows the decision when there is one. Screening a CV again le
 old decision is cleared (and written to workflow_run), and the person can change it again.
 AI calls per CV: 2 (extract_profile, score_sections). A scanned PDF adds 1 (ocr_once); a bad profile answer is
 asked once more. The free Gemini key limits the number of calls per day (see ai_calls in the log).
-The AI reads and suggests; Python checks, calculates and decides. Each run saves its own result at the end,
+The AI reads the CV and judges each requirement; Python applies the fixed rule, calculates and saves. Each run saves its own result at the end,
 so if the backend stops, only the CV that was running has to be screened again.
-Still to come (see the architecture): partial matches with CV quotes (semantic ranking) and the ranking.
 """
 import logging
 import re
@@ -83,7 +83,7 @@ from app.features.screening.services.score_service import SECTIONS, weighted_sco
 from app.graphs.checkpointer import checkpointer
 from app.graphs.cv_screening_prompts import EXTRACT_PROFILE_PROMPT, OCR_PROMPT, SCORE_SECTIONS_PROMPT
 from app.utils.file_text_utils import read_file_text
-from app.utils.skill_names import find_skill
+from app.utils.skill_names import find_skill   # only for the ATS keyword count
 
 log = logging.getLogger("cv_screening_graph")
 
@@ -131,9 +131,10 @@ class Profile(BaseModel):
     education: list[dict] = []
     experience: list[dict] = []
     language: str = "en"
-    requirement_checks: list[dict] = []    # the AI's view per requirement: {requirement, status, evidence}
-    qualification_status: str | None = None   # met | partial | unmet | None (no qualification asked)
-    qualification_reason: str = ""
+    # the semantic matching, judged by the AI: {status: met | partial | unmet, reason, evidence}
+    requirement_checks: list[dict] = []    # one per skill, plus "requirement": the skill's name
+    years_check: dict | None = None        # None when the job asks no minimum years
+    qualification_check: dict | None = None   # None when the job asks no qualification
 
     @field_validator("skills")
     @classmethod
@@ -207,7 +208,7 @@ def extract_profile(state: CvScreenState) -> dict:
     clean = remove_contacts(state["text"])[:MAX_CV_CHARS]
     job = state["job"]
     answer = llm_json(EXTRACT_PROFILE_PROMPT, {"cv": clean, "requirements": job["required_skills"] + job["preferred_skills"],
-                                               "required_qualification": job["qualifications"]})
+                                               "min_years": job["min_years"], "required_qualification": job["qualifications"]})
     tried = {"clean_text": clean, "profile_tries": state["profile_tries"] + 1, "ai_calls": state["ai_calls"] + 1}
     if answer is None:
         return {**tried, "profile": {}, "error": last_error()}
@@ -222,46 +223,42 @@ def _in_cv(state: CvScreenState, words: str) -> bool:
     return bool(words.strip()) and any(_plain(words) in _plain(text) for text in (state["text"], state["clean_text"]))
 
 
-def _match(requirement: str, kind: str, status: str, how: str, evidence: str = "") -> dict:
+def _match(requirement: str, kind: str, check, default_how: str, state: CvScreenState) -> dict:
+    """One requirement as the AI judged it. The AI's status is kept as it is (the interviewer's choice: trust the AI).
+    "verified" only tells the interviewer whether the AI's evidence words are really in the CV."""
+    check = check if isinstance(check, dict) else {}
+    status = str(check.get("status") or "").strip().lower()
+    if status not in ("met", "partial", "unmet"):
+        status = "unchecked"                                    # the AI did not judge it: a person should look
+    evidence = str(check.get("evidence") or "").strip()[:300]
+    how = str(check.get("reason") or "").strip()[:300] or default_how
     met = {"met": True, "partial": True, "unmet": False}.get(status)          # partial is not "missing"
-    return {"requirement": requirement, "kind": kind, "status": status, "met": met, "how": how, "evidence": evidence}
+    return {"requirement": requirement, "kind": kind, "status": status, "met": met, "how": how,
+            "evidence": evidence, "verified": _in_cv(state, evidence) if evidence else None}
 
 
 def match_requirements(state: CvScreenState) -> dict:
-    """Met / Partially met / Unmet for every requirement, with how we know.
-    1. Code first: the skill (or another name of it) is in the CV -> met.
-    2. Otherwise the AI's judgement by meaning from extract_profile, but only with words that are really in the CV.
-    3. Years: code. 75% or more of the minimum counts as partly met (2.5 of 3 years).
-    4. Qualification: the AI's judgement from extract_profile."""
+    """Semantic matching: Met / Partially met / Unmet for every requirement, judged by the AI in extract_profile
+    (by meaning, with a reason and evidence from the CV). This step only puts the judgements in one list:
+    every skill (must-have and nice-to-have), the minimum years and the qualification."""
     job, profile = state["job"], state["profile"]
-    ai_view = {str(c.get("requirement", "")).strip().lower(): c for c in profile["requirement_checks"] if isinstance(c, dict)}
+    checks = [c for c in profile["requirement_checks"] if isinstance(c, dict)]
+    by_name = {str(c.get("requirement", "")).strip().lower(): c for c in checks}
+    skills = [("must", s) for s in job["required_skills"]] + [("nice", s) for s in job["preferred_skills"]]
     matches = []
-    for kind, skills in (("must", job["required_skills"]), ("nice", job["preferred_skills"])):
-        for skill in skills:
-            how = find_skill(skill, profile["skills"], state["text"])
-            if how:
-                matches.append(_match(skill, kind, "met", how))
-                continue
-            check = ai_view.get(skill.strip().lower(), {})
-            status, evidence = str(check.get("status") or "unmet").lower(), str(check.get("evidence") or "").strip()[:300]
-            if status in ("met", "partial") and _in_cv(state, evidence):
-                word = "means the same" if status == "met" else "is close, not the same"
-                matches.append(_match(skill, kind, status, f"the AI found that the CV {word}", evidence))
-            else:
-                matches.append(_match(skill, kind, "unmet", "not found in the CV"))
+    for position, (kind, skill) in enumerate(skills):
+        check = by_name.get(skill.strip().lower())
+        if check is None and len(checks) == len(skills):        # the AI wrote the name a little differently
+            check = checks[position]
+        matches.append(_match(skill, kind, check, "the AI did not judge this requirement", state))
 
     if job["min_years"]:
-        years, minimum = profile["total_years"], job["min_years"]
-        status = "met" if years >= minimum else "partial" if years >= 0.75 * minimum else "unmet"
-        matches.append(_match(f"{minimum}+ years of experience", "must", status, f"the CV shows about {years:g} years"))
-
-    if job["qualifications"]:                          # judged by the AI in extract_profile (same call)
-        status = str(profile["qualification_status"] or "").lower()
-        if status in ("met", "partial", "unmet"):
-            how = profile["qualification_reason"].strip()[:200] or ", ".join(_degree_names(profile["education"]))
-            matches.append(_match(job["qualifications"], "must", status, how))
-        else:
-            matches.append(_match(job["qualifications"], "must", "unchecked", "the AI did not answer this question"))
+        matches.append(_match(f"{job['min_years']}+ years of experience", "must", profile["years_check"],
+                              f"the CV shows about {profile['total_years']:g} years", state))
+    if job["qualifications"]:
+        matches.append(_match(job["qualifications"], "must", profile["qualification_check"],
+                              ", ".join(_degree_names(profile["education"])) or "the AI did not judge this requirement",
+                              state))
 
     missing = [m["requirement"] for m in matches if m["kind"] == "must" and m["status"] == "unmet"]
     return {"matches": matches, "missing": missing}
@@ -273,8 +270,8 @@ def justifications(state: CvScreenState) -> dict:
         return {"result": "needs_review", "reason": "The CV is not written in English. A person should look at it."}
     if state["missing"]:
         return {"result": "excluded", "reason": "Missing must-have: " + "; ".join(state["missing"]) + "."}
-    if any(m["status"] == "unchecked" for m in state["matches"]):
-        return {"result": "needs_review", "reason": "One requirement could not be checked. A person should look at it."}
+    if any(m["status"] == "unchecked" and m["kind"] == "must" for m in state["matches"]):
+        return {"result": "needs_review", "reason": "A must-have requirement could not be checked. A person should look at it."}
     must = [m for m in state["matches"] if m["kind"] == "must"]
     partly = [m["requirement"] for m in must if m["status"] == "partial"]
     if partly:                                         # not missing, so not excluded; the reason says what is only close

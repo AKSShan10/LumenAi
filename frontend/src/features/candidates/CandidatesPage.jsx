@@ -2,23 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import { candidatesApi } from "./candidatesApi.js";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
+import DataTable from "../../shared/utils/DataTable.jsx";
 import ScreeningCard from "../screening/ScreeningCard.jsx";
 import DecisionControl from "../screening/DecisionControl.jsx";
 import { screeningApi } from "../screening/screeningApi.js";
 
 const SOURCES = { google_form: "Google Form", upload: "Uploaded by hand" };
-const CHECK_EVERY_MS = 60000;      // the response sheet is looked at again every minute
+const CHECK_EVERY_MS = 60000;      // the job's Google Form is looked at again every minute
 
-// The Candidates page: pick an approved job, see how many new applications are in its response sheet,
-// fetch them (the CV files are saved on this computer), or upload CVs by hand.
-// Each form application comes from ONE row of the sheet, so a person is always shown with their own CV.
+// The Candidates page: pick an approved job, see how many new applications are in its Google Form (the form of
+// the job's "Apply now" link, given when the job was posted), fetch them (the CV files are saved on this
+// computer), or upload CVs by hand. Each application is ONE form answer, so a person is always shown with their own CV.
 export default function CandidatesPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
-  const [sheetUrl, setSheetUrl] = useState("");
-  const [savedUrl, setSavedUrl] = useState("");     // the link that is saved for this job
   const [news, setNews] = useState(null);           // answer of the last check: how many are new
-  const [checkedAt, setCheckedAt] = useState(null); // when the sheet was last looked at
+  const [checkedAt, setCheckedAt] = useState(null); // when the form was last looked at
   const [show, setShow] = useState("all");          // which candidates the list shows: all | google_form | upload
   const [result, setResult] = useState(null);       // answer of the last fetch
   const [candidates, setCandidates] = useState([]);
@@ -40,46 +39,37 @@ export default function CandidatesPage() {
     }).catch((e) => setError(e.message));
   }, []);
 
-  // Asks the backend how many form answers are new. Only the rows after the checkpoint are read; nothing is downloaded.
+  // Asks the backend how many form answers are new. Only the answers after the checkpoint count; nothing is downloaded.
   async function check(id) {
     setBusy("check");
     try { setNews(await candidatesApi.check(id)); setCheckedAt(new Date()); }
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
-  // For the rare case that rows were sorted, deleted or typed in above the checkpoint: reads the sheet from the first answer.
+  // For the rare case that answers were deleted in the form: looks at every answer again, from the first one.
   async function recheck() {
     setError(""); setResult(null); setBusy("recheck");
     try { setNews(await candidatesApi.recheck(jobId)); setCheckedAt(new Date()); }
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
-  // Looks at the sheet again every minute while this page is open, so the number of new applications
+  // Looks at the form again every minute while this page is open, so the number of new applications
   // stays up to date without a click. It only counts: the CVs are downloaded when you click Fetch.
+  const formReady = Boolean(news?.ok);
   useEffect(() => {
-    if (!jobId || !savedUrl) return undefined;
+    if (!jobId || !formReady) return undefined;
     const timer = setInterval(() => {
       if (document.hidden || busyRef.current !== "") return;      // not while the tab is in the background or busy
       candidatesApi.check(jobId).then((answer) => { setNews(answer); setCheckedAt(new Date()); setResult(null); }).catch(() => {});
     }, CHECK_EVERY_MS);
     return () => clearInterval(timer);                             // stops when you leave the page or change the job
-  }, [jobId, savedUrl]);
+  }, [jobId, formReady]);
 
   function choose(job) {
-    setJobId(job.id); setSheetUrl(job.response_sheet_url || ""); setSavedUrl(job.response_sheet_url || "");
+    setJobId(job.id);
     setNews(null); setCheckedAt(null); setResult(null); setUploadNotes([]); setError(""); setShow("all");
     candidatesApi.list(job.id).then(setCandidates).catch((e) => setError(e.message));
-    if (job.response_sheet_url) check(job.id);      // so you know about new applications as soon as the page opens
-  }
-
-  async function saveSheet() {
-    setError(""); setResult(null); setBusy("save");
-    try {
-      const job = await candidatesApi.saveSheet(jobId, sheetUrl.trim());
-      setSavedUrl(job.response_sheet_url);
-      setJobs(jobs.map((j) => (j.id === job.id ? job : j)));
-      await check(jobId);
-    } catch (e) { setError(e.message); } finally { setBusy(""); }
+    check(job.id);                                  // so you know about new applications as soon as the page opens
   }
 
   async function fetchNew() {
@@ -120,7 +110,7 @@ export default function CandidatesPage() {
     try {
       await candidatesApi.remove(candidate.id);
       setCandidates(await candidatesApi.list(jobId));
-      if (savedUrl) check(jobId);
+      if (formReady) check(jobId);
     } catch (e) { setError(e.message); }
   }
 
@@ -128,8 +118,6 @@ export default function CandidatesPage() {
   if (jobs.length === 0) {
     return <div className="card"><p className="muted">No approved job yet. Write and approve a job in the chat on the Job Requirements page first.</p></div>;
   }
-  const linkOk = sheetUrl.trim().startsWith("https://");
-  const linkChanged = sheetUrl.trim() !== savedUrl;
   const shown = candidates.filter((c) => show === "all" || c.source === show);
   // The # column: 1 for the oldest candidate of this job, then 2, 3 ... with no gaps, also after a delete.
   // The list comes newest first, so the newest one gets the highest number.
@@ -145,32 +133,25 @@ export default function CandidatesPage() {
         </label>
 
         <h3>Applications from the Google Form</h3>
-        <p className="muted small">Paste the link of the form's response sheet (in Google Forms: Responses, then "View in Sheets").
-          The name, email, phone and CV are taken from the same row, so they always belong together.
-          Your Google Drive is only read, never changed.</p>
-        <label>Response sheet link
-          <input value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
-        </label>
+        <p className="muted small">The answers are read from the job's Google Form: the "Apply now" link given when the job
+          was posted in the Assistant chat. No sheet link is needed. The name, email, phone and CV are taken from the same
+          answer, so they always belong together. Your Google Drive is only read, never changed.</p>
+        {news?.form_link && <p className="small">Form: <a href={news.form_link} target="_blank" rel="noreferrer">{news.form_link}</a></p>}
         <div>
-          {linkChanged && <button type="button" onClick={saveSheet} disabled={!linkOk || busy !== ""}>{busy === "save" ? "Saving..." : "Save the link"}</button>}
-          {!linkChanged && savedUrl && (
-            <>
-              <button type="button" onClick={fetchNew} disabled={busy !== "" || !news?.ok || news.new === 0}>
-                {busy === "fetch" ? "Fetching..." : news?.ok && news.new > 0 ? `Fetch new applications (${news.new})` : "Fetch new applications"}
-              </button>
-              <button type="button" className="secondary" onClick={() => check(jobId)} disabled={busy !== ""}>
-                {busy === "check" ? "Checking..." : "Check again"}
-              </button>
-            </>
-          )}
+          <button type="button" onClick={fetchNew} disabled={busy !== "" || !news?.ok || news.new === 0}>
+            {busy === "fetch" ? "Fetching..." : news?.ok && news.new > 0 ? `Fetch new applications (${news.new})` : "Fetch new applications"}
+          </button>
+          <button type="button" className="secondary" onClick={() => check(jobId)} disabled={busy !== ""}>
+            {busy === "check" ? "Checking..." : "Check again"}
+          </button>
         </div>
         {news && !result && <p className={!news.ok ? "error" : news.new > 0 ? "warn" : "muted"}>{news.message}</p>}
-        {savedUrl && !linkChanged && (
-          <p className="muted small">Every minute, while this page is open, only the rows after the checkpoint are read.
-            {news?.ok && <> Checkpoint: row {news.checkpoint_row} of the sheet is the last finished row.</>}
+        {formReady && (
+          <p className="muted small">Every minute, while this page is open, only the answers after the checkpoint are looked at.
+            {" "}Checkpoint: {news.checkpoint_row - 1} answer(s) finished.
             {checkedAt && <> Last checked at {checkedAt.toLocaleTimeString()}.</>}
             {" "}<button type="button" className="link" onClick={recheck} disabled={busy !== ""}>
-              {busy === "recheck" ? "Checking the whole sheet..." : "Check the whole sheet again"}</button></p>
+              {busy === "recheck" ? "Checking every answer..." : "Check every answer again"}</button></p>
         )}
         {result && <p className={result.ok ? "ok" : "error"}>{result.message}</p>}
         {error && <p className="error">{error}</p>}
@@ -213,45 +194,49 @@ export default function CandidatesPage() {
             </select>
           </label>
         </div>
-        {shown.length === 0 ? <p className="muted">No candidates here yet.</p> : (
-          <table>
-            <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>CV file</th><th>From</th><th></th></tr></thead>
-            <tbody>
-              {shown.map((c) => (
-                <tr key={c.id}>
-                  <td>{serial(c)}</td>
-                  <td>
-                    <b>{c.full_name || "(name not given)"}</b>
-                    {c.warnings.map((warning) => <div key={warning} className="warn small">{warning}</div>)}
-                    {/* Screened CVs are shown in the Screening card below. Here only: not screened yet, or needs a look. */}
-                    {c.screening_state === "waiting" && <div><span className="badge">waiting for screening</span></div>}
-                    {c.screening_state === "needs_review" && (
-                      <div className="small">
-                        <span className="badge draft">needs a look</span>
-                        <div className="warn small">{c.screening_reason}</div>
-                        <button className="link" onClick={() => screenAgain(c)} disabled={busy !== ""}>
-                          {busy === `screen-${c.id}` ? "Screening..." : "Screen again"}</button>{" "}
-                        <DecisionControl candidateId={c.id} final="needs_review" decided={false}
-                                         onDone={(answer) => { setResult(answer); candidatesApi.list(jobId).then(setCandidates); }} />
-                      </div>
-                    )}
-                  </td>
-                  <td className="small">{c.email}</td>
-                  <td className="small">{c.phone}</td>
-                  <td className="small">
-                    {c.has_file ? <button className="link" onClick={() => candidatesApi.downloadCv(c).catch((e) => setError(e.message))}>{c.original_file_name || "Download"}</button>
-                                : "(no file)"}
-                    {c.saved_as && <div className="muted">{c.saved_as}</div>}
-                    {c.text_source === "ai_read" && <div className="muted">Text read by the AI from the PDF during screening (scanned or picture CV)</div>}
-                  </td>
-                  <td className="small"><span className={`badge ${c.source === "upload" ? "draft" : "approved"}`}>{SOURCES[c.source] || c.source}</span>
-                    {c.applied_at && <div className="muted">{c.applied_at}</div>}</td>
-                  <td><button className="link" onClick={() => setToDelete(c)}>Delete</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable rows={shown} empty="No candidates here yet." columns={[
+          { key: "number", title: "#", render: (c) => serial(c) },
+          { key: "name", title: "Name", render: (c) => (
+            <>
+              <b>{c.full_name || "(name not given)"}</b>
+              {c.warnings.map((warning) => <div key={warning} className="warn small">{warning}</div>)}
+              {/* Screened CVs are shown in the Screening card below. Here only: not screened yet, or needs a look. */}
+              {c.screening_state === "waiting" && <div><span className="badge">waiting for screening</span></div>}
+              {c.screening_state === "needs_review" && (
+                <div className="small">
+                  <span className="badge draft">needs a look</span>
+                  <div className="warn small">{c.screening_reason}</div>
+                  <button className="link" onClick={() => screenAgain(c)} disabled={busy !== ""}>
+                    {busy === `screen-${c.id}` ? "Screening..." : "Screen again"}</button>{" "}
+                  <DecisionControl candidateId={c.id} final="needs_review" decided={false}
+                                   onDone={(answer) => { setResult(answer); candidatesApi.list(jobId).then(setCandidates); }} />
+                </div>
+              )}
+            </>
+          ) },
+          { key: "email", title: "Email", className: "small" },
+          { key: "phone", title: "Phone", className: "small" },
+          { key: "cv", title: "CV file", className: "small", render: (c) => (
+            <>
+              {c.has_file ? (
+                <>
+                  <div>{c.original_file_name || "CV file"}</div>
+                  <button className="link" onClick={() => candidatesApi.viewCv(c).catch((e) => setError(e.message))}>View CV</button>{" · "}
+                  <button className="link" onClick={() => candidatesApi.downloadCv(c).catch((e) => setError(e.message))}>Download</button>
+                </>
+              ) : "(no file)"}
+              {c.saved_as && <div className="muted">{c.saved_as}</div>}
+              {c.text_source === "ai_read" && <div className="muted">Text read by the AI from the PDF during screening (scanned or picture CV)</div>}
+            </>
+          ) },
+          { key: "from", title: "From", className: "small", render: (c) => (
+            <>
+              <span className={`badge ${c.source === "upload" ? "draft" : "approved"}`}>{SOURCES[c.source] || c.source}</span>
+              {c.applied_at && <div className="muted">{c.applied_at}</div>}
+            </>
+          ) },
+          { key: "delete", title: "", render: (c) => <button className="link" onClick={() => setToDelete(c)}>Delete</button> },
+        ]} />
       </div>
 
       <ScreeningCard jobId={jobId} candidates={candidates}

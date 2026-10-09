@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "./jobsApi.js";
 import CompanyDocumentsPanel from "../job_library/CompanyDocumentsPanel.jsx";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
+import DataTable from "../../shared/utils/DataTable.jsx";
 
 const PLACES = { blogger: "Blogger blog" };
 
@@ -66,25 +67,15 @@ export default function JobsPage() {
 
             <div className="section">
               <h3>Posts of this job</h3>
-              {postings.length === 0 ? <p className="muted">Not posted yet.</p> : (
-                <table>
-                  <thead><tr><th>When</th><th>Where</th><th>Result</th><th>Details</th></tr></thead>
-                  <tbody>
-                    {postings.map((p) => (
-                      <tr key={p.id}>
-                        <td>{new Date(p.created_at).toLocaleString()}</td>
-                        <td>{PLACES[p.channel] || p.channel}</td>
-                        <td><span className={`badge ${p.status === "posted" ? "done" : "failed"}`}>{p.status}</span></td>
-                        <td className="small">
-                          {p.status === "failed" ? p.error
-                            : p.message_link ? <a href={p.message_link} target="_blank" rel="noreferrer">Open the post</a>
-                            : "Posted"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+              <DataTable rows={postings} empty="Not posted yet." columns={[
+                { key: "when", title: "When", render: (p) => new Date(p.created_at).toLocaleString() },
+                { key: "where", title: "Where", render: (p) => PLACES[p.channel] || p.channel },
+                { key: "result", title: "Result",
+                  render: (p) => <span className={`badge ${p.status === "posted" ? "done" : "failed"}`}>{p.status}</span> },
+                { key: "details", title: "Details", className: "small",
+                  render: (p) => (p.status === "failed" ? p.error
+                    : p.message_link ? <a href={p.message_link} target="_blank" rel="noreferrer">Open the post</a> : "Posted") },
+              ]} />
             </div>
           </>
         )}

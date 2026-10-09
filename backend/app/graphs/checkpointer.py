@@ -8,8 +8,13 @@ checkpoint_blobs, checkpoint_migrations) the first time; they are not part of ou
 The tables are made when the app starts (main.py), before any other database work: LangGraph builds some of its
 indexes "concurrently", which waits until no other database transaction is open.
 Tests that use SQLite keep paused workflows in memory instead (InMemorySaver).
+
+The assistant chat keeps its memory in the same tables, but its agent runs async (the MCP tools are async), and
+PostgresSaver only works in normal code. async_checkpointer() opens LangGraph's AsyncPostgresSaver on the same
+tables for one chat message.
 """
 import threading
+from contextlib import asynccontextmanager
 
 from app.core import config
 
@@ -34,3 +39,16 @@ def checkpointer():
                 from langgraph.checkpoint.memory import InMemorySaver
                 _saver = InMemorySaver()
         return _saver
+
+
+@asynccontextmanager
+async def async_checkpointer():
+    """The checkpointer for async code (the assistant agent), opened for one run. Same tables as checkpointer()."""
+    saver = checkpointer()                            # makes sure the tables exist (or the shared memory one in tests)
+    if not config.DATABASE_URL.startswith("postgresql"):
+        yield saver                                   # InMemorySaver works in async code too
+        return
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    address = config.DATABASE_URL.replace("postgresql+psycopg://", "postgresql://", 1)
+    async with AsyncPostgresSaver.from_conn_string(address) as async_saver:
+        yield async_saver

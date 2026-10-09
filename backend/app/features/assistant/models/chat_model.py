@@ -19,6 +19,9 @@ class ChatConversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     opened_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))   # set by "New chat" and "Continue this chat"
+    # LangGraph's memory of this chat: the agent's thread in the checkpointer, and the last chat line it was given
+    agent_thread: str = Field(default="")             # "" = no thread yet (a new one is made with the next message)
+    agent_seen_id: int = Field(default=0)             # chat_message.id of the last line the agent already has
 
 
 class ChatMessage(SQLModel, table=True):

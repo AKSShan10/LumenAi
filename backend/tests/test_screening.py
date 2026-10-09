@@ -247,7 +247,8 @@ def test_met_partially_met_and_unmet(client, job):
     screen(client, job)
     row = results(client, job)["Sadia Rahman"]
     by_name = {m["requirement"]: m for m in row["matches"]}
-    assert by_name["Python"]["status"] == "met" and by_name["Python"]["how"] == "listed in the CV's skills"
+    assert by_name["Python"]["status"] == "met" and "python" in by_name["Python"]["how"].lower()   # the AI's reason
+    assert by_name["Python"]["evidence"] and by_name["Python"]["verified"] is True
     assert by_name["PostgreSQL"]["status"] == "partial" and "MySQL" in by_name["PostgreSQL"]["evidence"]
     assert by_name["2+ years of experience"]["status"] == "partial"
     assert by_name["Docker"]["status"] == "unmet"                                         # nice to have: no harm
@@ -264,7 +265,7 @@ def test_meaning_counts_and_invented_evidence_does_not(client, make_job, monkeyp
     by_name = {m["requirement"]: m for m in row["matches"]}
     assert by_name["Python or JavaScript"]["status"] == "met"                            # either one is enough
     assert by_name["Test planning"]["status"] == "met" and by_name["Test planning"]["evidence"]   # words from the CV
-    assert by_name["Test planning"]["how"] == "the AI found that the CV means the same"
+    assert by_name["Test planning"]["how"] and by_name["Test planning"]["verified"] is True   # the AI's reason
     assert row["result"] == "passed"
 
     real = cv_screening_graph.llm_json                                                    # the AI claims words not in the CV
@@ -279,8 +280,33 @@ def test_meaning_counts_and_invented_evidence_does_not(client, make_job, monkeyp
     upload(client, qa, "x.txt", cv("Imran Ali", "Ruby", 3, "BSc in CSE"), "Imran Ali")
     client.post(f"/api/jobs/{qa['id']}/screening", json={})
     row = {r["full_name"]: r for r in client.get(f"/api/jobs/{qa['id']}/screening").json()}["Imran Ali"]
-    assert {m["requirement"]: m["status"] for m in row["matches"]}["Test planning"] == "unmet"
-    assert row["result"] == "excluded"
+    planning = {m["requirement"]: m for m in row["matches"]}["Test planning"]
+    assert planning["status"] == "met" and planning["verified"] is False   # the AI is trusted; the quote is marked
+    assert row["result"] == "passed"
+
+
+def test_the_ai_decides_met_not_the_code(client, make_job, monkeypatch):
+    """The semantic matching is the AI's: even a skill named in the CV is Unmet if the AI says so
+    (for example "Interested in learning Kubernetes"). A must-have the AI did not judge goes to a person."""
+    devops = make_job(approve=True, title="DevOps Engineer", description="A made-up DevOps job.",
+                      required_skills=["Kubernetes", "Docker"], min_years=0)
+    real = cv_screening_graph.llm_json
+
+    def judged(instructions, data):
+        answer = real(instructions, data)
+        if instructions == cv_screening_graph.EXTRACT_PROFILE_PROMPT:
+            answer["requirement_checks"] = [{"requirement": "Kubernetes", "status": "unmet",
+                                             "reason": "The CV only says the person wants to learn it.", "evidence": ""}]
+        return answer
+    monkeypatch.setattr(cv_screening_graph, "llm_json", judged)
+    upload(client, devops, "k.txt", cv("Nadia Karim", "Docker", 3, "BSc in CSE",
+                                       extra="Interested in learning Kubernetes."), "Nadia Karim")
+    client.post(f"/api/jobs/{devops['id']}/screening", json={})
+    row = {r["full_name"]: r for r in client.get(f"/api/jobs/{devops['id']}/screening").json()}["Nadia Karim"]
+    by_name = {m["requirement"]: m for m in row["matches"]}
+    assert by_name["Kubernetes"]["status"] == "unmet" and "wants to learn" in by_name["Kubernetes"]["how"]
+    assert by_name["Docker"]["status"] == "unchecked"                  # the AI left Docker out
+    assert row["result"] == "excluded" and row["reason"] == "Missing must-have: Kubernetes."
 
 
 # ---------- ATS match score ----------

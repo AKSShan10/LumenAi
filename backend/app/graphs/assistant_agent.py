@@ -10,12 +10,18 @@ Where the tools come from:
 
 The one fixed rule: the AI cannot approve a job or post it to the blog. It can only ask. The interviewer
 answers Yes or No on the screen, and then the backend code does it (assistant_service.confirm_action).
+
+Memory: every chat has its own LangGraph thread (thread_id), kept by the checkpointer in PostgreSQL. The agent
+remembers the whole chat by itself, also the tools it used and their answers; each message only gives it the
+new chat lines. So that a long chat does not use too many tokens, the model is shown only the last
+MAX_AI_MESSAGES messages of the thread (keep_recent); the full chat stays in the thread and in chat_message.
 """
 import asyncio
 import logging
 import os
 import sys
 
+from langchain_core.messages import trim_messages
 from langchain_core.tools import tool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
@@ -26,12 +32,14 @@ from app.core.database import engine
 from app.features.assistant.models import AssistantAction
 from app.features.jobs.models import Job
 from app.graphs.assistant_prompts import ASSISTANT_PROMPT
+from app.graphs.checkpointer import async_checkpointer
 
 log = logging.getLogger("assistant")
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TIMEOUT_SEC = 180
 MAX_STEPS = 16                   # how many AI and tool steps one message may take
+MAX_AI_MESSAGES = 30             # how many of the newest thread messages the model sees (tool answers included)
 
 
 def mcp_servers() -> dict:
@@ -119,14 +127,27 @@ def _text(content) -> str:
     return str(content or "").strip()
 
 
-async def _run(messages: list[dict]) -> dict:
+def keep_recent(state: dict) -> dict:
+    """Runs before every model call: the model sees only the newest messages of the thread, starting with one of
+    the interviewer's messages (so a tool answer is never cut off from the tool call it belongs to).
+    The thread itself keeps everything."""
+    recent = trim_messages(state["messages"], strategy="last", token_counter=len, max_tokens=MAX_AI_MESSAGES,
+                           start_on="human", allow_partial=False)
+    return {"llm_input_messages": recent or state["messages"][-1:]}
+
+
+async def _run(messages: list[dict], thread_id: str) -> dict:
     client = MultiServerMCPClient(mcp_servers())
     mcp_tools = [t for t in await client.get_tools() if t.name not in HIDDEN_TOOLS]
-    # create_react_agent is the helper from the course. Newer LangGraph versions print a note that it moved;
-    # it still works the same way.
-    agent = create_react_agent(chat_model(), mcp_tools + LOCAL_TOOLS, prompt=ASSISTANT_PROMPT)
-    result = await asyncio.wait_for(agent.ainvoke({"messages": messages}, {"recursion_limit": MAX_STEPS}), TIMEOUT_SEC)
-    new = result["messages"][len(messages):]                      # what the agent added in this turn
+    settings = {"configurable": {"thread_id": thread_id}, "recursion_limit": MAX_STEPS}
+    async with async_checkpointer() as saver:
+        # create_react_agent is the helper from the course. Newer LangGraph versions print a note that it moved;
+        # it still works the same way. With the checkpointer it continues the chat's thread.
+        agent = create_react_agent(chat_model(), mcp_tools + LOCAL_TOOLS, prompt=ASSISTANT_PROMPT,
+                                   pre_model_hook=keep_recent, checkpointer=saver)  # ----------------  Need to reviw this part in weekend
+        before = len((await agent.aget_state(settings)).values.get("messages", []))   # what the thread had already
+        result = await asyncio.wait_for(agent.ainvoke({"messages": messages}, settings), TIMEOUT_SEC)
+    new = result["messages"][before + len(messages):]              # what the agent added in this turn
     used = [call["name"] for message in new for call in (getattr(message, "tool_calls", None) or [])]
     return {"answer": _text(new[-1].content) if new else "", "tools": used, "error": ""}
 
@@ -142,13 +163,13 @@ def _plain_reason(problem: Exception) -> str:
     return f"{name} while the assistant was working (see the backend log)"
 
 
-def run_assistant(messages: list[dict]) -> dict:
-    """Runs the agent for one conversation. messages = [{"role": "user" | "assistant", "content": "..."}].
-    Returns {"answer", "tools", "error"}. Never raises."""
+def run_assistant(messages: list[dict], thread_id: str) -> dict:
+    """Runs the agent in the chat's thread. messages = the NEW chat lines only, [{"role": "user" | "assistant",
+    "content": "..."}]; the thread already has the earlier ones. Returns {"answer", "tools", "error"}. Never raises."""
     if config.LLM_PROVIDER != "fake" and not config.LLM_API_KEY:
         return {"answer": "", "tools": [], "error": "LLM_API_KEY is not set in .env"}
     try:
-        return asyncio.run(_run(messages))
+        return asyncio.run(_run(messages, thread_id))
     except asyncio.TimeoutError:
         return {"answer": "", "tools": [], "error": "the assistant took too long to answer. Try again"}
     except Exception as problem:                      # never str(problem) to the screen: it can hold a key

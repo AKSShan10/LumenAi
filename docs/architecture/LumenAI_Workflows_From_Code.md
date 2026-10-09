@@ -94,7 +94,7 @@ graph TD;
 
 Code: `backend/app/graphs/assistant_agent.py`
 
-Steps: `agent`, `tools`
+Steps: `agent`, `tools`, `pre_model_hook`
 
 ```mermaid
 ---
@@ -106,11 +106,13 @@ graph TD;
 	__start__([<p>__start__</p>]):::first
 	agent(agent)
 	tools(tools)
+	pre_model_hook(pre_model_hook)
 	__end__([<p>__end__</p>]):::last
-	__start__ --> agent;
+	__start__ --> pre_model_hook;
 	agent -.-> __end__;
 	agent -.-> tools;
-	tools --> agent;
+	pre_model_hook --> agent;
+	tools --> pre_model_hook;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

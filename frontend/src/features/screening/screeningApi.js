@@ -1,7 +1,8 @@
 // CV screening of a job: the AI reads each CV, the backend code checks the job's requirements
-import { json, post, put, request } from "../../shared/api/httpClient.js";
+import { json, openInNewTab, post, put, request } from "../../shared/api/httpClient.js";
 
 export const screeningApi = {
+  viewCv: (candidateId, name) => openInNewTab(`/api/candidates/${candidateId}/cv`, `${name || "candidate"} CV`),
   results: (jobId) => request(`/api/jobs/${jobId}/screening`),
   status: (jobId) => request(`/api/jobs/${jobId}/screening/status`),     // progress of the latest screening run
   screen: (jobId, again = false) => request(`/api/jobs/${jobId}/screening`, json({ again })),   // again: every CV again

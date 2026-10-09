@@ -1,10 +1,9 @@
-// Candidates of a job: the response sheet link, checking and fetching applications, manual upload, the saved CVs
-import { del, download, post, put, request } from "../../shared/api/httpClient.js";
+// Candidates of a job: checking and fetching applications from the job's Google Form, manual upload, the saved CVs
+import { del, download, openInNewTab, post, request } from "../../shared/api/httpClient.js";
 
 export const candidatesApi = {
   list: (jobId) => request(`/api/jobs/${jobId}/candidates`),
-  saveSheet: (jobId, sheetUrl) => request(`/api/jobs/${jobId}/response-sheet`, put({ sheet_url: sheetUrl })),
-  check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // reads only the rows after the checkpoint
+  check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // looks only at the answers after the checkpoint
   recheck: (jobId) => request(`/api/jobs/${jobId}/applications/recheck`, post), // moves the checkpoint back to the start
   fetchNew: (jobId) => request(`/api/jobs/${jobId}/applications/fetch`, post), // downloads the new CVs
   upload: (jobId, file, person) => {
@@ -15,6 +14,7 @@ export const candidatesApi = {
     form.append("phone", person.phone || "");
     return request(`/api/jobs/${jobId}/candidates/upload`, { method: "POST", body: form });
   },
+  viewCv: (candidate) => openInNewTab(`/api/candidates/${candidate.id}/cv`, candidate.original_file_name || `candidate_${candidate.number}`),
   downloadCv: (candidate) => download(`/api/candidates/${candidate.id}/cv`, candidate.original_file_name || `candidate_${candidate.number}`),
   remove: (id) => request(`/api/candidates/${id}`, del),
 };

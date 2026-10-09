@@ -17,13 +17,14 @@ sys.path.insert(0, str(BACKEND))                      # so "import app..." works
 from langgraph.prebuilt import create_react_agent  # noqa: E402
 
 from app.ai.fake_chat_model import FakeToolChatModel  # noqa: E402
-from app.graphs.assistant_agent import LOCAL_TOOLS  # noqa: E402
+from app.graphs.assistant_agent import LOCAL_TOOLS, keep_recent  # noqa: E402
 from app.graphs.cv_screening_graph import cv_screening_graph  # noqa: E402
 from app.graphs.job_description_graph import job_description_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
-# agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
-assistant_agent_graph = create_react_agent(FakeToolChatModel(), LOCAL_TOOLS)
+# keep_recent -> agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
+# (In the app it also has the checkpointer: each chat is one thread, so the agent remembers the chat.)
+assistant_agent_graph = create_react_agent(FakeToolChatModel(), LOCAL_TOOLS, pre_model_hook=keep_recent)
 
 # Each feature adds its workflow here: (title, file, compiled graph)
 WORKFLOWS = [

@@ -8,13 +8,14 @@ from sqlmodel import Session, select
 from app.core import config
 from app.core.database import engine
 from app.features.candidates.models import Candidate
+from app.features.jobs.models import JobPosting
 
 from app.features.candidates.services import application_service
-from app.features.candidates.services.application_service import SheetProblem, read_applications
+from app.features.candidates.services.application_service import FormProblem, read_applications
 from app.features.candidates.services.cv_storage_service import cv_file, storage_dir
 from app.features.candidates.services.drive_service import DriveError, file_id_from
 
-SHEET = "https://docs.google.com/spreadsheets/d/made-up-sheet-id/edit"
+FORM = "https://docs.google.com/forms/d/e/made-up-public-id/viewform"      # the "Apply now" link of the job post
 HEADER = ("Timestamp", "Full Name", "Email", "Phone Number", "CV")
 
 
@@ -22,11 +23,19 @@ def link(file_name: str) -> str:
     return f"https://drive.google.com/open?id={file_name}"
 
 
+def posted_with(job_id: int, form_link: str) -> None:
+    """A post of the job with this Google Form as its "Apply now" link, as the Assistant saves it."""
+    with Session(engine) as session:
+        session.add(JobPosting(job_id=job_id, text="A made-up job post.", apply_url=form_link, message_link="https://x"))
+        session.commit()
+
+
 @pytest.fixture
 def approved_job(client, make_job) -> dict:
-    """An approved job whose response sheet link is saved."""
+    """An approved job that was posted with its Google Form link."""
     job = make_job(approve=True, title="Backend Developer", description="A made-up job used to test collecting CVs.")
-    return client.put(f"/api/jobs/{job['id']}/response-sheet", json={"sheet_url": SHEET}).json()
+    posted_with(job["id"], FORM)
+    return client.get(f"/api/jobs/{job['id']}").json()
 
 
 @pytest.fixture
@@ -61,7 +70,7 @@ def candidates(client, job) -> list[dict]:
     return client.get(f"/api/jobs/{job['id']}/candidates").json()
 
 
-# ---------- reading the sheet (plain Python) ----------
+# ---------- reading the form's answers (plain Python) ----------
 
 def test_file_id_from_google_links():
     assert file_id_from("https://drive.google.com/open?id=1AbC_d-9") == "1AbC_d-9"
@@ -80,15 +89,15 @@ def test_columns_are_found_by_their_titles():
     yours = read_applications([list(HEADER), ["t1", "Rahim Uddin", "r@example.com", "01700000001", link("r.pdf")]])[0]
     assert (yours.name, yours.email, yours.phone, yours.file_id) == ("Rahim Uddin", "r@example.com", "01700000001", "r.pdf")
 
-    with pytest.raises(SheetProblem) as problem:
+    with pytest.raises(FormProblem) as problem:
         read_applications([["Timestamp", "Question 1", "Question 2"], ["x", "y", "z"]])
     assert "name" in str(problem.value) and "Question 1" in str(problem.value)       # says what to change
-    with pytest.raises(SheetProblem):
+    with pytest.raises(FormProblem):
         read_applications([])
 
 
 def test_unusual_rows_get_a_warning():
-    rows = [["Timestamp", "Full name", "Email", "CV"],                                # a sheet without a phone column works too
+    rows = [["Timestamp", "Full name", "Email", "CV"],                                # a form without a phone question works too
             ["t1", "No File", "nofile@example.com", ""],
             ["t2", "Two Files", "two@example.com", f"{link('one.pdf')}, {link('two.pdf')}"],
             ["t3", "Bad Email", "not-an-email", link("bad.pdf")],
@@ -182,15 +191,15 @@ def test_problems_are_flagged_for_a_person(client, approved_job, fake_drive):
     assert by_time["t5"]["status"] == "new" and "more than once" in by_time["t5"]["warnings"][0]
 
 
-def test_a_sheet_that_cannot_be_used_is_explained(client, approved_job, fake_drive, monkeypatch):
+def test_a_form_that_cannot_be_used_is_explained(client, approved_job, fake_drive, monkeypatch):
     fake_drive([["x", "y", "z"]], {}, header=("Timestamp", "Question 1", "Question 2"))
     for result in (check(client, approved_job), fetch(client, approved_job)):
         assert result["ok"] is False and "name" in result["message"]
     assert candidates(client, approved_job) == []
 
-    def broken(sheet, from_row):
+    def broken(form_link, from_row, form_id):
         raise DriveError("Google Drive could not be reached (ConnectTimeout)")
-    monkeypatch.setattr(application_service.drive_service, "read_sheet_rows", broken)
+    monkeypatch.setattr(application_service.drive_service, "read_form_rows", broken)
     result = fetch(client, approved_job)
     assert result["ok"] is False and "could not be reached" in result["message"]
 
@@ -241,7 +250,7 @@ def test_a_name_in_another_alphabet_still_gets_a_file(client, approved_job):
         assert row.file_path == f"cvs/job_{row.job_id}/uploaded/candidate_{row.number}.txt" and cv_file(row).is_file()
 
 
-# ---------- the checkpoint: only the rows after it are read ----------
+# ---------- the checkpoint: only the answers after it are looked at ----------
 
 def person(n: int) -> list[str]:
     return [f"t{n}", f"Person{n} Family{n}", f"p{n}@example.com", str(n), link(f"{n}.txt")]
@@ -253,18 +262,18 @@ def cv_files(count: int) -> dict[str, bytes]:
 
 @pytest.fixture
 def asked_rows(monkeypatch) -> list[int]:
-    """Remembers from which sheet row each read started."""
-    asked, real = [], application_service.drive_service.read_sheet_rows
+    """Remembers from which answer row each read started."""
+    asked, real = [], application_service.drive_service.read_form_rows
 
-    def remember(sheet, from_row=2):
+    def remember(form_link, from_row=2, form_id=""):
         asked.append(from_row)
-        return real(sheet, from_row)
-    monkeypatch.setattr(application_service.drive_service, "read_sheet_rows", remember)
+        return real(form_link, from_row, form_id)
+    monkeypatch.setattr(application_service.drive_service, "read_form_rows", remember)
     return asked
 
 
 def test_the_checkpoint_moves_forward_and_old_rows_are_not_read_again(client, approved_job, fake_drive, asked_rows):
-    assert approved_job["sheet_checkpoint_row"] == 1                                  # row 1 holds the titles
+    assert approved_job["form_checkpoint_row"] == 1                                   # row 1 holds the titles
     fake_drive([person(1), person(2), person(3)], cv_files(5))
 
     answer = check(client, approved_job)                                              # the first check starts at row 2
@@ -293,7 +302,7 @@ def test_the_checkpoint_waits_for_cvs_that_are_not_fetched_yet(client, approved_
     assert len(candidates(client, approved_job)) == 5
 
 
-def test_check_the_whole_sheet_again(client, approved_job, fake_drive, asked_rows):
+def test_check_every_answer_again(client, approved_job, fake_drive, asked_rows):
     fake_drive([person(1), person(2)], cv_files(3))
     fetch(client, approved_job)
     # somebody typed a late answer into row 2, above the checkpoint: a normal check does not see it
@@ -301,18 +310,21 @@ def test_check_the_whole_sheet_again(client, approved_job, fake_drive, asked_row
     answer = check(client, approved_job)
     assert (answer["new"], answer["rows_read"]) == (0, 1)                             # only row 4 was read; that person is saved
     answer = client.post(f"/api/jobs/{approved_job['id']}/applications/recheck").json()
-    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 3)        # the whole sheet, and only Person3 is new
+    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 3)        # every answer, and only Person3 is new
     assert asked_rows[-1] == 2
     assert fetch(client, approved_job)["added"] == 1
     assert len(candidates(client, approved_job)) == 3                                 # nobody twice
 
 
-def test_another_sheet_link_starts_at_the_first_row_again(client, approved_job, fake_drive):
+def test_a_new_form_link_starts_at_the_first_answer_again(client, approved_job, fake_drive):
     fake_drive([person(1), person(2)], cv_files(2))
     fetch(client, approved_job)
-    put = lambda url: client.put(f"/api/jobs/{approved_job['id']}/response-sheet", json={"sheet_url": url}).json()   # noqa: E731
-    assert put(SHEET)["sheet_checkpoint_row"] == 3                                    # the same link: nothing changes
-    assert put(SHEET + "?another")["sheet_checkpoint_row"] == 1
+    answer = check(client, approved_job)
+    assert answer["checkpoint_row"] == 3 and answer["form_link"] == FORM
+    posted_with(approved_job["id"], FORM.replace("made-up-public-id", "another-form"))    # posted again, another form
+    answer = check(client, approved_job)
+    assert answer["form_link"].endswith("/another-form/viewform") and answer["rows_read"] == 2   # from the first answer
+    assert answer["new"] == 0                                                         # saved people are not added twice
 
 
 # ---------- the candidate number counts inside each job ----------
@@ -394,15 +406,14 @@ def test_rules(client, anonymous, make_job):
     assert client.post(f"/api/jobs/{draft['id']}/applications/fetch").status_code == 400      # not approved
     assert client.get(f"/api/jobs/{draft['id']}/applications/check").status_code == 400
     assert client.post(f"/api/jobs/{draft['id']}/candidates/upload", files={"file": ("a.txt", b"x")}).status_code == 400
-    assert client.put(f"/api/jobs/{draft['id']}/response-sheet", json={"sheet_url": "not a link"}).status_code == 422
-    approved = make_job(approve=True, title="No Sheet Tester", description="A made-up job without a sheet link.")
-    assert "Save the link" in client.get(f"/api/jobs/{approved['id']}/applications/check").json()["message"]
+    approved = make_job(approve=True, title="Not Posted Tester", description="A made-up job that was not posted.")
+    assert "Post this job first" in client.get(f"/api/jobs/{approved['id']}/applications/check").json()["message"]
+    assert client.put(f"/api/jobs/{approved['id']}/response-sheet", json={"sheet_url": FORM}).status_code in (404, 405)
     assert client.post("/api/jobs/999999/applications/fetch").status_code == 404
     assert client.get("/api/jobs/999999/candidates").status_code == 404
     for call in (anonymous.post("/api/jobs/1/applications/fetch"), anonymous.get("/api/jobs/1/applications/check"),
                  anonymous.get("/api/jobs/1/candidates"), anonymous.get("/api/candidates/1/cv"),
-                 anonymous.delete("/api/candidates/1"), anonymous.get("/api/drive-check"),
-                 anonymous.put("/api/jobs/1/response-sheet", json={"sheet_url": SHEET})):
+                 anonymous.delete("/api/candidates/1"), anonymous.get("/api/drive-check")):
         assert call.status_code == 401
 
 
@@ -413,18 +424,33 @@ def test_settings_check(client):
 
 # ---------- the Google path, with a pretend Google answering ----------
 
-SHEET_ROWS = [["Timestamp", "Full Name", "Email", "Phone Number", "CV"],
-              ["t1", "Uddin, Rahim", "rahim@example.com", 1700000001, "https://drive.google.com/open?id=FILE1"],
-              ["t2", "Karima Akter", "karima@example.com", "01700000002", "https://drive.google.com/open?id=DOC1"]]
+FORM_ITEMS = [{"title": "Full Name", "questionItem": {"question": {"questionId": "q1"}}},
+              {"title": "About you", "pageBreakItem": {}},                          # not a question: no column
+              {"title": "Email", "questionItem": {"question": {"questionId": "q2"}}},
+              {"title": "Phone Number", "questionItem": {"question": {"questionId": "q3"}}},
+              {"title": "CV", "questionItem": {"question": {"questionId": "q4", "fileUploadQuestion": {}}}}]
+
+
+def text(value) -> dict:
+    return {"textAnswers": {"answers": [{"value": value}]}}
+
+
+FORM_ANSWERS = [   # Google sends them in any order; the newest is first here
+    {"responseId": "r2", "createTime": "2026-10-09T10:05:00Z", "lastSubmittedTime": "2026-10-09T10:05:00Z",
+     "answers": {"q1": text("Karima Akter"), "q2": text("karima@example.com"), "q3": text("01700000002"),
+                 "q4": {"fileUploadAnswers": {"answers": [{"fileId": "DOC1", "fileName": "Karima CV"}]}}}},
+    {"responseId": "r1", "createTime": "2026-10-09T10:00:00Z", "lastSubmittedTime": "2026-10-09T10:00:00Z",
+     "answers": {"q1": text("Uddin, Rahim"), "q2": text("rahim@example.com"), "q3": text("1700000001"),
+                 "q4": {"fileUploadAnswers": {"answers": [{"fileId": "FILE1", "fileName": "Rahim CV.pdf"}]}}}}]
 
 
 class PretendGoogle:
-    """Answers like the Google Sheets API (one sheet) and the Google Drive API (two files)."""
+    """Answers like the Google Drive API (two forms, two files) and the Google Forms API (one form with answers)."""
     def __init__(self):
         self.asked = []
 
     def get(self, url, params=None, timeout=None):
-        self.asked.append((re.split(r"/drive/v3|/v4", url)[1], dict(params or {})))
+        self.asked.append((re.split(r"/drive/v3|/v1", url)[1], dict(params or {})))
         path = self.asked[-1][0]
 
         class Answer:
@@ -434,14 +460,17 @@ class PretendGoogle:
             def json(self):
                 return self._json
         answer = Answer()
-        if path == "/spreadsheets/SHEET1/values:batchGet":
-            first = int(params["ranges"][1][1:].split(":")[0])                        # "A3:ZZ" -> 3
-            answer._json = {"valueRanges": [{"range": "Sheet1!A1:Z1", "values": SHEET_ROWS[:1]},
-                                            {"range": "Sheet1!A3:ZZ", "values": SHEET_ROWS[first - 1:]}]}
-            if not SHEET_ROWS[first - 1:]:
-                del answer._json["valueRanges"][1]["values"]                          # Google leaves an empty range out
-        elif path == "/spreadsheets/NOT_A_SHEET/values:batchGet":
-            answer.status_code = 400
+        if path == "/files" and "google-apps.form" in str((params or {}).get("q", "")):
+            answer._json = {"files": [{"id": "LOCKED"}, {"id": "OTHERFORM"}, {"id": "FORM1"}]}
+        elif path == "/forms/LOCKED":                                                 # shared in Drive, not as Editor
+            answer.status_code = 403
+            answer._json = {"error": {"message": "LOCKED: Not authorized (or may not exist)"}}
+        elif path == "/forms/OTHERFORM":
+            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/OTHER/viewform"}
+        elif path == "/forms/FORM1":
+            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/PUBLIC1/viewform", "items": FORM_ITEMS}
+        elif path == "/forms/FORM1/responses":
+            answer._json = {"responses": FORM_ANSWERS}
         elif path == "/files/FILE1":
             answer._json = {"name": "Rahim CV.pdf", "mimeType": "application/pdf"}
             answer.content = b"%PDF-made-up"
@@ -454,6 +483,13 @@ class PretendGoogle:
         return answer
 
 
+def test_form_links_are_understood():
+    from app.features.candidates.services.drive_service import form_link_ids
+    assert form_link_ids("https://docs.google.com/forms/d/e/PUBLIC1/viewform?usp=sf_link") == ("", "PUBLIC1")
+    assert form_link_ids("https://docs.google.com/forms/d/FORM1/edit") == ("FORM1", "")
+    assert form_link_ids("https://example.com/apply") == ("", "")
+
+
 def test_google_answers_are_read_correctly(monkeypatch):
     from app.core import config
     from app.features.candidates.services import drive_service
@@ -461,28 +497,44 @@ def test_google_answers_are_read_correctly(monkeypatch):
     monkeypatch.setattr(config, "DRIVE_PROVIDER", "google")
     monkeypatch.setattr(drive_service, "_session", lambda: google)
 
-    sheet = "https://docs.google.com/spreadsheets/d/SHEET1/edit#gid=0"
-    header, rows = drive_service.read_sheet_rows(sheet)
-    assert header == SHEET_ROWS[0] and len(rows) == 2 and rows[0][3] == "1700000001"      # every cell becomes text
-    assert read_applications([header] + rows)[0].file_id == "FILE1"
+    # the public link of the post: the form is found among the forms shared with the service account
+    # (a form that cannot be opened is skipped, the search goes on)
+    header, rows, form_id = drive_service.read_form_rows("https://docs.google.com/forms/d/e/PUBLIC1/viewform")
+    assert form_id == "FORM1"
+    assert header == ["Timestamp", "Full Name", "Email", "Phone Number", "CV"]      # the question titles
+    assert [row[1] for row in rows] == ["Uddin, Rahim", "Karima Akter"]                 # oldest answer first
+    assert rows[0][4] == "FILE1" and rows[0][0] == "2026-10-09T10:00:00Z"
+    first = read_applications([header] + rows)[0]
+    assert (first.row, first.name, first.file_id, first.phone) == (2, "Uddin, Rahim", "FILE1", "1700000001")
 
-    # with a checkpoint, Google is asked for the title row and the rows after it only
-    header, rows = drive_service.read_sheet_rows(sheet, from_row=3)
-    assert google.asked[-1] == ("/spreadsheets/SHEET1/values:batchGet", {"ranges": ["1:1", "A3:ZZ"]})
-    assert header == SHEET_ROWS[0] and [row[1] for row in rows] == ["Karima Akter"]
-    assert read_applications([header] + rows, first_row=3)[0].row == 3
-    assert drive_service.read_sheet_rows(sheet, from_row=4) == (SHEET_ROWS[0], [])        # nothing new
+    # next time the form's id is known: no search, and only the answers after the checkpoint are returned
+    asked_before = len(google.asked)
+    header, rows, form_id = drive_service.read_form_rows("https://docs.google.com/forms/d/e/PUBLIC1/viewform", 3, "FORM1")
+    assert not any(path == "/files" for path, _ in google.asked[asked_before:])
+    assert [row[1] for row in rows] == ["Karima Akter"] and read_applications([header] + rows, first_row=3)[0].row == 3
+    assert drive_service.read_form_rows("x", 4, "FORM1")[1] == []                         # nothing new
+
+    # an editor's link holds the form's id itself; a short forms.gle link is followed to the real address
+    assert drive_service.read_form_rows("https://docs.google.com/forms/d/FORM1/edit")[2] == "FORM1"
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda link, **kw: type("Answer", (), {
+        "url": "https://docs.google.com/forms/d/e/PUBLIC1/viewform?usp=send_form"})())
+    assert drive_service.read_form_rows("https://forms.gle/made-up")[2] == "FORM1"
 
     assert drive_service.download_file("FILE1") == ("Rahim CV.pdf", b"%PDF-made-up")
     assert drive_service.download_file("DOC1") == ("Karima CV.pdf", b"%PDF-exported")      # a Google Doc becomes a PDF
     assert ("/files/DOC1/export", {"mimeType": "application/pdf"}) in google.asked
 
     with pytest.raises(drive_service.DriveError) as problem:
-        drive_service.read_sheet_rows("https://drive.google.com/file/d/NOT_A_SHEET/view")
-    assert "does not open a Google Sheet" in str(problem.value)
+        drive_service.read_form_rows("https://docs.google.com/forms/d/e/NOT_SHARED/viewform")
+    assert "was not found" in str(problem.value) and "as Editor" in str(problem.value)
+    assert "1 form(s) in Drive could not be opened" in str(problem.value)               # the locked one was skipped
+    with pytest.raises(drive_service.DriveError) as problem:
+        drive_service.read_form_rows("https://example.com/apply")
+    assert "not a link to a Google Form" in str(problem.value)
     with pytest.raises(drive_service.DriveError) as problem:
         drive_service.download_file("GONE")
-    assert "Share the job's folder" in str(problem.value)
+    assert "Share the job's Google Form" in str(problem.value)
 
 
 def test_a_missing_key_file_is_explained(monkeypatch):

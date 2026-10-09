@@ -47,7 +47,7 @@ LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
 # The folder holds real CVs: it is in .gitignore and must never be committed.
 STORAGE_DIR = os.getenv("STORAGE_DIR", "storage")
 # DRIVE_PROVIDER:
-#   google - read the form's response sheet and the CVs from Google Drive (needs the key file)
+#   google - read the job's Google Form (Forms API) and the CVs from Google Drive (needs the key file)
 #   fake   - read a folder on this computer instead (tests, and demos without a Google account)
 DRIVE_PROVIDER = os.getenv("DRIVE_PROVIDER", "google")
 GOOGLE_DRIVE_KEY_FILE = os.getenv("GOOGLE_DRIVE_KEY_FILE", "secrets/google-drive.json")   # service-account key; never committed

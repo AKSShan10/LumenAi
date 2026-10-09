@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 
 
 class Candidate(SQLModel, table=True):
-    """The name, email, phone and CV of a Google Form application all come from ONE row of the response sheet.
+    """The name, email, phone and CV of a Google Form application all come from ONE answer of the job's Google Form.
     The row below keeps them together, so a CV can never end up under another person's name."""
     __tablename__ = "candidate"
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -18,7 +18,7 @@ class Candidate(SQLModel, table=True):
     full_name: str = ""
     email: str = ""
     phone: str = ""
-    applied_at: str = ""                              # when the form was sent, as written in the response sheet
+    applied_at: str = ""                              # when the form was sent (the answer's time from Google Forms)
     source: str = "google_form"                       # google_form | upload (added by hand)
     # What makes this application unique inside its job: the Google Drive id of the CV (form), or a fingerprint
     # of the file (upload). Fetching or uploading again skips a key that is already saved.

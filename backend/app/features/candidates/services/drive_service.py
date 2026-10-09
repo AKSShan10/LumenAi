@@ -1,15 +1,22 @@
-"""Google Drive: the only code that talks to Google Drive. It only reads; it never changes or deletes anything.
+"""Google Forms and Google Drive: the only code that talks to Google here. It only reads; it never changes or
+deletes anything.
 
     file_id_from()           the file id inside a Google link
-    read_sheet_rows()        the rows of the form's response sheet, from a given row on (never the whole sheet again)
-    download_file()          one file as bytes
+    read_form_rows()         the answers of the job's Google Form, as rows (titles first), from a given answer on
+    download_file()          one file as bytes (the uploaded CV)
     check_drive()            the "Test Google Drive" button
 
 Only application_service.py uses this file.
 
+The form is found from the link candidates open (the "Apply now" link of the job post), so no response sheet
+is needed. That public link (forms.gle/... or .../forms/d/e/<public id>/viewform) is not the form's own id,
+which the Google Forms API needs: the form is looked up once among the forms shared with the service account
+(the form whose public address is that link), and its id is saved on the job.
+
 Access is through a Google "service account": a robot account with its own email address. You share the
-job's folder (form, response sheet, CV folder) with that address as Viewer. Its key file is
-secrets/google-drive.json; it is never committed.
+job's Google Form (as Editor, so its answers can be read) and the folder with the uploaded CVs with that
+address. Its key file is secrets/google-drive.json; it is never committed. In the Google Cloud project,
+the Google Drive API and the Google Forms API must be enabled.
 
 DRIVE_PROVIDER=fake reads a folder on this computer instead (responses.csv plus the CV files in it),
 for tests and for trying the feature without a Google account.
@@ -24,9 +31,12 @@ from pathlib import Path
 from app.core import config
 
 DRIVE_API = "https://www.googleapis.com/drive/v3"
-SHEETS_API = "https://sheets.googleapis.com/v4"
-READ_ONLY = ["https://www.googleapis.com/auth/drive.readonly"]
+FORMS_API = "https://forms.googleapis.com/v1"
+READ_ONLY = ["https://www.googleapis.com/auth/drive.readonly",
+             "https://www.googleapis.com/auth/forms.body.readonly",
+             "https://www.googleapis.com/auth/forms.responses.readonly"]
 GOOGLE_DOC = "application/vnd.google-apps.document"
+GOOGLE_FORM = "application/vnd.google-apps.form"
 BACKEND_DIR = Path(__file__).resolve().parents[4]
 
 log = logging.getLogger("drive")
@@ -73,7 +83,7 @@ def _session():
 
 
 def _google_reason(response) -> str:
-    """Google's own sentence about the error, for example "Google Sheets API has not been used in project ...". """
+    """Google's own sentence about the error, for example "Google Forms API has not been used in project ...". """
     try:
         return str(response.json().get("error", {}).get("message", ""))[:400]
     except Exception:
@@ -91,27 +101,99 @@ def _get(session, url: str, params: dict):
         if reason:
             reason = f" (Google says: {reason})"
     if response.status_code == 404:
-        raise DriveError("the file was not found. Share the job's folder with the service account's email address" + reason)
+        raise DriveError("the file was not found. Share the job's Google Form and its CV folder with the service "
+                         "account's email address" + reason)
     if response.status_code == 403:
-        raise DriveError("Google refused access. Enable the Google Drive API and the Google Sheets API in the Google "
-                         "Cloud project, and share the job's folder with the service account's email address" + reason)
-    if response.status_code == 400 and "sheets.googleapis.com" in url:
-        raise DriveError("the link does not open a Google Sheet. Paste the link of the form's response sheet" + reason)
+        raise DriveError("Google refused access. Enable the Google Drive API and the Google Forms API in the Google "
+                         "Cloud project, and share the job's Google Form (as Editor) and its CV folder with the "
+                         "service account's email address" + reason)
     if response.status_code != 200:
         raise DriveError(f"Google Drive answered with error {response.status_code}" + reason)
     return response
 
 
-def _google_sheet_rows(sheet: str, from_row: int) -> tuple[list[str], list[list[str]]]:
-    """Asks the Google Sheets API for two small ranges in one call: row 1 (the titles) and the rows from
-    `from_row` to the end. Rows above `from_row` are not sent by Google at all."""
-    sheet_id = file_id_from(sheet)
-    if not sheet_id:
-        raise DriveError("this is not a link to a Google Sheet")
-    answer = _get(_session(), f"{SHEETS_API}/spreadsheets/{sheet_id}/values:batchGet",
-                  {"ranges": ["1:1", f"A{from_row}:ZZ"]}).json()          # no tab name = the first tab (the form answers)
-    header, rows = [(part.get("values") or []) for part in answer.get("valueRanges", [{}, {}])]
-    return [str(cell) for cell in (header[0] if header else [])], [[str(cell) for cell in row] for row in rows]
+def form_link_ids(link: str) -> tuple[str, str]:
+    """(form id, public id) from a Google Forms link; one of them is "".
+    .../forms/d/<form id>/edit        -> the form's own id (an editor's link)
+    .../forms/d/e/<public id>/viewform -> the public id (the link candidates open)"""
+    public = re.search(r"/forms/d/e/([A-Za-z0-9_-]+)", link)
+    if public:
+        return "", public.group(1)
+    own = re.search(r"/forms/d/([A-Za-z0-9_-]+)", link)
+    return (own.group(1), "") if own else ("", "")
+
+
+def _full_link(link: str) -> str:
+    """A short forms.gle link leads to the real form address; follow it (no login needed)."""
+    if "forms.gle/" not in link:
+        return link
+    import httpx
+    try:
+        return str(httpx.get(link, follow_redirects=True, timeout=30).url)
+    except Exception as exc:
+        raise DriveError(f"the short form link could not be opened ({type(exc).__name__})")
+
+
+def _find_form_id(session, public_id: str) -> str:
+    """The form whose public address has this id, among the forms shared with the service account.
+    A form the service account may see in Drive but not open with the Forms API (not an Editor of it) is skipped."""
+    page, skipped = "", 0
+    while True:
+        params = {"q": f"mimeType='{GOOGLE_FORM}' and trashed=false", "fields": "nextPageToken, files(id)",
+                  "pageSize": 100, "supportsAllDrives": "true", "includeItemsFromAllDrives": "true"}
+        if page:
+            params["pageToken"] = page
+        listing = _get(session, f"{DRIVE_API}/files", params).json()
+        for file in listing.get("files", []):
+            try:
+                form = _get(session, f"{FORMS_API}/forms/{file['id']}", {"fields": "responderUri"}).json()
+            except DriveError:
+                skipped += 1                          # seen in Drive, but the Forms API does not let us open it
+                continue
+            if public_id in str(form.get("responderUri", "")):
+                return file["id"]
+        page = listing.get("nextPageToken", "")
+        if not page:
+            break
+    more = f" ({skipped} form(s) in Drive could not be opened: the service account is not their Editor)" if skipped else ""
+    raise DriveError("the Google Form of this link was not found. Open the form, click the three dots, "
+                     "Add collaborators, and add the service account's email address as Editor" + more)
+
+
+def _answer_text(answer: dict) -> str:
+    """One answer as text: typed answers joined by ", "; an uploaded file becomes its Drive id."""
+    texts = [str(part.get("value", "")) for part in answer.get("textAnswers", {}).get("answers", [])]
+    files = [str(part.get("fileId", "")) for part in answer.get("fileUploadAnswers", {}).get("answers", [])]
+    return ", ".join(value for value in texts + files if value)
+
+
+def _google_form_rows(form_link: str, from_row: int, form_id: str) -> tuple[list[str], list[list[str]], str]:
+    """The form's answers as rows, like a response sheet: titles first ("Timestamp" and the question titles),
+    then one row per answer, oldest first (answer 1 = row 2). The Forms API sends every answer; only the rows
+    from `from_row` on are returned."""
+    session = _session()
+    if not form_id:
+        form_id, public_id = form_link_ids(_full_link(form_link))
+        if not form_id and not public_id:
+            raise DriveError("this is not a link to a Google Form")
+        form_id = form_id or _find_form_id(session, public_id)
+    form = _get(session, f"{FORMS_API}/forms/{form_id}", {}).json()
+    questions = [(item["questionItem"]["question"]["questionId"], str(item.get("title", "")))
+                 for item in form.get("items", []) if "questionItem" in item]
+    answers, page = [], ""
+    while True:
+        listing = _get(session, f"{FORMS_API}/forms/{form_id}/responses",
+                       {"pageSize": 5000, **({"pageToken": page} if page else {})}).json()
+        answers += listing.get("responses", [])
+        page = listing.get("nextPageToken", "")
+        if not page:
+            break
+    answers.sort(key=lambda answer: str(answer.get("createTime", "")))    # oldest first: new answers come last
+    header = ["Timestamp"] + [title for _, title in questions]
+    rows = [[str(answer.get("lastSubmittedTime") or answer.get("createTime", ""))]
+            + [_answer_text(answer.get("answers", {}).get(question_id, {})) for question_id, _ in questions]
+            for answer in answers]
+    return header, rows[from_row - 2:], form_id
 
 
 def _google_download(file_id: str) -> tuple[str, bytes]:
@@ -132,7 +214,7 @@ def _fake_folder() -> Path:
     return folder
 
 
-def _fake_sheet_rows(from_row: int) -> tuple[list[str], list[list[str]]]:
+def _fake_form_rows(from_row: int) -> tuple[list[str], list[list[str]]]:
     sheet = _fake_folder() / "responses.csv"
     if not sheet.exists():
         raise DriveError("responses.csv was not found in the fake Drive folder")
@@ -150,10 +232,13 @@ def _fake_download(file_id: str) -> tuple[str, bytes]:
 
 # ---------------------------------------------------------------- what application_service.py calls
 
-def read_sheet_rows(sheet: str, from_row: int = 2) -> tuple[list[str], list[list[str]]]:
-    """(titles of the columns, the rows from sheet row `from_row` to the end). Row 1 holds the titles, so the
-    first form answer is row 2. Only the rows from `from_row` on are read: the checkpoint of a job says where."""
-    return _fake_sheet_rows(from_row) if config.DRIVE_PROVIDER == "fake" else _google_sheet_rows(sheet, from_row)
+def read_form_rows(form_link: str, from_row: int = 2, form_id: str = "") -> tuple[list[str], list[list[str]], str]:
+    """(titles, the answers from answer row `from_row` on, the form's id). Row 1 holds the titles, so the first
+    answer is row 2; the checkpoint of a job says where to start. form_id = the id found last time ("" = find it)."""
+    if config.DRIVE_PROVIDER == "fake":
+        header, rows = _fake_form_rows(from_row)
+        return header, rows, form_id or "fake-form"
+    return _google_form_rows(form_link, from_row, form_id)
 
 
 def download_file(file_id: str) -> tuple[str, bytes]:
@@ -167,7 +252,7 @@ def check_drive() -> dict:
     try:
         credentials = _credentials()
         _get(_session(), f"{DRIVE_API}/files", {"pageSize": 1, "fields": "files(id)"})
-        return {"ok": True, "message": "Google Drive answered. Share each job's folder with "
-                                       f"{credentials.service_account_email} as Viewer."}
+        return {"ok": True, "message": "Google Drive answered. Share each job's Google Form (as Editor) and its CV "
+                                       f"folder with {credentials.service_account_email}."}
     except DriveError as problem:
         return {"ok": False, "message": f"Not working: {problem}"}

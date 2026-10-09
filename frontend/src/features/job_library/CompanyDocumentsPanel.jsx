@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { companyDocumentsApi } from "./companyDocumentsApi.js";
+import DataTable from "../../shared/utils/DataTable.jsx";
 
 const KINDS = { job_description: "Past job description", policy: "Company policy" };
 
@@ -30,23 +31,15 @@ export default function CompanyDocumentsPanel() {
       <p className="muted small">To add one, attach a PDF, DOCX or TXT file in the chat, or paste the text there and ask the AI to store it.</p>
       {error && <p className="error">{error}</p>}
 
-      {items.length === 0 ? <p className="muted">No documents yet.</p> : (
-        <table>
-          <thead><tr><th>Added</th><th>Title</th><th>Kind</th><th>From</th><th>Words</th><th></th></tr></thead>
-          <tbody>
-            {items.map((d) => (
-              <tr key={d.id}>
-                <td className="small">{new Date(d.created_at).toLocaleDateString()}</td>
-                <td>{d.title}</td>
-                <td className="small">{KINDS[d.kind] || d.kind}</td>
-                <td className="small">{d.source}</td>
-                <td>{d.words}</td>
-                <td><button className="link" onClick={() => run(() => companyDocumentsApi.remove(d.id))}>Remove</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <DataTable rows={items} empty="No documents yet." columns={[
+        { key: "added", title: "Added", className: "small", render: (d) => new Date(d.created_at).toLocaleDateString() },
+        { key: "title", title: "Title" },
+        { key: "kind", title: "Kind", className: "small", render: (d) => KINDS[d.kind] || d.kind },
+        { key: "source", title: "From", className: "small" },
+        { key: "words", title: "Words" },
+        { key: "remove", title: "",
+          render: (d) => <button className="link" onClick={() => run(() => companyDocumentsApi.remove(d.id))}>Remove</button> },
+      ]} />
 
       <div className="section">
         <h3>Try the search</h3>

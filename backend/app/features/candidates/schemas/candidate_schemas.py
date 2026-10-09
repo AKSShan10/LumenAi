@@ -1,29 +1,17 @@
 """Request and response bodies for candidates."""
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
-
-
-class SheetIn(BaseModel):
-    """The link of the response sheet of one job's Google Form."""
-    sheet_url: str = Field(max_length=500)
-
-    @field_validator("sheet_url")
-    @classmethod
-    def check_link(cls, url: str) -> str:
-        url = url.strip()
-        if not url.startswith("https://") or " " in url:
-            raise ValueError("Paste the link to the response sheet (it starts with https://docs.google.com/spreadsheets/)")
-        return url
+from pydantic import BaseModel
 
 
 class CheckOut(BaseModel):
-    """What is new in the response sheet after the job's checkpoint. Nothing is downloaded."""
+    """What is new in the job's Google Form after the job's checkpoint. Nothing is downloaded."""
     ok: bool
     message: str                     # one sentence for the interviewer
     new: int = 0                     # answers that are not fetched yet
-    rows_read: int = 0               # how many rows of the sheet this check had to read (only those after the checkpoint)
-    checkpoint_row: int = 1          # the last row of the sheet that is finished
+    rows_read: int = 0               # how many answers after the checkpoint this check looked at
+    checkpoint_row: int = 1          # the last answer row that is finished (row 1 = the titles)
+    form_link: str = ""              # the job's Google Form (the "Apply now" link of its post)
 
 
 class FetchOut(BaseModel):

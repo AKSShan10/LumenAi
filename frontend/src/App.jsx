@@ -18,15 +18,36 @@ const MENU = [
   ["settings", "Settings", "gear", "Connection checks and the workflow log."],
 ];
 
-// The interviewer's app. Simple navigation with useState: no router library needed.
+// Each page has its own address: /dashboard, /candidates, /interviews, /jobs, /reports, /settings.
+// The page is read from the address, so refresh, the Back button and bookmarks work. No router library needed:
+// a click writes the address with history.pushState, and Back/Forward ("popstate") reads it again.
+// nginx already sends every address to index.html (try_files in nginx.conf).
+function pageFromAddress() {
+  const key = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  return MENU.some(([page]) => page === key) ? key : "dashboard";    // "/" or an unknown address -> Dashboard
+}
+
 export default function App() {
   const [appName, setAppName] = useState("LumenAI");
   const [loggedIn, setLoggedIn] = useState(Boolean(auth.get()));
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState(pageFromAddress);
 
   useEffect(() => {
     systemApi.health().then((h) => { setAppName(h.app_name); document.title = h.app_name; }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // "/" or an unknown address shows the Dashboard: write /dashboard in the address bar too
+    if (window.location.pathname !== `/${page}`) window.history.replaceState(null, "", `/${page}`);
+    const onBack = () => setPage(pageFromAddress());
+    window.addEventListener("popstate", onBack);
+    return () => window.removeEventListener("popstate", onBack);
+  }, []);
+
+  function openPage(key) {
+    if (key !== page) window.history.pushState(null, "", `/${key}`);
+    setPage(key);
+  }
 
   if (!loggedIn) return <LoginPage appName={appName} onDone={() => setLoggedIn(true)} />;
 
@@ -42,7 +63,7 @@ export default function App() {
         </div>
         <nav>
           {MENU.map(([key, label, icon]) => (
-            <button key={key} className={page === key ? "active" : ""} onClick={() => setPage(key)}>
+            <button key={key} className={page === key ? "active" : ""} onClick={() => openPage(key)}>
               <Icon name={icon} /> {label}
             </button>
           ))}

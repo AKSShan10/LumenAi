@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { authApi } from "./authApi.js";
 import { auth } from "../../shared/api/authToken.js";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
+import DataTable from "../../shared/utils/DataTable.jsx";
 
 // Shown on the Settings page: the interviewer accounts, and a form to register one more.
 // Only someone who is logged in can register an account; there is no public sign-up page.
@@ -41,19 +42,14 @@ export default function UsersCard() {
   return (
     <div className="card">
       <h2>Interviewer accounts <small className="muted">({users.length})</small></h2>
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Created</th><th></th></tr></thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td>{user.full_name}{user.email === auth.email() && <span className="muted small"> (you)</span>}</td>
-              <td className="small">{user.email}</td>
-              <td className="small">{new Date(user.created_at).toLocaleDateString()}</td>
-              <td>{user.email !== auth.email() && <button className="link" onClick={() => setToRemove(user)}>Remove</button>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable rows={users} empty="No accounts yet." columns={[
+        { key: "name", title: "Name",
+          render: (user) => <>{user.full_name}{user.email === auth.email() && <span className="muted small"> (you)</span>}</> },
+        { key: "email", title: "Email", className: "small" },
+        { key: "created", title: "Created", className: "small", render: (user) => new Date(user.created_at).toLocaleDateString() },
+        { key: "remove", title: "",
+          render: (user) => user.email !== auth.email() && <button className="link" onClick={() => setToRemove(user)}>Remove</button> },
+      ]} />
 
       <div className="section">
         <h3>Register a new account</h3>

@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { screeningApi } from "./screeningApi.js";
 import DecisionControl from "./DecisionControl.jsx";
+import DataTable from "../../shared/utils/DataTable.jsx";
 
 // Met / Partially met / Unmet of one requirement (old results only have met: true / false)
 const STATUS = {
@@ -131,55 +132,41 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     return (
       <>
         <h4>{title} <small className="muted">({list.length})</small></h4>
-        {list.length === 0 ? <p className="muted small">{empty}</p> : (
-          <table>
-            <thead>
-              <tr>
-                <th>#</th><th>Name</th>
-                {SECTIONS.map(([key, label]) => <th key={key}>{label}{weights && <small className="muted"> {weights[key]}%</small>}</th>)}
-                <th>Final score</th><th title="Share of the job's ATS keywords found in the CV">ATS match</th><th>Why</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((row, index) => (
-                <Fragment key={row.candidate_id}>
-                  <tr>
-                    <td>{index + 1}</td>
-                    <td>
-                      <b>{row.full_name || "(name not given)"}</b>
-                      {row.decision && <div className="small"><span className="badge draft">changed by {row.decided_by || "an interviewer"}</span></div>}
-                      {row.waiting && <div className="muted small">waiting to be screened again</div>}
-                    </td>
-                    {SECTIONS.map(([key]) => <td key={key}>{row.sections[key]?.score ?? "-"}</td>)}
-                    <td><b>{row.weighted_score ?? "-"}</b></td>
-                    <td>{row.ats_score != null ? `${row.ats_score}%` : "-"}</td>
-                    <td className="small">
-                      {row.decision ? (
-                        <>
-                          <div>{row.decision === "included" ? "Included" : "Excluded"} by a person{row.decision_note && `: "${row.decision_note}"`}</div>
-                          <div className="muted">System: {row.result === "passed" ? "included" : row.result === "excluded" ? "excluded" : "needs a look"}. {row.reason}</div>
-                        </>
-                      ) : row.reason}
-                    </td>
-                    <td className="small actions">
-                      <button className="link" onClick={() => setOpen(open === row.candidate_id ? null : row.candidate_id)}>
-                        {open === row.candidate_id ? "Hide" : "Details"}</button>
-                      <DecisionControl candidateId={row.candidate_id} final={row.final} decided={!!row.decision} onDone={decided} />
-                      <button className="link" onClick={() => screenOne(row)} disabled={busy !== ""}>
-                        {busy === `one-${row.candidate_id}` ? "Screening..." : "Screen again"}</button>
-                    </td>
-                  </tr>
-                  {open === row.candidate_id && (
-                    <tr>
-                      <td></td>
-                      <td colSpan="8" className="small">{details(row)}</td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DataTable rows={list} rowKey={(row) => row.candidate_id} empty={empty}
+                   expanded={(row) => (open === row.candidate_id ? details(row) : null)} columns={[
+          { key: "rank", title: "#", render: (row, index) => index + 1 },
+          { key: "name", title: "Name", render: (row) => (
+            <>
+              <b>{row.full_name || "(name not given)"}</b>
+              {row.decision && <div className="small"><span className="badge draft">changed by {row.decided_by || "an interviewer"}</span></div>}
+              {row.waiting && <div className="muted small">waiting to be screened again</div>}
+            </>
+          ) },
+          ...SECTIONS.map(([key, label]) => ({
+            key, title: <>{label}{weights && <small className="muted"> {weights[key]}%</small>}</>,
+            render: (row) => row.sections[key]?.score ?? "-",
+          })),
+          { key: "final", title: "Final score", render: (row) => <b>{row.weighted_score ?? "-"}</b> },
+          { key: "ats", title: <span title="Share of the job's ATS keywords found in the CV">ATS match</span>,
+            render: (row) => (row.ats_score != null ? `${row.ats_score}%` : "-") },
+          { key: "why", title: "Why", className: "small", render: (row) => (row.decision ? (
+            <>
+              <div>{row.decision === "included" ? "Included" : "Excluded"} by a person{row.decision_note && `: "${row.decision_note}"`}</div>
+              <div className="muted">System: {row.result === "passed" ? "included" : row.result === "excluded" ? "excluded" : "needs a look"}. {row.reason}</div>
+            </>
+          ) : row.reason) },
+          { key: "actions", title: "", className: "small actions", render: (row) => (
+            <>
+              <button className="link" onClick={() => screeningApi.viewCv(row.candidate_id, row.full_name).catch((e) => setError(e.message))}>
+                View CV</button>
+              <button className="link" onClick={() => setOpen(open === row.candidate_id ? null : row.candidate_id)}>
+                {open === row.candidate_id ? "Hide" : "Details"}</button>
+              <DecisionControl candidateId={row.candidate_id} final={row.final} decided={!!row.decision} onDone={decided} />
+              <button className="link" onClick={() => screenOne(row)} disabled={busy !== ""}>
+                {busy === `one-${row.candidate_id}` ? "Screening..." : "Screen again"}</button>
+            </>
+          ) },
+        ]} />
       </>
     );
   }
@@ -210,7 +197,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
         )}
         {row.matches.length > 0 && (
           <table>
-            <thead><tr><th>Requirement</th><th>Kind</th><th>Result</th><th>How we know</th><th>Evidence from the CV</th></tr></thead>
+            <thead><tr><th>Requirement</th><th>Kind</th><th>Result</th><th>AI explanation</th><th>Evidence from the CV</th></tr></thead>
             <tbody>
               {row.matches.map((m) => (
                 <tr key={m.requirement}>
@@ -218,7 +205,10 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
                   <td>{m.kind === "must" ? "must-have" : "nice to have"}</td>
                   <td><span className={`badge ${STATUS[statusOf(m)].badge}`}>{STATUS[statusOf(m)].label}</span></td>
                   <td>{m.how}</td>
-                  <td>{m.evidence ? <i>"{m.evidence}"</i> : ""}</td>
+                  <td>
+                    {m.evidence ? <i>"{m.evidence}"</i> : ""}
+                    {m.verified === false && <span className="small muted"> (not found in the CV text)</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>

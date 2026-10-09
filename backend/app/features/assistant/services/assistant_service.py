@@ -11,6 +11,7 @@ done here, by backend code, and only after the interviewer clicked Yes.
 """
 import logging
 import time
+import uuid
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
@@ -26,7 +27,7 @@ from app.utils.datetime_utils import utc_now
 
 log = logging.getLogger("assistant")
 
-HISTORY = 12                     # how many earlier messages the AI is given
+HISTORY = 12                     # how many earlier lines start a new thread (a chat without LangGraph memory yet)
 NEWEST_FIRST = (ChatConversation.opened_at.desc(), ChatConversation.id.desc())    # the current chat comes first
 TITLE_CHARS = 60                 # how much of the first message is shown in the list of chats
 PREVIEW_CHARS = 600              # how much of an attached file the AI sees (the tool stores the whole text)
@@ -84,25 +85,47 @@ def chat_out(session: Session, chat_id: int | None = None) -> ChatOut:
                    chats=_chat_list(session))
 
 
+def _new_lines_for_ai(session: Session, conversation: ChatConversation) -> list[ChatMessage]:
+    """The chat lines the agent's thread does not have yet: the interviewer's new message, and the results of
+    Yes / No answers given since the last message. A chat without a thread yet (a new chat, or one from before
+    the memory existed) starts its thread with its last HISTORY lines."""
+    lines = select(ChatMessage).where(ChatMessage.conversation_id == conversation.id)
+    if conversation.agent_thread and conversation.agent_seen_id:
+        return session.exec(lines.where(ChatMessage.id > conversation.agent_seen_id).order_by(ChatMessage.id)).all()
+    recent = session.exec(lines.order_by(ChatMessage.id.desc()).limit(HISTORY)).all()
+    return list(reversed(recent))
+
+
 def send_message(session: Session, text: str, attachment_name: str = "", attachment_text: str = "") -> ChatOut:
-    chat_id = current_conversation(session).id
-    session.add(ChatMessage(conversation_id=chat_id, role="user", content=text.strip(),
+    conversation = current_conversation(session)
+    session.add(ChatMessage(conversation_id=conversation.id, role="user", content=text.strip(),
                             attachment_name=attachment_name, attachment_text=attachment_text))
+    if not conversation.agent_thread:                 # this chat's thread in LangGraph's checkpointer
+        conversation.agent_thread = f"chat-{conversation.id}-{uuid.uuid4().hex[:8]}"
+    session.add(conversation)
     session.commit()
-    # the AI only gets lines of this chat, so an earlier chat cannot confuse it
-    recent = session.exec(select(ChatMessage).where(ChatMessage.conversation_id == chat_id)
-                          .order_by(ChatMessage.id.desc()).limit(HISTORY)).all()
+    # the AI only gets lines of this chat, so an earlier chat cannot confuse it; earlier lines are in its thread
+    new_lines = _new_lines_for_ai(session, conversation)
 
     started = time.time()
-    result = run_assistant([_for_ai(message) for message in reversed(recent)])
+    result = run_assistant([_for_ai(message) for message in new_lines], conversation.agent_thread)
     seconds = round(time.time() - started, 2)
 
     answer = result["answer"] or "I have no answer for that."
     if result["error"]:
         answer = "The assistant could not answer: " + result["error"] + "."
-    session.add(ChatMessage(conversation_id=chat_id, role="assistant", content=answer, tools=result["tools"]))
+    reply = ChatMessage(conversation_id=conversation.id, role="assistant", content=answer, tools=result["tools"])
+    session.add(reply)
     session.add(WorkflowRun(stage="assistant", subject_id=0, outcome="failed" if result["error"] else "done",
                             error=result["error"], seconds=seconds))
+    session.commit()
+    if result["error"]:
+        # a run that stopped half way can leave the thread unfinished: the next message starts a fresh thread
+        # from the last lines of the chat
+        conversation.agent_thread, conversation.agent_seen_id = "", 0
+    else:
+        conversation.agent_seen_id = reply.id         # the thread has everything up to this answer
+    session.add(conversation)
     session.commit()
     log.info("assistant %s tools=%s %.1fs", "failed" if result["error"] else "ok", ",".join(result["tools"]) or "-", seconds)
     return chat_out(session)
