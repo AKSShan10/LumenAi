@@ -6,8 +6,15 @@ secrets/*
 # Candidate data must never be committed (N14)
 sample-cvs/
 uploads/
+backend/storage/
 *.db
 *.sqlite
+*.sqlite3
+# Database exports and backups (they hold real data)
+*.sql
+*.dump
+# Zipped copies of the project
+*.zip
 
 # Python
 __pycache__/
@@ -15,7 +22,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
-
+Claude outputs/
 # Node
 node_modules/
 dist/
@@ -24,3 +31,7 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Log files
+logs/
+*.log

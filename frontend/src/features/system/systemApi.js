@@ -4,5 +4,7 @@ import { request } from "../../shared/api/httpClient.js";
 export const systemApi = {
   health: () => request("/api/health"),
   llmCheck: () => request("/api/llm-check"),
+  driveCheck: () => request("/api/drive-check"),          // can the job's Google Form and the CVs be read?
+  postingCheck: () => request("/api/posting-check"),      // is Blogger set up?
   workflowRuns: () => request("/api/workflow-runs?limit=15"),
 };

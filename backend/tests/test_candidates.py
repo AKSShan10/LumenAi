@@ -1,0 +1,546 @@
+"""Candidates: fetching applications from the Google Form and manual upload. Every person must stay with their own CV."""
+import random
+import re
+
+import pytest
+from sqlmodel import Session, select
+
+from app.core import config
+from app.core.database import engine
+from app.features.candidates.models import Candidate
+from app.features.jobs.models import JobPosting
+
+from app.features.candidates.services import application_service
+from app.features.candidates.services.application_service import FormProblem, read_applications
+from app.features.candidates.services.cv_storage_service import cv_file, storage_dir
+from app.features.candidates.services.drive_service import DriveError, file_id_from
+
+FORM = "https://docs.google.com/forms/d/e/made-up-public-id/viewform"      # the "Apply now" link of the job post
+HEADER = ("Timestamp", "Full Name", "Email", "Phone Number", "CV")
+
+
+def link(file_name: str) -> str:
+    return f"https://drive.google.com/open?id={file_name}"
+
+
+def posted_with(job_id: int, form_link: str) -> None:
+    """A post of the job with this Google Form as its "Apply now" link, as the Assistant saves it."""
+    with Session(engine) as session:
+        session.add(JobPosting(job_id=job_id, text="A made-up job post.", apply_url=form_link, message_link="https://x"))
+        session.commit()
+
+
+@pytest.fixture
+def approved_job(client, make_job) -> dict:
+    """An approved job that was posted with its Google Form link."""
+    job = make_job(approve=True, title="Backend Developer", description="A made-up job used to test collecting CVs.")
+    posted_with(job["id"], FORM)
+    return client.get(f"/api/jobs/{job['id']}").json()
+
+
+@pytest.fixture
+def fake_drive(tmp_path, monkeypatch):
+    """A folder that plays Google Drive. write(rows, files) fills it."""
+    monkeypatch.setattr(config, "DRIVE_FAKE_FOLDER", str(tmp_path))
+
+    def write(rows: list[list[str]], files: dict[str, bytes], header=HEADER):
+        import csv
+        with open(tmp_path / "responses.csv", "w", newline="", encoding="utf-8") as sheet:
+            csv.writer(sheet).writerows([list(header)] + rows)
+        for name, content in files.items():
+            (tmp_path / name).write_bytes(content)
+    return write
+
+
+def check(client, job) -> dict:
+    return client.get(f"/api/jobs/{job['id']}/applications/check").json()
+
+
+def fetch(client, job) -> dict:
+    return client.post(f"/api/jobs/{job['id']}/applications/fetch").json()
+
+
+def saved_file(candidate_id: int) -> bytes:
+    """The CV as it lies in the storage folder, found through the candidate's own row."""
+    with Session(engine) as session:
+        return cv_file(session.get(Candidate, candidate_id)).read_bytes()
+
+
+def candidates(client, job) -> list[dict]:
+    return client.get(f"/api/jobs/{job['id']}/candidates").json()
+
+
+# ---------- reading the form's answers (plain Python) ----------
+
+def test_file_id_from_google_links():
+    assert file_id_from("https://drive.google.com/open?id=1AbC_d-9") == "1AbC_d-9"
+    assert file_id_from("https://drive.google.com/file/d/1AbC_d-9/view?usp=sharing") == "1AbC_d-9"
+    assert file_id_from("https://docs.google.com/spreadsheets/d/SHEET123/edit#gid=0") == "SHEET123"
+    assert file_id_from("1AbC_d-9") == "1AbC_d-9"
+    assert file_id_from("not a link") == "" and file_id_from("https://example.com/cv.pdf") == ""
+
+
+def test_columns_are_found_by_their_titles():
+    rows = [["Timestamp", "Email Address", "Upload your CV (PDF)", "Your full name", "Phone"],
+            ["10/6/2026 10:00:00", "a@example.com", link("a.pdf"), "Ayesha Khan", "000"]]
+    application = read_applications(rows)[0]
+    assert (application.name, application.email, application.file_id) == ("Ayesha Khan", "a@example.com", "a.pdf")
+    assert application.phone == "000"
+    yours = read_applications([list(HEADER), ["t1", "Rahim Uddin", "r@example.com", "01700000001", link("r.pdf")]])[0]
+    assert (yours.name, yours.email, yours.phone, yours.file_id) == ("Rahim Uddin", "r@example.com", "01700000001", "r.pdf")
+
+    with pytest.raises(FormProblem) as problem:
+        read_applications([["Timestamp", "Question 1", "Question 2"], ["x", "y", "z"]])
+    assert "name" in str(problem.value) and "Question 1" in str(problem.value)       # says what to change
+    with pytest.raises(FormProblem):
+        read_applications([])
+
+
+def test_unusual_rows_get_a_warning():
+    rows = [["Timestamp", "Full name", "Email", "CV"],                                # a form without a phone question works too
+            ["t1", "No File", "nofile@example.com", ""],
+            ["t2", "Two Files", "two@example.com", f"{link('one.pdf')}, {link('two.pdf')}"],
+            ["t3", "Bad Email", "not-an-email", link("bad.pdf")],
+            ["", "", "", ""]]                                                         # an empty row is skipped
+    no_file, two_files, bad_email = read_applications(rows)
+    assert no_file.file_id == "" and "No CV file" in no_file.warnings[0]
+    assert two_files.file_id == "one.pdf" and "only the first" in two_files.warnings[0]
+    assert "does not look right" in bad_email.warnings[0]
+
+
+# ---------- checking and fetching (reading a folder on this computer that plays Google Drive) ----------
+
+def test_every_person_stays_with_their_own_cv(client, approved_job, fake_drive):
+    """The file names say nothing about the owner, two people use the same file name pattern, and the rows
+    are in a random order."""
+    people = [(f"Person{n} Family{n}", f"person{n}@example.com", f"0170000000{n}", f"upload_{n * 7919 % 100}.txt")
+              for n in range(1, 9)]
+    files = {file: f"{name}\nMade-up CV. Secret marker of {email}.".encode() for name, email, phone, file in people}
+    rows = [[f"10/6/2026 10:0{n}:00", name, email, phone, link(file)] for n, (name, email, phone, file) in enumerate(people)]
+    random.Random(4).shuffle(rows)
+    fake_drive(rows, files)
+
+    result = fetch(client, approved_job)
+    assert result["ok"] is True and result["added"] == 8 and result["needs_review"] == 0
+
+    saved = candidates(client, approved_job)
+    assert len(saved) == 8
+    for row in saved:
+        assert row["has_file"] is True and row["status"] == "new" and row["warnings"] == []
+        text = saved_file(row["id"]).decode()
+        assert text.startswith(row["full_name"])                                      # this person's CV ...
+        assert f"Secret marker of {row['email']}." in text                           # ... and nobody else's
+        assert row["phone"] == next(phone for name, email, phone, file in people if email == row["email"])
+        # the file the page downloads is the same one
+        assert client.get(f"/api/candidates/{row['id']}/cv").content == saved_file(row["id"])
+
+
+def test_files_are_named_by_the_candidate_number(client, approved_job, fake_drive):
+    """Two applicants upload a file with the same name. Neither overwrites the other."""
+    fake_drive([["t1", "Rahim Uddin", "rahim@example.com", "1", link("a/CV.txt")],
+                ["t2", "Karima Akter", "karima@example.com", "2", link("b_CV.txt")]],
+               {"CV.txt": b"Rahim Uddin\nMade-up CV.", "b_CV.txt": b"Karima Akter\nMade-up CV."})
+    fetch(client, approved_job)
+    with Session(engine) as session:
+        rows = session.exec(select(Candidate).where(Candidate.job_id == approved_job["id"])).all()
+        for row in rows:
+            if row.file_path:
+                name = row.full_name.lower().replace(" ", "-")
+                assert row.file_path == f"cvs/job_{row.job_id}/google_form/candidate_{row.number}_{name}.txt"
+                assert (storage_dir() / row.file_path).is_file()
+
+
+def test_the_check_counts_new_answers_and_downloads_nothing(client, approved_job, fake_drive):
+    first = [["t1", "Rahim Uddin", "rahim@example.com", "1", link("r.txt")]]
+    files = {"r.txt": b"Rahim Uddin\nMade-up CV.", "k.txt": b"Karima Akter\nMade-up CV."}
+    fake_drive(first, files)
+    answer = check(client, approved_job)
+    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 1)
+    assert candidates(client, approved_job) == []                                     # checking saves nothing
+
+    assert fetch(client, approved_job)["added"] == 1
+    answer = check(client, approved_job)
+    assert (answer["new"], answer["rows_read"]) == (0, 0) and "No new applications" in answer["message"]
+    again = fetch(client, approved_job)
+    assert again["added"] == 0 and "No new applications" in again["message"]          # nobody is added twice
+
+    fake_drive(first + [["t2", "Karima Akter", "karima@example.com", "2", link("k.txt")]], files)
+    assert check(client, approved_job)["new"] == 1                                    # the system knows about the new one
+    assert fetch(client, approved_job)["added"] == 1
+    assert sorted(c["full_name"] for c in candidates(client, approved_job)) == ["Karima Akter", "Rahim Uddin"]
+
+
+def test_problems_are_flagged_for_a_person(client, approved_job, fake_drive):
+    rows = [["t1", "Rahim Uddin", "rahim@example.com", "1", link("someone_else.txt")],     # another person's CV
+            ["t2", "Karima Akter", "karima@example.com", "2", link("missing.txt")],        # the file is gone
+            ["t3", "Tanvir Hasan", "tanvir@example.com", "3", link("scan.pdf")],           # cannot be read
+            ["t4", "Nadia Islam", "nadia@example.com", "4", ""],                           # no file at all
+            ["t5", "Rahim Uddin", "rahim@example.com", "1", link("rahim_again.txt")]]      # the same email again
+    fake_drive(rows, {"someone_else.txt": b"Jamal Hossain\nMade-up CV of another person.",
+                      "scan.pdf": b"this is not a real pdf", "rahim_again.txt": b"Rahim Uddin\nMade-up CV."})
+    result = fetch(client, approved_job)
+    assert result["added"] == 5 and result["needs_review"] == 3
+
+    by_time = {c["applied_at"]: c for c in candidates(client, approved_job)}
+    assert by_time["t1"]["status"] == "new" and "name from the form was not found" in by_time["t1"]["warnings"][0]
+    assert by_time["t2"]["status"] == "needs_review" and "could not be downloaded" in by_time["t2"]["warnings"][0]
+    assert by_time["t2"]["has_file"] is False
+    assert by_time["t3"]["status"] == "needs_review" and "could not be read" in by_time["t3"]["warnings"][0]
+    assert by_time["t3"]["has_file"] is True                                          # the file is kept all the same
+    assert by_time["t4"]["status"] == "needs_review" and "No CV file" in by_time["t4"]["warnings"][0]
+    assert by_time["t5"]["status"] == "new" and "more than once" in by_time["t5"]["warnings"][0]
+
+
+def test_a_form_that_cannot_be_used_is_explained(client, approved_job, fake_drive, monkeypatch):
+    fake_drive([["x", "y", "z"]], {}, header=("Timestamp", "Question 1", "Question 2"))
+    for result in (check(client, approved_job), fetch(client, approved_job)):
+        assert result["ok"] is False and "name" in result["message"]
+    assert candidates(client, approved_job) == []
+
+    def broken(form_link, from_row, form_id):
+        raise DriveError("Google Drive could not be reached (ConnectTimeout)")
+    monkeypatch.setattr(application_service.drive_service, "read_form_rows", broken)
+    result = fetch(client, approved_job)
+    assert result["ok"] is False and "could not be reached" in result["message"]
+
+
+def test_only_a_few_cvs_are_downloaded_per_click(client, approved_job, fake_drive, monkeypatch):
+    monkeypatch.setattr(application_service, "MAX_PER_CLICK", 2)
+    rows = [[f"t{n}", f"Person{n} Family{n}", f"p{n}@example.com", str(n), link(f"{n}.txt")] for n in range(1, 6)]
+    fake_drive(rows, {f"{n}.txt": f"Person{n} Family{n}\nMade-up CV.".encode() for n in range(1, 6)})
+    first = fetch(client, approved_job)
+    assert first["added"] == 2 and first["left_for_next_time"] == 3 and "click Fetch new applications again" in first["message"]
+    assert fetch(client, approved_job)["added"] == 2 and fetch(client, approved_job)["added"] == 1
+    assert len(candidates(client, approved_job)) == 5
+
+
+def test_the_sample_folder_works(client, approved_job):
+    """tests/fake_drive holds three made-up applications for demos without a Google account."""
+    assert check(client, approved_job)["new"] == 3
+    assert fetch(client, approved_job)["added"] == 3
+    names = {c["full_name"]: c for c in candidates(client, approved_job)}
+    assert set(names) == {"Rahim Uddin", "Karima Akter", "Tanvir Hasan"}
+    assert all(c["status"] == "new" and c["warnings"] == [] and c["phone"] for c in names.values())
+
+
+def test_same_name_and_same_file_name_still_give_two_files(client, approved_job, fake_drive):
+    """Two different people with the same name, each sending a file called CV: nothing overlaps."""
+    fake_drive([["t1", "Rahim Uddin", "rahim.one@example.com", "1", link("one_CV.txt")],
+                ["t2", "Rahim Uddin", "rahim.two@example.com", "2", link("two_CV.txt")]],
+               {"one_CV.txt": b"Rahim Uddin\nMade-up CV of the first one.", "two_CV.txt": b"Rahim Uddin\nMade-up CV of the second one."})
+    assert fetch(client, approved_job)["added"] == 2
+    upload_answer = client.post(f"/api/jobs/{approved_job['id']}/candidates/upload", data={"full_name": "Rahim Uddin"},
+                                files={"file": ("CV.txt", b"Rahim Uddin\nMade-up CV of a third one, uploaded by hand.")}).json()
+    assert upload_answer["ok"] is True
+    rows = candidates(client, approved_job)
+    with Session(engine) as session:
+        paths = [session.get(Candidate, row["id"]).file_path for row in rows]
+    assert len(set(paths)) == 3                                                       # three files, three places
+    by_email = {row["email"]: saved_file(row["id"]).decode() for row in rows}
+    assert "first one" in by_email["rahim.one@example.com"] and "second one" in by_email["rahim.two@example.com"]
+    assert "uploaded by hand" in by_email[""]
+    assert sorted(path.split("/")[2] for path in paths) == ["google_form", "google_form", "uploaded"]
+
+
+def test_a_name_in_another_alphabet_still_gets_a_file(client, approved_job):
+    answer = client.post(f"/api/jobs/{approved_job['id']}/candidates/upload", data={"full_name": "রহিম উদ্দিন"},
+                         files={"file": ("cv.txt", b"A made-up CV with a name in Bangla letters.")}).json()
+    with Session(engine) as session:
+        row = session.get(Candidate, answer["candidate_id"])
+        assert row.file_path == f"cvs/job_{row.job_id}/uploaded/candidate_{row.number}.txt" and cv_file(row).is_file()
+
+
+# ---------- the checkpoint: only the answers after it are looked at ----------
+
+def person(n: int) -> list[str]:
+    return [f"t{n}", f"Person{n} Family{n}", f"p{n}@example.com", str(n), link(f"{n}.txt")]
+
+
+def cv_files(count: int) -> dict[str, bytes]:
+    return {f"{n}.txt": f"Person{n} Family{n}\nMade-up CV.".encode() for n in range(1, count + 1)}
+
+
+@pytest.fixture
+def asked_rows(monkeypatch) -> list[int]:
+    """Remembers from which answer row each read started."""
+    asked, real = [], application_service.drive_service.read_form_rows
+
+    def remember(form_link, from_row=2, form_id=""):
+        asked.append(from_row)
+        return real(form_link, from_row, form_id)
+    monkeypatch.setattr(application_service.drive_service, "read_form_rows", remember)
+    return asked
+
+
+def test_the_checkpoint_moves_forward_and_old_rows_are_not_read_again(client, approved_job, fake_drive, asked_rows):
+    assert approved_job["form_checkpoint_row"] == 1                                   # row 1 holds the titles
+    fake_drive([person(1), person(2), person(3)], cv_files(5))
+
+    answer = check(client, approved_job)                                              # the first check starts at row 2
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (3, 3, 1)   # not fetched yet: it stays
+    assert fetch(client, approved_job)["added"] == 3
+
+    answer = check(client, approved_job)                                              # rows 2 to 4 are finished
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (0, 0, 4)
+
+    fake_drive([person(1), person(2), person(3), person(4), person(5)], cv_files(5))
+    answer = check(client, approved_job)
+    assert (answer["new"], answer["rows_read"], answer["checkpoint_row"]) == (2, 2, 4)   # only the two new rows were read
+    assert fetch(client, approved_job)["added"] == 2
+    assert check(client, approved_job)["checkpoint_row"] == 6
+    assert asked_rows == [2, 2, 5, 5, 5, 7]                                           # never from the start again
+    assert len(candidates(client, approved_job)) == 5
+
+
+def test_the_checkpoint_waits_for_cvs_that_are_not_fetched_yet(client, approved_job, fake_drive, monkeypatch):
+    monkeypatch.setattr(application_service, "MAX_PER_CLICK", 2)
+    fake_drive([person(n) for n in range(1, 6)], cv_files(5))
+    assert fetch(client, approved_job)["left_for_next_time"] == 3
+    assert check(client, approved_job)["checkpoint_row"] == 3                         # rows 2 and 3 are done, row 4 waits
+    fetch(client, approved_job), fetch(client, approved_job)
+    assert check(client, approved_job)["checkpoint_row"] == 6
+    assert len(candidates(client, approved_job)) == 5
+
+
+def test_check_every_answer_again(client, approved_job, fake_drive, asked_rows):
+    fake_drive([person(1), person(2)], cv_files(3))
+    fetch(client, approved_job)
+    # somebody typed a late answer into row 2, above the checkpoint: a normal check does not see it
+    fake_drive([person(3), person(1), person(2)], cv_files(3))
+    answer = check(client, approved_job)
+    assert (answer["new"], answer["rows_read"]) == (0, 1)                             # only row 4 was read; that person is saved
+    answer = client.post(f"/api/jobs/{approved_job['id']}/applications/recheck").json()
+    assert (answer["ok"], answer["new"], answer["rows_read"]) == (True, 1, 3)        # every answer, and only Person3 is new
+    assert asked_rows[-1] == 2
+    assert fetch(client, approved_job)["added"] == 1
+    assert len(candidates(client, approved_job)) == 3                                 # nobody twice
+
+
+def test_a_new_form_link_starts_at_the_first_answer_again(client, approved_job, fake_drive):
+    fake_drive([person(1), person(2)], cv_files(2))
+    fetch(client, approved_job)
+    answer = check(client, approved_job)
+    assert answer["checkpoint_row"] == 3 and answer["form_link"] == FORM
+    posted_with(approved_job["id"], FORM.replace("made-up-public-id", "another-form"))    # posted again, another form
+    answer = check(client, approved_job)
+    assert answer["form_link"].endswith("/another-form/viewform") and answer["rows_read"] == 2   # from the first answer
+    assert answer["new"] == 0                                                         # saved people are not added twice
+
+
+# ---------- the candidate number counts inside each job ----------
+
+def test_every_job_counts_its_own_candidates(client, approved_job, fake_drive, make_job):
+    other = make_job(approve=True, title="Data Analyst", description="A second made-up job for the numbering test.")
+    upload(client, other, "a.txt", b"Other Person\nMade-up CV.", full_name="Other Person")      # job 2 gets number 1
+    upload(client, other, "b.txt", b"Second Person\nMade-up CV.", full_name="Second Person")    # and number 2
+
+    fake_drive([person(1), person(2)], cv_files(3))
+    fetch(client, approved_job)
+    upload(client, approved_job, "hand.txt", b"Hand Upload\nMade-up CV.", full_name="Hand Upload")
+    numbers = {c["full_name"]: c["number"] for c in candidates(client, approved_job)}
+    assert numbers == {"Person1 Family1": 1, "Person2 Family2": 2, "Hand Upload": 3}     # not 3, 4, 5
+    assert sorted(c["number"] for c in candidates(client, other)) == [1, 2]
+
+    with Session(engine) as session:
+        row = session.exec(select(Candidate).where(Candidate.job_id == approved_job["id"], Candidate.number == 3)).one()
+        assert row.file_path.endswith("/uploaded/candidate_3_hand-upload.txt")
+
+
+def test_after_deleting_the_last_one_its_number_is_used_again(client, approved_job):
+    upload(client, approved_job, "a.txt", b"First Person\nMade-up CV.", full_name="First Person")
+    second = upload(client, approved_job, "b.txt", b"Second Person\nMade-up CV.", full_name="Second Person")
+    client.delete(f"/api/candidates/{second['candidate_id']}")
+    upload(client, approved_job, "c.txt", b"Third Person\nMade-up CV.", full_name="Third Person")
+    assert {c["full_name"]: c["number"] for c in candidates(client, approved_job)} == {"First Person": 1, "Third Person": 2}
+
+
+# ---------- manual upload ----------
+
+def upload(client, job, name, data, **fields):
+    return client.post(f"/api/jobs/{job['id']}/candidates/upload", files={"file": (name, data)}, data=fields).json()
+
+
+def test_manual_upload_saves_the_file_and_the_person(client, approved_job):
+    answer = upload(client, approved_job, "internal referral.txt", b"Nadia Islam\nMade-up CV from a colleague.",
+                    full_name="Nadia Islam", email="nadia@example.com", phone="01700000009")
+    assert answer["ok"] is True
+    row = candidates(client, approved_job)[0]
+    assert (row["full_name"], row["email"], row["phone"], row["source"]) == ("Nadia Islam", "nadia@example.com", "01700000009", "upload")
+    assert row["original_file_name"] == "internal referral.txt" and row["has_file"] is True and row["status"] == "new"
+    assert saved_file(row["id"]) == b"Nadia Islam\nMade-up CV from a colleague."
+    with Session(engine) as session:                                                  # uploads have their own folder
+        assert session.get(Candidate, row["id"]).file_path == f"cvs/job_{approved_job['id']}/uploaded/candidate_1_nadia-islam.txt"
+
+    # the same file again is skipped; a file without a name is kept and flagged
+    assert upload(client, approved_job, "copy.txt", b"Nadia Islam\nMade-up CV from a colleague.")["ok"] is False
+    assert upload(client, approved_job, "unknown.txt", b"A made-up CV with no name typed.")["ok"] is True
+    assert "No name was given" in candidates(client, approved_job)[0]["warnings"][0]
+    assert len(candidates(client, approved_job)) == 2
+
+
+def test_bad_uploads_are_refused(client, approved_job):
+    assert "only PDF, DOCX, DOC and TXT" in upload(client, approved_job, "photo.png", b"x")["message"]
+    assert "larger than 5 MB" in upload(client, approved_job, "big.txt", b"a" * (5 * 1024 * 1024 + 1))["message"]
+    assert candidates(client, approved_job) == []
+    scan = upload(client, approved_job, "scan.pdf", b"this is not a real pdf")       # kept, for a person to look at
+    assert scan["ok"] is True and candidates(client, approved_job)[0]["status"] == "needs_review"
+
+
+# ---------- rules ----------
+
+def test_deleting_a_candidate_removes_the_file(client, approved_job):
+    fetch(client, approved_job)
+    row = candidates(client, approved_job)[0]
+    assert "cv_text" not in row                                                       # the list does not carry the CVs
+    with Session(engine) as session:
+        path = cv_file(session.get(Candidate, row["id"]))
+    assert path.is_file()
+    assert client.delete(f"/api/candidates/{row['id']}").status_code == 204
+    assert not path.exists()
+    assert client.get(f"/api/candidates/{row['id']}/cv").status_code == 404
+    assert len(candidates(client, approved_job)) == 2
+
+
+def test_rules(client, anonymous, make_job):
+    draft = make_job(title="Draft Tester")
+    assert client.post(f"/api/jobs/{draft['id']}/applications/fetch").status_code == 400      # not approved
+    assert client.get(f"/api/jobs/{draft['id']}/applications/check").status_code == 400
+    assert client.post(f"/api/jobs/{draft['id']}/candidates/upload", files={"file": ("a.txt", b"x")}).status_code == 400
+    approved = make_job(approve=True, title="Not Posted Tester", description="A made-up job that was not posted.")
+    assert "Post this job first" in client.get(f"/api/jobs/{approved['id']}/applications/check").json()["message"]
+    assert client.put(f"/api/jobs/{approved['id']}/response-sheet", json={"sheet_url": FORM}).status_code in (404, 405)
+    assert client.post("/api/jobs/999999/applications/fetch").status_code == 404
+    assert client.get("/api/jobs/999999/candidates").status_code == 404
+    for call in (anonymous.post("/api/jobs/1/applications/fetch"), anonymous.get("/api/jobs/1/applications/check"),
+                 anonymous.get("/api/jobs/1/candidates"), anonymous.get("/api/candidates/1/cv"),
+                 anonymous.delete("/api/candidates/1"), anonymous.get("/api/drive-check")):
+        assert call.status_code == 401
+
+
+def test_settings_check(client):
+    answer = client.get("/api/drive-check").json()
+    assert answer["ok"] is True and "Fake Google Drive" in answer["message"]
+
+
+# ---------- the Google path, with a pretend Google answering ----------
+
+FORM_ITEMS = [{"title": "Full Name", "questionItem": {"question": {"questionId": "q1"}}},
+              {"title": "About you", "pageBreakItem": {}},                          # not a question: no column
+              {"title": "Email", "questionItem": {"question": {"questionId": "q2"}}},
+              {"title": "Phone Number", "questionItem": {"question": {"questionId": "q3"}}},
+              {"title": "CV", "questionItem": {"question": {"questionId": "q4", "fileUploadQuestion": {}}}}]
+
+
+def text(value) -> dict:
+    return {"textAnswers": {"answers": [{"value": value}]}}
+
+
+FORM_ANSWERS = [   # Google sends them in any order; the newest is first here
+    {"responseId": "r2", "createTime": "2026-10-09T10:05:00Z", "lastSubmittedTime": "2026-10-09T10:05:00Z",
+     "answers": {"q1": text("Karima Akter"), "q2": text("karima@example.com"), "q3": text("01700000002"),
+                 "q4": {"fileUploadAnswers": {"answers": [{"fileId": "DOC1", "fileName": "Karima CV"}]}}}},
+    {"responseId": "r1", "createTime": "2026-10-09T10:00:00Z", "lastSubmittedTime": "2026-10-09T10:00:00Z",
+     "answers": {"q1": text("Uddin, Rahim"), "q2": text("rahim@example.com"), "q3": text("1700000001"),
+                 "q4": {"fileUploadAnswers": {"answers": [{"fileId": "FILE1", "fileName": "Rahim CV.pdf"}]}}}}]
+
+
+class PretendGoogle:
+    """Answers like the Google Drive API (two forms, two files) and the Google Forms API (one form with answers)."""
+    def __init__(self):
+        self.asked = []
+
+    def get(self, url, params=None, timeout=None):
+        self.asked.append((re.split(r"/drive/v3|/v1", url)[1], dict(params or {})))
+        path = self.asked[-1][0]
+
+        class Answer:
+            status_code, content = 200, b""
+            _json = {}
+
+            def json(self):
+                return self._json
+        answer = Answer()
+        if path == "/files" and "google-apps.form" in str((params or {}).get("q", "")):
+            answer._json = {"files": [{"id": "LOCKED"}, {"id": "OTHERFORM"}, {"id": "FORM1"}]}
+        elif path == "/forms/LOCKED":                                                 # shared in Drive, not as Editor
+            answer.status_code = 403
+            answer._json = {"error": {"message": "LOCKED: Not authorized (or may not exist)"}}
+        elif path == "/forms/OTHERFORM":
+            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/OTHER/viewform"}
+        elif path == "/forms/FORM1":
+            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/PUBLIC1/viewform", "items": FORM_ITEMS}
+        elif path == "/forms/FORM1/responses":
+            answer._json = {"responses": FORM_ANSWERS}
+        elif path == "/files/FILE1":
+            answer._json = {"name": "Rahim CV.pdf", "mimeType": "application/pdf"}
+            answer.content = b"%PDF-made-up"
+        elif path == "/files/DOC1":
+            answer._json = {"name": "Karima CV", "mimeType": "application/vnd.google-apps.document"}
+        elif path == "/files/DOC1/export":
+            answer.content = b"%PDF-exported"
+        else:
+            answer.status_code = 404
+        return answer
+
+
+def test_form_links_are_understood():
+    from app.features.candidates.services.drive_service import form_link_ids
+    assert form_link_ids("https://docs.google.com/forms/d/e/PUBLIC1/viewform?usp=sf_link") == ("", "PUBLIC1")
+    assert form_link_ids("https://docs.google.com/forms/d/FORM1/edit") == ("FORM1", "")
+    assert form_link_ids("https://example.com/apply") == ("", "")
+
+
+def test_google_answers_are_read_correctly(monkeypatch):
+    from app.core import config
+    from app.features.candidates.services import drive_service
+    google = PretendGoogle()
+    monkeypatch.setattr(config, "DRIVE_PROVIDER", "google")
+    monkeypatch.setattr(drive_service, "_session", lambda: google)
+
+    # the public link of the post: the form is found among the forms shared with the service account
+    # (a form that cannot be opened is skipped, the search goes on)
+    header, rows, form_id = drive_service.read_form_rows("https://docs.google.com/forms/d/e/PUBLIC1/viewform")
+    assert form_id == "FORM1"
+    assert header == ["Timestamp", "Full Name", "Email", "Phone Number", "CV"]      # the question titles
+    assert [row[1] for row in rows] == ["Uddin, Rahim", "Karima Akter"]                 # oldest answer first
+    assert rows[0][4] == "FILE1" and rows[0][0] == "2026-10-09T10:00:00Z"
+    first = read_applications([header] + rows)[0]
+    assert (first.row, first.name, first.file_id, first.phone) == (2, "Uddin, Rahim", "FILE1", "1700000001")
+
+    # next time the form's id is known: no search, and only the answers after the checkpoint are returned
+    asked_before = len(google.asked)
+    header, rows, form_id = drive_service.read_form_rows("https://docs.google.com/forms/d/e/PUBLIC1/viewform", 3, "FORM1")
+    assert not any(path == "/files" for path, _ in google.asked[asked_before:])
+    assert [row[1] for row in rows] == ["Karima Akter"] and read_applications([header] + rows, first_row=3)[0].row == 3
+    assert drive_service.read_form_rows("x", 4, "FORM1")[1] == []                         # nothing new
+
+    # an editor's link holds the form's id itself; a short forms.gle link is followed to the real address
+    assert drive_service.read_form_rows("https://docs.google.com/forms/d/FORM1/edit")[2] == "FORM1"
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda link, **kw: type("Answer", (), {
+        "url": "https://docs.google.com/forms/d/e/PUBLIC1/viewform?usp=send_form"})())
+    assert drive_service.read_form_rows("https://forms.gle/made-up")[2] == "FORM1"
+
+    assert drive_service.download_file("FILE1") == ("Rahim CV.pdf", b"%PDF-made-up")
+    assert drive_service.download_file("DOC1") == ("Karima CV.pdf", b"%PDF-exported")      # a Google Doc becomes a PDF
+    assert ("/files/DOC1/export", {"mimeType": "application/pdf"}) in google.asked
+
+    with pytest.raises(drive_service.DriveError) as problem:
+        drive_service.read_form_rows("https://docs.google.com/forms/d/e/NOT_SHARED/viewform")
+    assert "was not found" in str(problem.value) and "as Editor" in str(problem.value)
+    assert "1 form(s) in Drive could not be opened" in str(problem.value)               # the locked one was skipped
+    with pytest.raises(drive_service.DriveError) as problem:
+        drive_service.read_form_rows("https://example.com/apply")
+    assert "not a link to a Google Form" in str(problem.value)
+    with pytest.raises(drive_service.DriveError) as problem:
+        drive_service.download_file("GONE")
+    assert "Share the job's Google Form" in str(problem.value)
+
+
+def test_a_missing_key_file_is_explained(monkeypatch):
+    from app.core import config
+    from app.features.candidates.services import drive_service
+    monkeypatch.setattr(config, "DRIVE_PROVIDER", "google")
+    monkeypatch.setattr(config, "GOOGLE_DRIVE_KEY_FILE", "secrets/no-such-key.json")
+    answer = drive_service.check_drive()
+    assert answer["ok"] is False and "key file was not found" in answer["message"]

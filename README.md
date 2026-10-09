@@ -167,6 +167,8 @@ cp .env.example .env      # then fill in your keys
 | Stop | `docker compose down` |
 | Reset (delete all data) | `docker compose down -v` |
 | Run the tests | `pytest` |
+| New database change (in `backend`) | `alembic revision --autogenerate -m "what changed"` |
+| Show the database version (in `backend`) | `alembic current` |
 
 ## Configuration
 

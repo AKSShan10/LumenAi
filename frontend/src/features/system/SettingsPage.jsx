@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { systemApi } from "./systemApi.js";
 import CheckButton from "./CheckButton.jsx";
+import ChangePasswordCard from "../auth/ChangePasswordCard.jsx";
+import UsersCard from "../auth/UsersCard.jsx";
+import DataTable from "../../shared/utils/DataTable.jsx";
 
 // The log stores UTC times without a time zone; add "Z" so the browser shows local time.
 const asUtc = (text) => new Date(/Z|[+-]\d\d:\d\d$/.test(text) ? text : text + "Z");
@@ -17,27 +20,25 @@ export default function SettingsPage() {
         <h2>Connection checks</h2>
         <p className="muted">Each check makes one small test call and says in plain words what to fix. Keys live in the .env file.</p>
         <p><CheckButton label="Test AI connection" check={systemApi.llmCheck} /></p>
+        <p><CheckButton label="Test job posting" check={systemApi.postingCheck} /></p>
+        <p><CheckButton label="Test Google Drive" check={systemApi.driveCheck} /></p>
       </div>
+
+      <ChangePasswordCard />
+      <UsersCard />
 
       <div className="card">
         <h2>Workflow runs</h2>
         <p className="muted">The latest runs of the AI workflows.</p>
-        {!runs ? <p>Loading...</p> : runs.length === 0 ? <p className="muted">No runs yet.</p> : (
-          <table>
-            <thead><tr><th>Started</th><th>Stage</th><th>For</th><th>Outcome</th><th>Seconds</th><th>Error</th></tr></thead>
-            <tbody>
-              {runs.map((r) => (
-                <tr key={r.id}>
-                  <td>{asUtc(r.started_at).toLocaleString()}</td>
-                  <td>{r.stage.replace("_", " ")}</td>
-                  <td>#{r.subject_id}</td>
-                  <td><span className={`badge ${r.outcome}`}>{r.outcome.replace("_", " ")}</span></td>
-                  <td>{r.seconds}</td>
-                  <td className="small">{r.error}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {!runs ? <p>Loading...</p> : (
+          <DataTable rows={runs} empty="No runs yet." columns={[
+            { key: "started", title: "Started", render: (r) => asUtc(r.started_at).toLocaleString() },
+            { key: "stage", title: "Stage", render: (r) => r.stage.replace("_", " ") },
+            { key: "for", title: "For", render: (r) => `#${r.subject_id}` },
+            { key: "outcome", title: "Outcome", render: (r) => <span className={`badge ${r.outcome}`}>{r.outcome.replace("_", " ")}</span> },
+            { key: "seconds", title: "Seconds" },
+            { key: "error", title: "Error", className: "small" },
+          ]} />
         )}
       </div>
     </>

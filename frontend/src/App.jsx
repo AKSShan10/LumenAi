@@ -5,26 +5,49 @@ import AppFooter from "./shared/utils/AppFooter.jsx";
 import { systemApi } from "./features/system/systemApi.js";
 import LoginPage from "./features/auth/LoginPage.jsx";
 import SettingsPage from "./features/system/SettingsPage.jsx";
+import JobRequirementsPage from "./features/jobs/JobRequirementsPage.jsx";
+import CandidatesPage from "./features/candidates/CandidatesPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
   ["dashboard", "Dashboard", "home", "Where every job, CV and interview stands."],
-  ["candidates", "Candidates", "people", "Upload CVs, screen them and see the ranking."],
+  ["candidates", "Candidates", "people", "Fetch the applications of a job, upload CVs and see who applied."],
   ["interviews", "Interviews", "calendar", "Invitations, live interviews and transcripts."],
-  ["jobs", "Job Requirements", "document", "Write, approve and post the job."],
+  ["jobs", "Job Requirements", "document", "Chat with the AI: store documents, write the job, approve it and post it."],
   ["reports", "Reports", "chart", "Compare candidates and record the decision."],
   ["settings", "Settings", "gear", "Connection checks and the workflow log."],
 ];
 
-// The interviewer's app. Simple navigation with useState: no router library needed.
+// Each page has its own address: /dashboard, /candidates, /interviews, /jobs, /reports, /settings.
+// The page is read from the address, so refresh, the Back button and bookmarks work. No router library needed:
+// a click writes the address with history.pushState, and Back/Forward ("popstate") reads it again.
+// nginx already sends every address to index.html (try_files in nginx.conf).
+function pageFromAddress() {
+  const key = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  return MENU.some(([page]) => page === key) ? key : "dashboard";    // "/" or an unknown address -> Dashboard
+}
+
 export default function App() {
   const [appName, setAppName] = useState("LumenAI");
   const [loggedIn, setLoggedIn] = useState(Boolean(auth.get()));
-  const [page, setPage] = useState("dashboard");
+  const [page, setPage] = useState(pageFromAddress);
 
   useEffect(() => {
     systemApi.health().then((h) => { setAppName(h.app_name); document.title = h.app_name; }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // "/" or an unknown address shows the Dashboard: write /dashboard in the address bar too
+    if (window.location.pathname !== `/${page}`) window.history.replaceState(null, "", `/${page}`);
+    const onBack = () => setPage(pageFromAddress());
+    window.addEventListener("popstate", onBack);
+    return () => window.removeEventListener("popstate", onBack);
+  }, []);
+
+  function openPage(key) {
+    if (key !== page) window.history.pushState(null, "", `/${key}`);
+    setPage(key);
+  }
 
   if (!loggedIn) return <LoginPage appName={appName} onDone={() => setLoggedIn(true)} />;
 
@@ -40,14 +63,14 @@ export default function App() {
         </div>
         <nav>
           {MENU.map(([key, label, icon]) => (
-            <button key={key} className={page === key ? "active" : ""} onClick={() => setPage(key)}>
+            <button key={key} className={page === key ? "active" : ""} onClick={() => openPage(key)}>
               <Icon name={icon} /> {label}
             </button>
           ))}
         </nav>
         <div className="sidebar-user">
-          <span className="avatar">IN</span>
-          <div><b>Interviewer</b><button className="link" onClick={() => { auth.clear(); setLoggedIn(false); }}>Log out</button></div>
+          <span className="avatar">{(auth.name() || auth.email() || "IN").slice(0, 2).toUpperCase()}</span>
+          <div><b>{auth.name() || "Interviewer"}</b>{auth.email() && <span className="small">{auth.email()}</span>}<button className="link" onClick={() => { auth.clear(); setLoggedIn(false); }}>Log out</button></div>
         </div>
       </aside>
 
@@ -61,10 +84,11 @@ export default function App() {
         </header>
 
         <main>
-          {page === "settings" ? <SettingsPage /> : (
-            /* Placeholder: each feature replaces this card with its real page. */
-            <div className="card"><p className="muted">This screen is not built yet.</p></div>
-          )}
+          {page === "settings" && <SettingsPage />}
+          {page === "jobs" && <JobRequirementsPage />}
+          {page === "candidates" && <CandidatesPage />}
+          {/* Placeholder: each feature replaces this card with its real page. */}
+          {!["settings", "jobs", "candidates"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

@@ -143,8 +143,7 @@ lumenai/
 │       ├── core/      config.py  database.py  security.py  all_models.py
 │       ├── ai/        llm_client.py  fake_llm.py  prompts.py
 │       ├── utils/     datetime_utils.py  score_utils.py  search_utils.py  text_utils.py
-│       ├── graphs/    recruitment_graph.py
-│       │              cv_screening_graph.py   cv_screening_prompts.py  scoring_prompts.py
+│       ├── graphs/    cv_screening_graph.py   cv_screening_prompts.py  scoring_prompts.py
 │       │              qa_analysis_graph.py    qa_analysis_prompts.py
 │       │              assessment_graph.py     assessment_prompts.py
 │       ├── mcp_servers/  client.py  email_server.py  drive_server.py
@@ -309,10 +308,6 @@ Deleting a job or a candidate deletes everything that belongs to it (matches, sc
 LangGraph is used for the three multi-step jobs only. Single AI calls (job draft, email, helper, live analysis) are plain function calls. LangGraph's built-in checkpointing is **not** used; state is saved in the database tables and unfinished work is restarted from them.
 
 ```text
-recruitment_graph (parent)
-  START → load_context → choose stage → pre_interview | interview_analysis | post_interview
-        → persist_state (writes a WorkflowRun row) → END
-
 cv_screening_graph (pre-interview, one run per CV)
   START → parse_cv → validate_extraction ─(too little text, first try)→ ocr_retry → validate_extraction
                          │ (still bad / not English) → needs_review → END
@@ -466,7 +461,7 @@ Build and test one step before starting the next.
 7. **F6 assessment** — assessment graph, report, decision, comparison, print CSS.
 8. **Interview helper and chat** — helper questions/chat/documents/notes, live analysis, question history, call chat, room layout.
 9. **MCP** — client, email server, Drive server, Drive collection, Settings checks.
-10. **Parent graph, dashboard, workflow runs, README, FEATURES, demo data.**
+10. **Dashboard, workflow runs, README, FEATURES, demo data.**
 
 ## 17. Out of scope
 

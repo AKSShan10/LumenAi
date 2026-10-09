@@ -14,7 +14,7 @@ from sqlmodel import Field, SQLModel
 class WorkflowRun(SQLModel, table=True):
     __tablename__ = "workflow_run"
     id: Optional[int] = Field(default=None, primary_key=True)
-    stage: str = Field(index=True)                   # pre_interview | interview_analysis | post_interview
+    stage: str = Field(index=True)                   # job_description | assistant | pre_interview | ...
     subject_id: int                                  # candidate id (pre / post) or interview session id
     outcome: str                                     # screened | excluded | needs_review | done | failed
     error: str = Field(default="", sa_column=Column(Text))

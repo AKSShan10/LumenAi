@@ -9,6 +9,7 @@ Folder guide (app/):
 """
 import logging
 import threading
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -16,16 +17,25 @@ from fastapi.responses import JSONResponse
 
 from app.core import config
 from app.core.database import init_db
+from app.core.logging_setup import setup_logging
+from app.graphs.checkpointer import checkpointer
+from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
+from app.features.candidates.routers import candidate_router
+from app.features.job_library.routers import company_document_router
+from app.features.jobs.routers import job_posting_router, job_router
+from app.features.screening.routers import screening_router
+from app.features.screening.services.screening_worker import resume_waiting_screening
 from app.features.system.routers import system_router
 
-# Logs contain ids and events only, never names or CV text
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+# Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
+setup_logging(config.LOG_FILE)
 log = logging.getLogger("app")
+api_log = logging.getLogger("api")               # one line for every API call
 
 
 # Each feature that runs long AI work adds its "resume" function here.
-RESUME_FUNCTIONS: list = []
+RESUME_FUNCTIONS: list = [resume_waiting_screening]      # CVs that still wait for screening after a restart
 
 
 def resume_unfinished_work() -> None:
@@ -40,12 +50,27 @@ def resume_unfinished_work() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()                                    # create tables if they do not exist yet
+    init_db()                                    # apply the database migrations that are still missing
+    checkpointer()                               # LangGraph's tables for paused workflows, made before any other work
     threading.Thread(target=resume_unfinished_work, daemon=True).start()
     yield
 
 
 app = FastAPI(title=config.APP_NAME, version="1.0.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def log_api_call(request: Request, call_next):
+    """Writes one log line for every API call: what was called, how it ended and how long it took.
+    Only the path is logged: never the text after "?", and never what was sent."""
+    started = time.time()
+    status = 500                                  # stays 500 if the request stops with an unexpected error
+    try:
+        response = await call_next(request)
+        status = response.status_code
+        return response
+    finally:
+        api_log.info("%s %s %s %dms", request.method, request.url.path, status, (time.time() - started) * 1000)
 
 
 @app.exception_handler(Exception)
@@ -62,5 +87,11 @@ def health():
 
 # Each feature adds its router to this list.
 for module in (auth_router,                      # login
+               job_router,                       # the saved jobs (read and delete)
+               job_posting_router,               # the posts of a job, and the posting check
+               candidate_router,                 # CVs: fetch from the Google Form, manual upload, the saved files
+               screening_router,                 # CV screening: the AI reads each CV, code checks the requirements
+               assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
+               company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log
     app.include_router(module.router)
