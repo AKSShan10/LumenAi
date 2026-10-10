@@ -20,6 +20,7 @@ from app.ai.fake_chat_model import FakeToolChatModel  # noqa: E402
 from app.graphs.assistant_agent import LOCAL_TOOLS, keep_recent  # noqa: E402
 from app.graphs.cv_screening_graph import cv_screening_graph  # noqa: E402
 from app.graphs.job_description_graph import job_description_graph  # noqa: E402
+from app.graphs.job_post_graph import job_post_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
 # keep_recent -> agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
@@ -29,6 +30,8 @@ assistant_agent_graph = create_react_agent(FakeToolChatModel(), LOCAL_TOOLS, pre
 # Each feature adds its workflow here: (title, file, compiled graph)
 WORKFLOWS = [
     ("Job description workflow", "backend/app/graphs/job_description_graph.py", job_description_graph),
+    ("Job posting workflow (pauses for the interviewer's Yes or No)", "backend/app/graphs/job_post_graph.py",
+     job_post_graph),
     ("CV screening workflow (pre-interview subgraph, one run per CV)", "backend/app/graphs/cv_screening_graph.py",
      cv_screening_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),

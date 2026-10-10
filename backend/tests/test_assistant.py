@@ -336,3 +336,29 @@ def test_a_failed_run_starts_a_fresh_thread(client, monkeypatch):
     say(client, "hello")
     say(client, "hello again")
     assert threads[0] != threads[1]                   # an unfinished thread is not continued
+
+
+def test_posting_runs_in_a_langgraph_workflow_that_waits_for_the_person(client, make_job):
+    """The AI's request starts the posting workflow, which pauses in ask_person. No posts nothing; Yes posts."""
+    from app.features.assistant.models import AssistantAction
+    from app.graphs.job_post_graph import runner, thread_of
+    from sqlmodel import Session
+    from app.core.database import engine
+    job = make_job(approve=True, title="Graph Tester", description="A made-up job used to test the posting workflow.")
+
+    def paused_at(question_id):
+        with Session(engine) as session:
+            action = session.get(AssistantAction, question_id)
+            return runner().get_state({"configurable": {"thread_id": thread_of(action)}}).next
+
+    question = say(client, f"Post job {job['id']} on the blog, the form is {FORM}")["actions"][0]
+    assert paused_at(question["id"]) == ("ask_person",)                       # waiting for the person
+    assert client.get(f"/api/jobs/{job['id']}/postings").json() == []
+    chat = client.post(f"/api/assistant/actions/{question['id']}", json={"yes": False}).json()
+    assert "Nothing was changed" in last(chat)["content"] and paused_at(question["id"]) == ()   # the run ended
+    assert client.get(f"/api/jobs/{job['id']}/postings").json() == []
+
+    question = say(client, f"Post job {job['id']} on the blog, the form is {FORM}")["actions"][0]
+    chat = client.post(f"/api/assistant/actions/{question['id']}", json={"yes": True}).json()
+    assert "was posted to the Blogger blog" in last(chat)["content"] and paused_at(question["id"]) == ()
+    assert len(client.get(f"/api/jobs/{job['id']}/postings").json()) == 1

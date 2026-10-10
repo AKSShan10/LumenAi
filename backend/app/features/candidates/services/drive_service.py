@@ -136,8 +136,9 @@ def _full_link(link: str) -> str:
 
 def _find_form_id(session, public_id: str) -> str:
     """The form whose public address has this id, among the forms shared with the service account.
-    A form the service account may see in Drive but not open with the Forms API (not an Editor of it) is skipped."""
-    page, skipped = "", 0
+    A form the service account may see in Drive but not open with the Forms API (not an Editor of it) is skipped.
+    If it is not found, the message names the forms the service account CAN open, so the person sees the mix-up."""
+    page, skipped, seen, reason = "", 0, [], ""
     while True:
         params = {"q": f"mimeType='{GOOGLE_FORM}' and trashed=false", "fields": "nextPageToken, files(id)",
                   "pageSize": 100, "supportsAllDrives": "true", "includeItemsFromAllDrives": "true"}
@@ -146,18 +147,26 @@ def _find_form_id(session, public_id: str) -> str:
         listing = _get(session, f"{DRIVE_API}/files", params).json()
         for file in listing.get("files", []):
             try:
-                form = _get(session, f"{FORMS_API}/forms/{file['id']}", {"fields": "responderUri"}).json()
-            except DriveError:
-                skipped += 1                          # seen in Drive, but the Forms API does not let us open it
+                form = _get(session, f"{FORMS_API}/forms/{file['id']}", {"fields": "responderUri,info/title"}).json()
+            except DriveError as problem:
+                skipped += 1                          # seen in Drive, but the Forms API did not open it
+                reason = reason or str(problem)       # Google's own words for the first one, for the message
                 continue
-            if public_id in str(form.get("responderUri", "")):
+            address = str(form.get("responderUri", ""))
+            if public_id in address:
                 return file["id"]
+            link_id = address.split("/d/e/")[-1].split("/")[0][-6:]
+            seen.append(f"\"{form.get('info', {}).get('title') or 'untitled'}\" (link ends ...{link_id})")
         page = listing.get("nextPageToken", "")
         if not page:
             break
-    more = f" ({skipped} form(s) in Drive could not be opened: the service account is not their Editor)" if skipped else ""
-    raise DriveError("the Google Form of this link was not found. Open the form, click the three dots, "
-                     "Add collaborators, and add the service account's email address as Editor" + more)
+    message = (f"the Google Form of this link (ends ...{public_id[-6:]}) was not found. Open that form, click the "
+               "three dots, Add collaborators, and add the service account's email address as Editor")
+    if skipped:
+        message += f" ({skipped} form(s) in Drive could not be opened; the first one: {reason})"
+    if seen:
+        message += ". The service account can open: " + ", ".join(seen[:10])
+    raise DriveError(message)
 
 
 def _answer_text(answer: dict) -> str:
