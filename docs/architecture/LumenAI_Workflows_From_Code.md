@@ -35,6 +35,37 @@ graph TD;
 	classDef last fill:#bfb6fc
 ```
 
+## Job posting workflow (pauses for the interviewer's Yes or No)
+
+Code: `backend/app/graphs/job_post_graph.py`
+
+Steps: `check_job`, `ask_person`, `publish`, `save_result`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	check_job(check_job)
+	ask_person(ask_person)
+	publish(publish)
+	save_result(save_result)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> check_job;
+	ask_person -.-> publish;
+	ask_person -.-> save_result;
+	check_job -.-> ask_person;
+	check_job -.-> save_result;
+	publish --> save_result;
+	save_result --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
 ## CV screening workflow (pre-interview subgraph, one run per CV)
 
 Code: `backend/app/graphs/cv_screening_graph.py`
@@ -85,6 +116,42 @@ graph TD;
 	validate_extraction -.-> needs_review;
 	validate_extraction -.-> ocr_once;
 	extract_profile -.-> extract_profile;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
+## Interview invitation workflow (pauses until the interviewer sends)
+
+Code: `backend/app/graphs/invitation_graph.py`
+
+Steps: `write_draft`, `check_draft`, `save_draft`, `ask_person`, `send_email`, `save_result`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	write_draft(write_draft)
+	check_draft(check_draft)
+	save_draft(save_draft)
+	ask_person(ask_person)
+	send_email(send_email)
+	save_result(save_result)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> write_draft;
+	ask_person -.-> send_email;
+	ask_person -.-> write_draft;
+	check_draft -.-> save_draft;
+	check_draft -.-> write_draft;
+	save_draft --> ask_person;
+	save_result --> ask_person;
+	send_email --> save_result;
+	write_draft --> check_draft;
+	ask_person -.-> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

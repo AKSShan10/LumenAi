@@ -10,6 +10,9 @@ New CVs are screened by the backend by itself (screening_worker.py). These endpo
   PUT  /api/candidates/{candidate_id}/decision  the interviewer includes / excludes the candidate, or undoes it
   GET  /api/jobs/{job_id}/score-weights         the job's scoring weights (skills, experience, qualifications)
   PUT  /api/jobs/{job_id}/score-weights         new weights (they add up to 100); every weighted score is recalculated
+  GET    /api/jobs/{job_id}/shortlist           the shortlist of the job (included candidates chosen for the interview)
+  POST   /api/jobs/{job_id}/shortlist           put included candidates on it: {candidate_ids, rule, value}
+  DELETE /api/candidates/{candidate_id}/shortlist   take one candidate off it
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -22,11 +25,13 @@ from app.features.jobs.models import Job
 from app.features.jobs.services.job_service import get_job_or_404
 from app.features.screening.models import ScreeningResult
 from app.features.screening.schemas import (
-    DecisionIn, ProgressOut, ScreenIn, ScreenOut, ScreeningRowOut, WeightsIn, WeightsOut)
+    DecisionIn, ProgressOut, ScreenIn, ScreenOut, ScreeningRowOut, ShortlistAddOut, ShortlistIn, ShortlistRowOut, WeightsIn,
+    WeightsOut)
 from app.features.screening.services.score_service import job_weights, set_weights
 from app.features.screening.services.screening_service import (
     decide_candidate, final_status, mark_for_screening_again, screen_candidate, screening_rows, waiting_candidates)
 from app.features.screening.services.screening_worker import progress_of, screen_waiting, start_screening
+from app.features.screening.services.shortlist_service import add_to_shortlist, remove_from_shortlist, shortlist_rows
 
 router = APIRouter(prefix="/api", tags=["Screening"], dependencies=[Depends(require_interviewer)])
 
@@ -116,3 +121,20 @@ def put_weights(job_id: int, body: WeightsIn, session: Session = Depends(get_ses
     job = get_job_or_404(session, job_id)
     updated = set_weights(session, job, body.model_dump())
     return WeightsOut(**job_weights(job), updated=updated)
+
+
+@router.get("/jobs/{job_id}/shortlist", response_model=list[ShortlistRowOut])
+def get_shortlist(job_id: int, session: Session = Depends(get_session)):
+    return shortlist_rows(session, get_job_or_404(session, job_id))
+
+
+@router.post("/jobs/{job_id}/shortlist", response_model=ShortlistAddOut)
+def add_shortlist(job_id: int, body: ShortlistIn, session: Session = Depends(get_session),
+                  email: str = Depends(current_email)):
+    job = approved_job_or_400(session, job_id)
+    return add_to_shortlist(session, job, body.candidate_ids, body.rule, body.value, email)
+
+
+@router.delete("/candidates/{candidate_id}/shortlist", status_code=204)
+def remove_shortlist(candidate_id: int, session: Session = Depends(get_session)):
+    remove_from_shortlist(session, get_candidate_or_404(session, candidate_id).id)

@@ -7,6 +7,7 @@ import LoginPage from "./features/auth/LoginPage.jsx";
 import SettingsPage from "./features/system/SettingsPage.jsx";
 import JobRequirementsPage from "./features/jobs/JobRequirementsPage.jsx";
 import CandidatesPage from "./features/candidates/CandidatesPage.jsx";
+import InterviewsPage from "./features/interviews/InterviewsPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
@@ -87,8 +88,9 @@ export default function App() {
           {page === "settings" && <SettingsPage />}
           {page === "jobs" && <JobRequirementsPage />}
           {page === "candidates" && <CandidatesPage />}
+          {page === "interviews" && <InterviewsPage />}
           {/* Placeholder: each feature replaces this card with its real page. */}
-          {!["settings", "jobs", "candidates"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
+          {!["settings", "jobs", "candidates", "interviews"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

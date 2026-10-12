@@ -9,7 +9,8 @@ Where the tools come from:
     LOCAL_TOOLS      two tools written here: they only ASK for an approval or a post
 
 The one fixed rule: the AI cannot approve a job or post it to the blog. It can only ask. The interviewer
-answers Yes or No on the screen, and then the backend code does it (assistant_service.confirm_action).
+answers Yes or No on the screen, and then the backend code does it (assistant_service.confirm_action; a post goes
+through the posting workflow, graphs/job_post_graph.py, which pauses until that answer).
 
 Memory: every chat has its own LangGraph thread (thread_id), kept by the checkpointer in PostgreSQL. The agent
 remembers the whole chat by itself, also the tools it used and their answers; each message only gives it the

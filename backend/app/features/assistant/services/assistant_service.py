@@ -7,7 +7,8 @@
     continue_chat()     makes an earlier chat the current one again
 
 The AI chooses the tools (app/graphs/assistant_agent.py). Approving a job and posting it are
-done here, by backend code, and only after the interviewer clicked Yes.
+done by backend code, and only after the interviewer clicked Yes: approving here, posting through the posting
+workflow (app/graphs/job_post_graph.py), which pauses until the interviewer answers.
 """
 import logging
 import time
@@ -19,10 +20,10 @@ from sqlmodel import Session, select
 from app.features.assistant.models import AssistantAction, ChatConversation, ChatMessage
 from app.features.assistant.schemas import ActionOut, ChatOut, ChatSummary, MessageOut
 from app.features.jobs.models import Job
-from app.features.jobs.services.job_posting_service import post_job
 from app.features.jobs.services.job_service import approve_job
 from app.features.system.models import WorkflowRun
 from app.graphs.assistant_agent import run_assistant
+from app.graphs.job_post_graph import answer_post, start_post
 from app.utils.datetime_utils import utc_now
 
 log = logging.getLogger("assistant")
@@ -107,9 +108,11 @@ def send_message(session: Session, text: str, attachment_name: str = "", attachm
     # the AI only gets lines of this chat, so an earlier chat cannot confuse it; earlier lines are in its thread
     new_lines = _new_lines_for_ai(session, conversation)
 
+    last_question = session.exec(select(AssistantAction.id).order_by(AssistantAction.id.desc())).first() or 0
     started = time.time()
     result = run_assistant([_for_ai(message) for message in new_lines], conversation.agent_thread)
     seconds = round(time.time() - started, 2)
+    _start_posting_runs(session, last_question)
 
     answer = result["answer"] or "I have no answer for that."
     if result["error"]:
@@ -131,6 +134,16 @@ def send_message(session: Session, text: str, attachment_name: str = "", attachm
     return chat_out(session)
 
 
+def _start_posting_runs(session: Session, after_id: int) -> None:
+    """Each new "post this job?" question the AI asked gets its posting workflow, which pauses at once for the
+    interviewer's answer (graphs/job_post_graph.py). Started here, after the AI's turn, not inside the AI's tool."""
+    asked = session.exec(select(AssistantAction).where(AssistantAction.id > after_id, AssistantAction.kind == "post_job",
+                                                       AssistantAction.status == "pending")).all()
+    for action in asked:
+        start_post(action)
+    session.expire_all()                              # the workflow may have saved a problem on a question
+
+
 def confirm_action(session: Session, action_id: int, yes: bool) -> ChatOut:
     action = session.get(AssistantAction, action_id)
     if not action:
@@ -138,22 +151,18 @@ def confirm_action(session: Session, action_id: int, yes: bool) -> ChatOut:
     if action.status != "pending":
         raise HTTPException(400, "That question was already answered")
 
-    if not yes:
+    if action.kind == "post_job":                     # the posting workflow continues with the answer
+        answer_post(action, yes)
+        session.refresh(action)
+    elif not yes:
         action.status, action.result = "cancelled", "You said No. Nothing was changed."
     else:
         try:
             job = session.get(Job, action.job_id)
             if not job:
                 raise HTTPException(404, "The job no longer exists")
-            if action.kind == "approve_job":
-                approve_job(session, job, add_to_library=True)
-                action.status, action.result = "done", f"The job \"{job.title}\" is approved."
-            else:
-                posting = post_job(session, job, action.text, action.apply_url)
-                if posting.status == "posted":
-                    action.status, action.result = "done", f"The job \"{job.title}\" was posted to the Blogger blog."
-                else:
-                    action.status, action.result = "failed", "The post was not accepted: " + posting.error
+            approve_job(session, job, add_to_library=True)
+            action.status, action.result = "done", f"The job \"{job.title}\" is approved."
         except HTTPException as problem:              # for example: the job was edited and is a draft again
             action.status, action.result = "failed", str(problem.detail)
     session.add(action)

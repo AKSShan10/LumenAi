@@ -466,7 +466,7 @@ class PretendGoogle:
             answer.status_code = 403
             answer._json = {"error": {"message": "LOCKED: Not authorized (or may not exist)"}}
         elif path == "/forms/OTHERFORM":
-            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/OTHER/viewform"}
+            answer._json = {"responderUri": "https://docs.google.com/forms/d/e/OTHER123/viewform", "info": {"title": "Old form"}}
         elif path == "/forms/FORM1":
             answer._json = {"responderUri": "https://docs.google.com/forms/d/e/PUBLIC1/viewform", "items": FORM_ITEMS}
         elif path == "/forms/FORM1/responses":
@@ -529,6 +529,10 @@ def test_google_answers_are_read_correctly(monkeypatch):
         drive_service.read_form_rows("https://docs.google.com/forms/d/e/NOT_SHARED/viewform")
     assert "was not found" in str(problem.value) and "as Editor" in str(problem.value)
     assert "1 form(s) in Drive could not be opened" in str(problem.value)               # the locked one was skipped
+    assert "Google says: LOCKED: Not authorized" in str(problem.value)                   # with Google's own reason
+    assert any(params.get("fields") == "responderUri,info/title" for _, params in google.asked)   # Google's syntax
+    assert "ends ...SHARED" in str(problem.value)                                       # which link was looked for
+    assert '"Old form" (link ends ...HER123)' in str(problem.value)                     # what it can open instead
     with pytest.raises(drive_service.DriveError) as problem:
         drive_service.read_form_rows("https://example.com/apply")
     assert "not a link to a Google Form" in str(problem.value)

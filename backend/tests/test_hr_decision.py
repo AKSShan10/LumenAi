@@ -164,7 +164,7 @@ def test_rules(client, anonymous, job, make_job):
 def test_new_cvs_are_screened_in_the_background(client, job, monkeypatch):
     monkeypatch.setattr(config, "SCREENING_MODE", "background")
     upload(client, job, "k.txt", cv("Karima Akter", "Python, FastAPI, PostgreSQL", 4, "BSc in CSE"), "Karima Akter")
-    upload(client, job, "r.txt", cv("Rahim Uddin", "Python, FastAPI, MySQL", 4, "BSc in CSE"), "Rahim Uddin")
+    upload(client, job, "r.txt", cv("Rahim Uddin", "Python, FastAPI, MongoDB", 4, "BSc in CSE"), "Rahim Uddin")
     screening_worker._jobs.join()                                                             # wait for the worker
     assert row_of(client, job, "Karima Akter")["final"] == "included"
     assert row_of(client, job, "Rahim Uddin")["final"] == "excluded"

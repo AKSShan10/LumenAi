@@ -90,3 +90,67 @@ def add_doc():
         with Session(engine) as session:
             return _as_dict(document_out(add_document(session, title, text, kind=kind)))
     return add
+
+
+# ---------- a pretend email server for the invitation tests (nothing leaves this computer) ----------
+
+class FakeSmtpServer:
+    """A tiny SMTP server on 127.0.0.1 that accepts every login and keeps each email it receives (as raw text)."""
+
+    def __init__(self):
+        import socket
+        import threading
+        self.messages: list[str] = []
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listener.bind(("127.0.0.1", 0))
+        self.listener.listen(5)
+        self.port = self.listener.getsockname()[1]
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    def _serve(self):
+        while True:
+            try:
+                connection, _ = self.listener.accept()
+            except OSError:
+                return                                  # closed at the end of the test
+            with connection, connection.makefile("rb") as lines:
+                send = lambda text: connection.sendall(text.encode() + b"\r\n")   # noqa: E731
+                send("220 fake smtp ready")
+                for raw in lines:
+                    command = raw.decode(errors="ignore").strip().upper()
+                    if command.startswith("EHLO"):
+                        send("250-fake\r\n250-AUTH PLAIN LOGIN\r\n250 OK")
+                    elif command.startswith("AUTH"):
+                        send("235 OK")
+                    elif command.startswith("DATA"):
+                        send("354 go on")
+                        data = []
+                        for line in lines:
+                            if line in (b".\r\n", b".\n"):
+                                break
+                            data.append(line.decode(errors="ignore"))
+                        self.messages.append("".join(data))
+                        send("250 kept")
+                    elif command.startswith("QUIT"):
+                        send("221 bye")
+                        break
+                    else:                                # HELO, MAIL, RCPT, RSET, NOOP
+                        send("250 OK")
+
+    def close(self):
+        self.listener.close()
+
+
+@pytest.fixture
+def fake_smtp(monkeypatch):
+    """SMTP settings that point to the pretend server, for this process and for the MCP server it starts."""
+    from app.core import config
+    server = FakeSmtpServer()
+    settings = {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": str(server.port), "SMTP_USER": "hr@example.com",
+                "SMTP_PASSWORD": "made-up-password", "SMTP_FROM": "hr@example.com", "SMTP_STARTTLS": "false"}
+    for name, value in settings.items():
+        monkeypatch.setenv(name, value)                  # the MCP server is a child process: it reads the environment
+        monkeypatch.setattr(config, name, int(value) if name == "SMTP_PORT" else value)
+    monkeypatch.setattr(config, "SMTP_STARTTLS", False)
+    yield server
+    server.close()

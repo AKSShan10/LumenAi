@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { screeningApi } from "./screeningApi.js";
 import DecisionControl from "./DecisionControl.jsx";
 import DataTable from "../../shared/utils/DataTable.jsx";
+import { filterIncluded } from "./includedFilter.js";
+import InvitationEditor from "../interviews/InvitationEditor.jsx";
+import { interviewsApi, invitationStatus } from "../interviews/interviewsApi.js";
 
 // Met / Partially met / Unmet of one requirement (old results only have met: true / false)
 const STATUS = {
@@ -14,6 +17,9 @@ const statusOf = (m) => m.status || (m.met === true ? "met" : m.met === false ? 
 
 const SECTIONS = [["skills", "Skills"], ["experience", "Experience"], ["qualifications", "Qualifications"]];
 const LOOK_AGAIN_MS = 3000;       // while the backend screens, the progress is fetched every 3 seconds
+const SHOW_ALL = { mode: "all", value: "" };
+// Dates from the database may come without a time zone; they are UTC.
+const asUtc = (text) => new Date(/Z|[+-]\d\d:\d\d$/.test(text) ? text : text + "Z");
 
 // The screening of the chosen job, under the candidate list on the Candidates page.
 // The backend screens every new CV by itself (LangGraph workflow, app/graphs/cv_screening_graph.py), so there is no
@@ -21,6 +27,8 @@ const LOOK_AGAIN_MS = 3000;       // while the backend screens, the progress is 
 // CVs that wait, or that need a look, are shown in the candidate list.
 // Two groups: Included and Excluded, each sorted by the final (weighted) score. The interviewer can move a candidate
 // from one group to the other (Change); the system result stays visible next to the person's decision.
+// The Shortlist: included candidates the interviewer chose (with the Top K / minimum score filter, or one by one).
+// It is saved in the database; the interview invitation starts from it.
 export default function ScreeningCard({ jobId, candidates, onScreened }) {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(null);           // the candidate whose details are shown
@@ -32,10 +40,19 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   const screenedCount = useRef(0);
   const [progress, setProgress] = useState(null);  // the latest screening run: {running, total, done, message}
   const wasRunning = useRef(false);
+  const [filter, setFilter] = useState(SHOW_ALL);    // the filter used on the Included list
+  const [topK, setTopK] = useState("");             // what is typed in the Top K box
+  const [minScore, setMinScore] = useState("");     // what is typed in the minimum score box
+  const [shortlist, setShortlist] = useState([]);   // the saved shortlist of the job
+  const [sessions, setSessions] = useState([]);     // the interviews of the job (one per shortlisted candidate)
+  const [inviting, setInviting] = useState(null);   // the shortlisted candidate whose interview editor is open
 
   function load() {
-    return screeningApi.results(jobId).then((list) => {
+    return Promise.all([screeningApi.results(jobId), screeningApi.shortlist(jobId), interviewsApi.list(jobId)])
+      .then(([list, chosen, interviews]) => {
       setRows(list);
+      setShortlist(chosen);
+      setSessions(interviews);
       const screened = list.filter((r) => r.result !== null && !r.waiting).length;
       if (screened !== screenedCount.current) {      // new results: the candidate list shows new states too
         if (screenedCount.current !== 0 || screened !== 0) onScreened();
@@ -68,7 +85,11 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     });
   }
 
-  useEffect(() => { wasRunning.current = false; setProgress(null); setNote(null); }, [jobId]);
+  useEffect(() => {
+    wasRunning.current = false; setProgress(null); setNote(null);
+    setFilter(SHOW_ALL); setTopK(""); setMinScore("");      // another job: show its whole Included list
+    setRows([]); setShortlist([]); setSessions([]); setInviting(null);
+  }, [jobId]);
 
   useEffect(() => {                                  // new CVs (fetch, upload) start a run by itself: notice it
     if (!jobId) return;
@@ -117,6 +138,22 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     catch (e) { setError(e.message); setNote(null); } finally { setBusy(""); }
   }
 
+  // The shortlist. Only included candidates can be put on it (the backend checks this too).
+  async function addToShortlist(ids, rule, value) {
+    setError(""); setNote(null); setBusy("shortlist");
+    try { setNote(await screeningApi.addToShortlist(jobId, ids, rule, value)); await load(); }
+    catch (e) { setError(e.message); } finally { setBusy(""); }
+  }
+
+  async function removeFromShortlist(row) {
+    setError(""); setNote(null); setBusy("shortlist");
+    try {
+      await screeningApi.removeFromShortlist(row.candidate_id);
+      setNote({ ok: true, message: `${row.full_name || "The candidate"} was taken off the shortlist.` });
+      await load();
+    } catch (e) { setError(e.message); } finally { setBusy(""); }
+  }
+
   function decided(answer) {
     setNote(answer);
     load().then(onScreened).catch((e) => setError(e.message));
@@ -127,11 +164,40 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   const group = (name) => rows.filter((r) => r.final === name).sort(byScore);
   const included = group("included");
   const excluded = group("excluded");
+  const picked = filterIncluded(included, filter);
+  const onShortlist = new Set(shortlist.map((row) => row.candidate_id));
+  // the candidates the filter shows that are not on the shortlist yet (the "Add these" button)
+  const toAdd = filter.mode === "all" || picked.problem ? [] : picked.shown.filter((row) => !onShortlist.has(row.candidate_id));
 
-  function table(list, title, empty) {
+  function filterBar() {
+    return (
+      <div className="filter-bar">
+        <b>Show from Included</b>
+        <form onSubmit={(e) => { e.preventDefault(); setFilter({ mode: "top", value: topK }); }}>
+          <label htmlFor="filter-top-k" className="inline">Top K
+            <input id="filter-top-k" type="number" min="1" step="1" placeholder="5" value={topK}
+                   onChange={(e) => setTopK(e.target.value)} />
+          </label>
+          <button type="submit" className="secondary">Show top</button>
+        </form>
+        <form onSubmit={(e) => { e.preventDefault(); setFilter({ mode: "min_score", value: minScore }); }}>
+          <label htmlFor="filter-min-score" className="inline">Final score at least
+            <input id="filter-min-score" type="number" min="0" max="100" step="any" placeholder="70" value={minScore}
+                   onChange={(e) => setMinScore(e.target.value)} />
+          </label>
+          <button type="submit" className="secondary">Show</button>
+        </form>
+        <button type="button" className="link" onClick={() => setFilter(SHOW_ALL)} disabled={filter.mode === "all"}>
+          Show all</button>
+      </div>
+    );
+  }
+
+  function table(list, title, empty, info = null) {
     return (
       <>
-        <h4>{title} <small className="muted">({list.length})</small></h4>
+        <h4>{title} <small className="muted">({title === "Included" ? included.length : list.length})</small></h4>
+        {info}
         <DataTable rows={list} rowKey={(row) => row.candidate_id} empty={empty}
                    expanded={(row) => (open === row.candidate_id ? details(row) : null)} columns={[
           { key: "rank", title: "#", render: (row, index) => index + 1 },
@@ -139,6 +205,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
             <>
               <b>{row.full_name || "(name not given)"}</b>
               {row.decision && <div className="small"><span className="badge draft">changed by {row.decided_by || "an interviewer"}</span></div>}
+              {onShortlist.has(row.candidate_id) && <div className="small"><span className="badge done">shortlisted</span></div>}
               {row.waiting && <div className="muted small">waiting to be screened again</div>}
             </>
           ) },
@@ -162,8 +229,63 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
               <button className="link" onClick={() => setOpen(open === row.candidate_id ? null : row.candidate_id)}>
                 {open === row.candidate_id ? "Hide" : "Details"}</button>
               <DecisionControl candidateId={row.candidate_id} final={row.final} decided={!!row.decision} onDone={decided} />
+              {row.final === "included" && !row.waiting && !onShortlist.has(row.candidate_id) && (
+                <button className="link" onClick={() => addToShortlist([row.candidate_id], "by_hand")} disabled={busy !== ""}>
+                  Shortlist</button>
+              )}
               <button className="link" onClick={() => screenOne(row)} disabled={busy !== ""}>
                 {busy === `one-${row.candidate_id}` ? "Screening..." : "Screen again"}</button>
+            </>
+          ) },
+        ]} />
+      </>
+    );
+  }
+
+  // the open interview of a candidate (an ended one does not count), or undefined
+  const sessionOf = (candidateId) => sessions.find((s) => s.candidate_id === candidateId && s.status !== "ended");
+
+  function savedSession(saved) {                     // the editor scheduled, rewrote or sent: keep the list in step
+    setSessions((list) => [...list.filter((s) => s.id !== saved.id), saved]);
+  }
+
+  function shortlistTable() {
+    return (
+      <>
+        <h4>Shortlist <small className="muted">({shortlist.length})</small></h4>
+        <p className="muted small">Included candidates chosen for the interview, highest final score first. The interview
+          invitation starts from this list. A candidate who is excluded later is taken off it.</p>
+        <DataTable rows={shortlist} rowKey={(row) => row.candidate_id}
+                   expanded={(row) => (inviting === row.candidate_id
+                     ? <InvitationEditor key={sessionOf(row.candidate_id)?.id || "new"} candidate={row}
+                                         session={sessionOf(row.candidate_id)} onChange={savedSession} />
+                     : null)}
+                   empty="Nobody is on the shortlist yet. Filter the Included list (Top K or a minimum score) and add them, or use Shortlist on a row."
+                   columns={[
+          { key: "rank", title: "#", render: (row, index) => index + 1 },
+          { key: "name", title: "Name", render: (row) => (
+            <><b>{row.full_name || `(name not given, candidate ${row.number})`}</b>
+              {row.email && <div className="muted small">{row.email}</div>}</>
+          ) },
+          { key: "final", title: "Final score", render: (row) => <b>{row.weighted_score ?? "-"}</b> },
+          { key: "rule", title: "Chosen by", className: "small", render: (row) => row.rule },
+          { key: "who", title: "Added by", className: "small",
+            render: (row) => <span title={row.added_by}>{row.added_by_name || row.added_by || "-"}</span> },
+          { key: "when", title: "Added", className: "small", render: (row) => asUtc(row.added_at).toLocaleString() },
+          { key: "interview", title: "Interview", className: "small", render: (row) => {
+            const interview = sessionOf(row.candidate_id);
+            if (!interview) return <span className="muted">not scheduled</span>;
+            const status = invitationStatus(interview.invitation_status);
+            return (<>{new Date(interview.scheduled_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+              <div><span className={`badge ${status.badge}`}>{status.label}</span></div></>);
+          } },
+          { key: "actions", title: "", className: "small actions", render: (row) => (
+            <>
+              <button className="link" onClick={() => screeningApi.viewCv(row.candidate_id, row.full_name).catch((e) => setError(e.message))}>
+                View CV</button>
+              <button className="link" onClick={() => setInviting(inviting === row.candidate_id ? null : row.candidate_id)}>
+                {inviting === row.candidate_id ? "Close" : sessionOf(row.candidate_id) ? "Invitation" : "Schedule interview"}</button>
+              <button className="link" onClick={() => removeFromShortlist(row)} disabled={busy !== ""}>Remove</button>
             </>
           ) },
         ]} />
@@ -266,7 +388,25 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
       {note && <p className={note.ok ? "ok" : "error"}>{note.message}</p>}
       {error && <p className="error">{error}</p>}
 
-      {table(included, "Included", "Nobody is included yet.")}
+      {table(picked.shown, "Included",
+             filter.mode === "all" ? "Nobody is included yet." : "No included candidate matches this filter.",
+             included.length > 0 && (
+               <>
+                 {filterBar()}
+                 {picked.problem && <p className="error small">{picked.problem}</p>}
+                 {picked.message && (
+                   <p className="muted small">{picked.message}{" "}
+                     {toAdd.length > 0 ? (
+                       <button type="button" className="secondary" disabled={busy !== ""}
+                               onClick={() => addToShortlist(toAdd.map((row) => row.candidate_id), filter.mode, Number(filter.value))}>
+                         {busy === "shortlist" ? "Adding..." : `Add ${toAdd.length === 1 ? "this 1" : `these ${toAdd.length}`} to the shortlist`}
+                       </button>
+                     ) : picked.shown.length > 0 && <span>Everyone shown is on the shortlist.</span>}
+                   </p>
+                 )}
+               </>
+             ))}
+      {shortlistTable()}
       {table(excluded, "Excluded", "Nobody is excluded.")}
     </div>
   );

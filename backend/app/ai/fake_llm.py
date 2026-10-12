@@ -12,6 +12,7 @@ from app.utils.skill_names import find_skill
 
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
+from app.features.interviews.services.invitation_prompt import INVITATION_PROMPT
 
 
 def fake_answer(instructions: str, data) -> dict:
@@ -25,6 +26,8 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_section_scores(data)
     if instructions == ATS_KEYWORDS_PROMPT:
         return _fake_ats_keywords(data)
+    if instructions == INVITATION_PROMPT:
+        return _fake_invitation(data)
     return {"ok": True}
 
 
@@ -188,3 +191,13 @@ def fake_embedding(text: str, size: int = 64) -> list[float]:
         vector[int(hashlib.md5(word.encode()).hexdigest(), 16) % size] += 1.0
     length = math.sqrt(sum(v * v for v in vector)) or 1.0
     return [v / length for v in vector]
+
+
+def _fake_invitation(data: dict) -> dict:
+    """A short invitation from the data, with the {join_link} placeholder (code puts the real link in)."""
+    body = (f"Dear {data['candidate_name']},\n\nThank you for applying for the {data['job_title']} position. "
+            f"We would like to invite you to an online video interview on {data['date']} at {data['time']} "
+            f"(about {data['length_minutes']} minutes).\n\nJoin with your personal link:\n{{join_link}}\n\n"
+            "A calendar invite is attached. Please reply if the time does not suit you.\n\n"
+            f"Kind regards,\n{data['interviewer_name']}\nHiring team\n(Fake AI text for offline tests.)")
+    return {"subject": f"Interview invitation: {data['job_title']}", "body": body}
