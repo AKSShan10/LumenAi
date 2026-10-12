@@ -9,6 +9,15 @@ export const interviewsApi = {
   writeAgain: (sessionId) => request(`/api/sessions/${sessionId}/invitation`, { method: "POST" }),
   send: (sessionId, to, subject, body) => request(`/api/sessions/${sessionId}/invitation`, put({ to, subject, body })),
   joinInfo: (token) => request(`/api/join/${token}`),      // public: the candidate's page
+  // the video call: the answers have {server_url, ticket, room_name, identity} for LiveKit
+  start: (sessionId) => request(`/api/sessions/${sessionId}/start`, { method: "POST" }),   // start or join again
+  end: (sessionId) => request(`/api/sessions/${sessionId}/end`, { method: "POST" }),       // end for both
+  joinTicket: (token, name) => request(`/api/join/${token}/ticket`, json({ name })),        // public: the candidate
+  // the chat in the call: "after" = the newest message id the page already has (0 = all)
+  chat: (sessionId, after = 0) => request(`/api/sessions/${sessionId}/chat?after=${after}`),
+  sendChat: (sessionId, text) => request(`/api/sessions/${sessionId}/chat`, json({ text })),
+  joinChat: (token, after = 0) => request(`/api/join/${token}/chat?after=${after}`),          // public: the candidate
+  joinSendChat: (token, text) => request(`/api/join/${token}/chat`, json({ text })),
 };
 
 // How the invitation status is shown: "" = draft, sent, not_sent, no_email, or "failed: <reason>"

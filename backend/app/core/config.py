@@ -88,3 +88,10 @@ SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() != "false"
 #   mcp  - the backend calls the email MCP server (app/mcp_servers/email_server.py), which sends it (default)
 #   smtp - the backend sends it itself (same SMTP code, no MCP server)
 EMAIL_TRANSPORT = os.getenv("EMAIL_TRANSPORT", "mcp")
+
+# ---------------- Video call (LiveKit) ----------------
+# A LiveKit Cloud project (the free plan is enough): Settings > Keys. The secret signs the call tickets; keep it in .env.
+# Empty = everything works except the video itself (the page says "Video is not set up").
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud
+LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
+LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")

@@ -86,6 +86,7 @@ export default function InvitationEditor({ candidate, session, onChange }) {
         <a href={session.join_link} target="_blank" rel="noreferrer">{session.join_link}</a>{" "}
         <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(session.join_link).catch(() => {})}>Copy</button>
       </p>
+      <p className="small"><a href="/interviews">Open in Interviews</a> to start the video call at the interview time.</p>
       {session.invitation_status.startsWith("failed") && <p className="error small">{session.invitation_status}</p>}
       {changing ? timeForm("Save the new time", () => run("time", () => interviewsApi.changeTime(session.id, timeBody())))
         : <div><button type="button" className="link" onClick={() => setChanging(true)}>Change time</button></div>}

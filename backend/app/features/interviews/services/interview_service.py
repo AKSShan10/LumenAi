@@ -6,6 +6,9 @@ app/graphs/invitation_graph.py; this file starts it and passes the interviewer's
     reschedule(...)          a new time; the workflow writes a new draft (the calendar event is updated when sent)
     rewrite(...)             "Write again with AI": the paused workflow writes a new draft
     send_invitation(...)     "Send email": the paused workflow sends the checked text with the calendar invite
+    start_call(...)          the interviewer starts (or joins again) the video call: status live + a ticket
+    end_call(...)            the interviewer ends the call for both: status ended
+    candidate_ticket(...)    the candidate's ticket, only while the call is live
     session_out(...)         one interview for the page
     email_check()            the Settings button "Test email"
 
@@ -18,10 +21,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from app.core import config
 from app.features.candidates.models import Candidate
 from app.features.interviews.models import InterviewSession
-from app.features.interviews.schemas import SessionOut
+from app.features.interviews.schemas import SessionOut, TicketOut
 from app.features.interviews.services.invitation_service import as_utc, email_check, interviewer_name, join_link
+from app.features.interviews.services.video_service import make_ticket, video_problem
 from app.features.jobs.models import Job
 from app.features.screening.models import ShortlistEntry
 from app.features.system.models import WorkflowRun
@@ -30,7 +35,8 @@ from app.graphs.invitation_graph import answer, start_invitation
 log = logging.getLogger("interviews")
 
 MAX_DAYS_AHEAD = 365
-__all__ = ["email_check", "reschedule", "rewrite", "schedule", "send_invitation", "session_out"]
+__all__ = ["candidate_ticket", "email_check", "end_call", "reschedule", "rewrite", "schedule", "send_invitation",
+           "session_out", "start_call"]
 
 
 def _check_time(start: datetime) -> datetime:
@@ -116,4 +122,63 @@ def session_out(session: Session, interview: InterviewSession, message: str = ""
                       invite_email=interview.invite_email, invitation_subject=interview.invitation_subject,
                       invitation_body=interview.invitation_body, invitation_status=interview.invitation_status,
                       sent_at=as_utc(interview.sent_at) if interview.sent_at else None, created_by=interview.created_by,
-                      created_at=as_utc(interview.created_at), message=message)
+                      created_at=as_utc(interview.created_at), message=message,
+                      started_at=_maybe_utc(interview.started_at),
+                      candidate_joined_at=_maybe_utc(interview.candidate_joined_at),
+                      ended_at=_maybe_utc(interview.ended_at))
+
+
+def _maybe_utc(moment):
+    return as_utc(moment) if moment else None
+
+
+# ---------- the video call ----------
+
+def start_call(session: Session, interview: InterviewSession, by: str) -> TicketOut:
+    """Starts the call (status live) or joins it again. Any time after scheduling, so a demo can start early.
+    The candidate can join only while it is live."""
+    if interview.status == "ended":
+        raise HTTPException(400, "This interview has ended. Schedule a new one to talk again.")
+    problem = video_problem()
+    if problem:
+        raise HTTPException(503, problem + ". Add the LiveKit keys and restart the backend.")
+    if interview.status != "live":
+        interview.status, interview.started_at = "live", datetime.now(timezone.utc)
+        _log(session, interview, "call started")
+        session.add(interview)
+        session.commit()
+        session.refresh(interview)
+        log.info("call started session=%s", interview.id)
+    ticket = make_ticket(interview.room_name, "interviewer", interviewer_name(session, by))
+    return TicketOut(server_url=config.LIVEKIT_URL, ticket=ticket, room_name=interview.room_name,
+                     identity="interviewer", session=session_out(session, interview))
+
+
+def end_call(session: Session, interview: InterviewSession) -> SessionOut:
+    """Ends the call for both. The candidate's page sees "ended" and leaves; the link cannot be used again."""
+    if interview.status != "ended":
+        interview.status, interview.ended_at = "ended", datetime.now(timezone.utc)
+        _log(session, interview, "call ended")
+        session.add(interview)
+        session.commit()
+        session.refresh(interview)
+        log.info("call ended session=%s", interview.id)
+    return session_out(session, interview, "The interview has ended.")
+
+
+def candidate_ticket(session: Session, interview: InterviewSession, name: str) -> TicketOut:
+    """The candidate's ticket: only while the interviewer has the call open (not before, not after)."""
+    if interview.status == "scheduled":
+        raise HTTPException(409, "The interviewer has not started the interview yet. Please wait on this page.")
+    if interview.status == "ended":
+        raise HTTPException(409, "This interview has ended.")
+    problem = video_problem()
+    if problem:
+        raise HTTPException(503, "The video call is not available right now. Please tell the interviewer.")
+    if not interview.candidate_joined_at:
+        interview.candidate_joined_at = datetime.now(timezone.utc)
+        _log(session, interview, "candidate joined")
+        session.add(interview)
+        session.commit()
+    return TicketOut(server_url=config.LIVEKIT_URL, ticket=make_ticket(interview.room_name, "candidate", name.strip()),
+                     room_name=interview.room_name, identity="candidate")

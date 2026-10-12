@@ -63,6 +63,9 @@ class SessionOut(BaseModel):
     sent_at: Optional[datetime] = None
     created_by: str
     created_at: datetime
+    started_at: Optional[datetime] = None
+    candidate_joined_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     message: str = ""                # what just happened, in plain words (after scheduling, writing or sending)
 
 
@@ -73,3 +76,30 @@ class JoinInfoOut(BaseModel):
     scheduled_at: datetime
     duration_minutes: int
     status: str
+
+
+class JoinTicketIn(BaseModel):
+    """The candidate's name, shown in the call."""
+    name: str = Field(min_length=1, max_length=60)
+
+
+class TicketOut(BaseModel):
+    """What a browser needs to join the call: the LiveKit server, a signed ticket for one room, and who it is."""
+    server_url: str
+    ticket: str
+    room_name: str
+    identity: str                    # interviewer | candidate
+    session: Optional[SessionOut] = None    # the interview as it is now (interviewer only)
+
+
+class ChatIn(BaseModel):
+    """One chat message in the call: text, and links are simply part of the text."""
+    text: str = Field(min_length=1, max_length=1000)
+
+
+class CallMessageOut(BaseModel):
+    id: int
+    sender: str                      # interviewer | candidate
+    sender_name: str                 # the name shown in the chat
+    text: str
+    sent_at: datetime

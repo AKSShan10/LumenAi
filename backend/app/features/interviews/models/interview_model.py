@@ -26,4 +26,8 @@ class InterviewSession(SQLModel, table=True):
     invitation_status: str = ""
     sent_at: Optional[datetime] = None
     created_by: str = ""                              # the email of the interviewer who scheduled it
+    # The session record of the video call
+    started_at: Optional[datetime] = None             # the interviewer started the call (status live)
+    candidate_joined_at: Optional[datetime] = None    # the candidate first joined the call
+    ended_at: Optional[datetime] = None               # the call was ended (status ended)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

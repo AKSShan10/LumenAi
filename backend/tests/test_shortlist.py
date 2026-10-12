@@ -47,7 +47,8 @@ def shortlist(client, job) -> list:
 def log(candidate_id) -> list:
     with Session(engine) as session:
         return [r.outcome for r in session.exec(select(WorkflowRun).where(WorkflowRun.stage == "shortlist",
-                                                                        WorkflowRun.subject_id == candidate_id)).all()]
+                                                                        WorkflowRun.subject_id == candidate_id)
+                                                     .order_by(WorkflowRun.id)).all()]        # oldest first
 
 
 def test_included_candidates_are_saved_with_the_rule(client, job, people):

@@ -2,6 +2,7 @@
 
   GET /api/llm-check       makes one tiny call to the AI service and says in plain words whether it works
   GET /api/email-check     checks the email (SMTP) settings and login through the email MCP server; sends nothing
+  GET /api/video-check     are the LiveKit settings there, and can a call ticket be made? connects to nothing
   GET /api/workflow-runs   the latest runs of the recruitment graph (stage, outcome, error, seconds)
 """
 from fastapi import APIRouter, Depends, Query
@@ -11,6 +12,7 @@ from app.ai.llm_client import check_connection
 from app.core.database import get_session
 from app.core.security import require_interviewer
 from app.features.interviews.services.invitation_service import email_check as check_email
+from app.features.interviews.services.video_service import video_check as check_video
 from app.features.system.models import WorkflowRun
 
 router = APIRouter(prefix="/api", tags=["System"], dependencies=[Depends(require_interviewer)])
@@ -24,6 +26,11 @@ def llm_check():
 @router.get("/email-check")
 def email_check():
     return check_email()
+
+
+@router.get("/video-check")
+def video_check():
+    return check_video()
 
 
 @router.get("/workflow-runs")

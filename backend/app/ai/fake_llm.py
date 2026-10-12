@@ -198,7 +198,6 @@ def _fake_invitation(data: dict) -> dict:
     body = (f"Dear {data['candidate_name']},\n\nThank you for applying for the {data['job_title']} position. "
             f"We would like to invite you to an online video interview on {data['date']} at {data['time']} "
             f"(about {data['length_minutes']} minutes).\n\nJoin with your personal link:\n{{join_link}}\n\n"
-            "A calendar invite is attached. The interview is transcribed and analysed by AI to help the interviewer; "
-            "a person makes every decision. Please reply if the time does not suit you.\n\n"
+            "A calendar invite is attached. Please reply if the time does not suit you.\n\n"
             f"Kind regards,\n{data['interviewer_name']}\nHiring team\n(Fake AI text for offline tests.)")
     return {"subject": f"Interview invitation: {data['job_title']}", "body": body}

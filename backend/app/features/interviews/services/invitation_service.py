@@ -93,8 +93,7 @@ def standard_text(facts: dict) -> tuple[str, str]:
             f"like to invite you to an online video interview.\n\nDate: {facts['date']}\nTime: {facts['time']}\n"
             f"Length: about {facts['length_minutes']} minutes\n\nJoin the interview with your personal link:\n"
             f"{PLACEHOLDER}\n\nA calendar invite is attached. Please use a computer or phone with a camera, a microphone "
-            "and a stable internet connection, in a quiet place. The interview is transcribed and analysed by AI to "
-            "help the interviewer; a person makes every decision.\n\nIf the time does not suit you, please reply to "
+            "and a stable internet connection, in a quiet place.\n\nIf the time does not suit you, please reply to "
             f"this email.\n\nKind regards,\n{facts['interviewer_name']}\nHiring team")
     return f"Interview invitation: {facts['job_title']}", body
 
