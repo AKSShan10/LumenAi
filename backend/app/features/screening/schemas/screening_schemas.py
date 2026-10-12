@@ -80,3 +80,39 @@ class WeightsOut(BaseModel):
     experience: int
     qualifications: int
     updated: int = 0                 # how many screened candidates got a new weighted score
+
+
+class ShortlistIn(BaseModel):
+    """Candidates to put on the shortlist, and how they were chosen.
+    rule: top = the Top K filter (value = K), min_score = the minimum final score filter (value = the score),
+    by_hand = one candidate added with the Shortlist link (no value)."""
+    candidate_ids: list[int] = Field(min_length=1, max_length=500)
+    rule: Literal["top", "min_score", "by_hand"]
+    value: Optional[float] = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def value_fits_the_rule(self):
+        if self.rule == "top" and (self.value is None or self.value < 1 or self.value != int(self.value)):
+            raise ValueError("Top K needs a whole number of 1 or more")
+        if self.rule == "min_score" and (self.value is None or self.value > 100):
+            raise ValueError("The minimum score must be a number from 0 to 100")
+        return self
+
+
+class ShortlistAddOut(BaseModel):
+    ok: bool
+    message: str
+    added: int = 0                   # put on the shortlist now
+    already: int = 0                 # were on it already (nothing changed for them)
+
+
+class ShortlistRowOut(BaseModel):
+    """One shortlisted candidate, for the Shortlist section (the interview invitation will start from here)."""
+    candidate_id: int
+    number: int                      # the candidate's number inside the job
+    full_name: str
+    email: str
+    weighted_score: Optional[float] = None
+    rule: str
+    added_by: str
+    added_at: datetime

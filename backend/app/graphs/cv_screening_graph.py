@@ -80,6 +80,7 @@ from app.features.candidates.services.cv_reading_service import looks_english, t
 from app.features.screening.models import ScreeningResult
 from app.features.system.models import WorkflowRun
 from app.features.screening.services.score_service import SECTIONS, weighted_score
+from app.features.screening.services.shortlist_service import remove_unless_included
 from app.graphs.checkpointer import checkpointer
 from app.graphs.cv_screening_prompts import EXTRACT_PROFILE_PROMPT, OCR_PROMPT, SCORE_SECTIONS_PROMPT
 from app.utils.file_text_utils import read_file_text
@@ -345,6 +346,8 @@ def save_result(state: CvScreenState) -> dict:
             row.decision, row.decision_note, row.decided_by, row.decided_at = "", "", "", None
         row.model = "fake" if config.LLM_PROVIDER == "fake" else config.LLM_MODEL
         session.add(row)
+        # screened again and no longer included: off the shortlist (only included candidates are invited)
+        remove_unless_included(session, state["candidate_id"], "included" if row.result == "passed" else row.result)
 
         session.add(WorkflowRun(stage="cv_screening", subject_id=state["candidate_id"], outcome=state["result"],
                                 error=state["error"], seconds=round(time.time() - state["started"], 2)))
@@ -372,6 +375,9 @@ def apply_decision(state: CvScreenState) -> dict:
         row.decided_at = datetime.now(timezone.utc) if row.decision else None
         session.add(row)
         outcome = row.decision or "undone"
+        # what counts now: the person's decision, or the system result after an undo
+        remove_unless_included(session, state["candidate_id"],
+                               row.decision or ("included" if row.result == "passed" else row.result))
         session.add(WorkflowRun(stage="hr_decision", subject_id=state["candidate_id"], outcome=outcome, seconds=0.0))
         session.commit()
     log.info("hr decision candidate=%s decision=%s", state["candidate_id"], outcome)

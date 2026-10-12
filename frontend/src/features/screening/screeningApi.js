@@ -1,5 +1,5 @@
 // CV screening of a job: the AI reads each CV, the backend code checks the job's requirements
-import { json, openInNewTab, post, put, request } from "../../shared/api/httpClient.js";
+import { del, json, openInNewTab, post, put, request } from "../../shared/api/httpClient.js";
 
 export const screeningApi = {
   viewCv: (candidateId, name) => openInNewTab(`/api/candidates/${candidateId}/cv`, `${name || "candidate"} CV`),
@@ -11,4 +11,10 @@ export const screeningApi = {
   decide: (candidateId, decision, note) => request(`/api/candidates/${candidateId}/decision`, put({ decision, note })),
   weights: (jobId) => request(`/api/jobs/${jobId}/score-weights`),
   saveWeights: (jobId, weights) => request(`/api/jobs/${jobId}/score-weights`, put(weights)),   // recalculates every score
+  // the shortlist: included candidates chosen for the interview invitation (saved in the database)
+  shortlist: (jobId) => request(`/api/jobs/${jobId}/shortlist`),
+  // rule: "top" (value = K), "min_score" (value = the minimum final score) or "by_hand" (no value)
+  addToShortlist: (jobId, candidateIds, rule, value = null) =>
+    request(`/api/jobs/${jobId}/shortlist`, json({ candidate_ids: candidateIds, rule, value })),
+  removeFromShortlist: (candidateId) => request(`/api/candidates/${candidateId}/shortlist`, del),
 };

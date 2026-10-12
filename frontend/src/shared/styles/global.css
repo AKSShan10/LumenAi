@@ -122,6 +122,11 @@ button.danger { background: #fff; color: var(--red); border: 1px solid #f0b8b3; 
 form.weights { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0 12px; }
 form.weights label.inline { margin-bottom: 0; }
 form.weights input { display: inline-block; margin-top: 0; padding: 4px 6px; }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 4px 0 8px; }
+.filter-bar form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.filter-bar label.inline { margin-bottom: 0; white-space: nowrap; }
+/* label.inline in the selector: stronger than the general input rule (width 100%) */
+.filter-bar label.inline input { display: inline-block; width: 80px; margin-top: 0; padding: 4px 6px; }
 .decision { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
 .decision input { margin-top: 0; }
 .decision button { margin: 0 6px 0 0; padding: 4px 10px; }
