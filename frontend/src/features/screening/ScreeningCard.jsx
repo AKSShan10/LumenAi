@@ -3,6 +3,8 @@ import { screeningApi } from "./screeningApi.js";
 import DecisionControl from "./DecisionControl.jsx";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import { filterIncluded } from "./includedFilter.js";
+import InvitationEditor from "../interviews/InvitationEditor.jsx";
+import { interviewsApi, invitationStatus } from "../interviews/interviewsApi.js";
 
 // Met / Partially met / Unmet of one requirement (old results only have met: true / false)
 const STATUS = {
@@ -42,11 +44,15 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   const [topK, setTopK] = useState("");             // what is typed in the Top K box
   const [minScore, setMinScore] = useState("");     // what is typed in the minimum score box
   const [shortlist, setShortlist] = useState([]);   // the saved shortlist of the job
+  const [sessions, setSessions] = useState([]);     // the interviews of the job (one per shortlisted candidate)
+  const [inviting, setInviting] = useState(null);   // the shortlisted candidate whose interview editor is open
 
   function load() {
-    return Promise.all([screeningApi.results(jobId), screeningApi.shortlist(jobId)]).then(([list, chosen]) => {
+    return Promise.all([screeningApi.results(jobId), screeningApi.shortlist(jobId), interviewsApi.list(jobId)])
+      .then(([list, chosen, interviews]) => {
       setRows(list);
       setShortlist(chosen);
+      setSessions(interviews);
       const screened = list.filter((r) => r.result !== null && !r.waiting).length;
       if (screened !== screenedCount.current) {      // new results: the candidate list shows new states too
         if (screenedCount.current !== 0 || screened !== 0) onScreened();
@@ -82,7 +88,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   useEffect(() => {
     wasRunning.current = false; setProgress(null); setNote(null);
     setFilter(SHOW_ALL); setTopK(""); setMinScore("");      // another job: show its whole Included list
-    setRows([]); setShortlist([]);
+    setRows([]); setShortlist([]); setSessions([]); setInviting(null);
   }, [jobId]);
 
   useEffect(() => {                                  // new CVs (fetch, upload) start a run by itself: notice it
@@ -236,6 +242,13 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     );
   }
 
+  // the open interview of a candidate (an ended one does not count), or undefined
+  const sessionOf = (candidateId) => sessions.find((s) => s.candidate_id === candidateId && s.status !== "ended");
+
+  function savedSession(saved) {                     // the editor scheduled, rewrote or sent: keep the list in step
+    setSessions((list) => [...list.filter((s) => s.id !== saved.id), saved]);
+  }
+
   function shortlistTable() {
     return (
       <>
@@ -243,6 +256,10 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
         <p className="muted small">Included candidates chosen for the interview, highest final score first. The interview
           invitation starts from this list. A candidate who is excluded later is taken off it.</p>
         <DataTable rows={shortlist} rowKey={(row) => row.candidate_id}
+                   expanded={(row) => (inviting === row.candidate_id
+                     ? <InvitationEditor key={sessionOf(row.candidate_id)?.id || "new"} candidate={row}
+                                         session={sessionOf(row.candidate_id)} onChange={savedSession} />
+                     : null)}
                    empty="Nobody is on the shortlist yet. Filter the Included list (Top K or a minimum score) and add them, or use Shortlist on a row."
                    columns={[
           { key: "rank", title: "#", render: (row, index) => index + 1 },
@@ -252,12 +269,22 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
           ) },
           { key: "final", title: "Final score", render: (row) => <b>{row.weighted_score ?? "-"}</b> },
           { key: "rule", title: "Chosen by", className: "small", render: (row) => row.rule },
-          { key: "who", title: "Added by", className: "small", render: (row) => row.added_by || "-" },
+          { key: "who", title: "Added by", className: "small",
+            render: (row) => <span title={row.added_by}>{row.added_by_name || row.added_by || "-"}</span> },
           { key: "when", title: "Added", className: "small", render: (row) => asUtc(row.added_at).toLocaleString() },
+          { key: "interview", title: "Interview", className: "small", render: (row) => {
+            const interview = sessionOf(row.candidate_id);
+            if (!interview) return <span className="muted">not scheduled</span>;
+            const status = invitationStatus(interview.invitation_status);
+            return (<>{new Date(interview.scheduled_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}
+              <div><span className={`badge ${status.badge}`}>{status.label}</span></div></>);
+          } },
           { key: "actions", title: "", className: "small actions", render: (row) => (
             <>
               <button className="link" onClick={() => screeningApi.viewCv(row.candidate_id, row.full_name).catch((e) => setError(e.message))}>
                 View CV</button>
+              <button className="link" onClick={() => setInviting(inviting === row.candidate_id ? null : row.candidate_id)}>
+                {inviting === row.candidate_id ? "Close" : sessionOf(row.candidate_id) ? "Invitation" : "Schedule interview"}</button>
               <button className="link" onClick={() => removeFromShortlist(row)} disabled={busy !== ""}>Remove</button>
             </>
           ) },

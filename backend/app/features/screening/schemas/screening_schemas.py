@@ -114,5 +114,6 @@ class ShortlistRowOut(BaseModel):
     email: str
     weighted_score: Optional[float] = None
     rule: str
-    added_by: str
+    added_by: str                    # the interviewer's email (saved: the reliable record of who did it)
+    added_by_name: str = ""          # the interviewer's name, for the page ("" if the account is gone)
     added_at: datetime

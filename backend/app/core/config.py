@@ -72,3 +72,19 @@ BLOGGER_CLIENT_SECRET = os.getenv("BLOGGER_CLIENT_SECRET", "")    # keep it only
 BLOGGER_REFRESH_TOKEN = os.getenv("BLOGGER_REFRESH_TOKEN", "")    # made once by scripts/blogger_login.py; only in .env
 BLOGGER_API_URL = os.getenv("BLOGGER_API_URL", "https://www.googleapis.com/blogger/v3")
 GOOGLE_TOKEN_URL = os.getenv("GOOGLE_TOKEN_URL", "https://oauth2.googleapis.com/token")
+
+# ---------------- Interview invitation (email with a calendar invite) ----------------
+# The start of the candidate's private join link: APP_URL/join/<join_token>. Use the address candidates can open.
+APP_URL = os.getenv("APP_URL", "http://localhost:8090").rstrip("/")
+# SMTP sends the email, for example Gmail: host smtp.gmail.com, port 587, your address, an app password.
+# SMTP_HOST empty = nothing is sent: the invitation is saved as "not sent" and can be copied by hand.
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))                     # 587 = STARTTLS, 465 = SSL
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")                    # keep it only in .env
+SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER               # the sender address the candidate sees
+SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() != "false"
+# EMAIL_TRANSPORT:
+#   mcp  - the backend calls the email MCP server (app/mcp_servers/email_server.py), which sends it (default)
+#   smtp - the backend sends it itself (same SMTP code, no MCP server)
+EMAIL_TRANSPORT = os.getenv("EMAIL_TRANSPORT", "mcp")

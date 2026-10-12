@@ -121,6 +121,42 @@ graph TD;
 	classDef last fill:#bfb6fc
 ```
 
+## Interview invitation workflow (pauses until the interviewer sends)
+
+Code: `backend/app/graphs/invitation_graph.py`
+
+Steps: `write_draft`, `check_draft`, `save_draft`, `ask_person`, `send_email`, `save_result`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	write_draft(write_draft)
+	check_draft(check_draft)
+	save_draft(save_draft)
+	ask_person(ask_person)
+	send_email(send_email)
+	save_result(save_result)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> write_draft;
+	ask_person -.-> send_email;
+	ask_person -.-> write_draft;
+	check_draft -.-> save_draft;
+	check_draft -.-> write_draft;
+	save_draft --> ask_person;
+	save_result --> ask_person;
+	send_email --> save_result;
+	write_draft --> check_draft;
+	ask_person -.-> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
 ## Assistant agent (the chatbot)
 
 Code: `backend/app/graphs/assistant_agent.py`

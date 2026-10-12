@@ -119,12 +119,15 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
 
 
 def forget_screening(session: Session, candidate: Candidate) -> None:
-    """Removes the screening result and the shortlist entry of a candidate that is deleted."""
+    """Removes the screening result, the shortlist entry and the interview of a candidate that is deleted."""
     from app.features.screening.models import ScreeningResult, ShortlistEntry   # the screening feature uses the candidates
     for result in session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).all():
         session.delete(result)
     for entry in session.exec(select(ShortlistEntry).where(ShortlistEntry.candidate_id == candidate.id)).all():
         session.delete(entry)
+    from app.features.interviews.models import InterviewSession                  # and their interview, if any
+    for interview in session.exec(select(InterviewSession).where(InterviewSession.candidate_id == candidate.id)).all():
+        session.delete(interview)
 
 
 SCREENING_STATES = {"passed": "included", "excluded": "excluded", "needs_review": "needs_review"}

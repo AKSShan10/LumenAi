@@ -3,10 +3,11 @@ from app.graphs.job_description_graph import write_job_draft
 
 
 def test_every_run_is_logged(client):
-    before = len(client.get("/api/workflow-runs?limit=200").json())
+    # the newest rows, not a count: other tests write many rows, more than one page holds
+    before = [run["id"] for run in client.get("/api/workflow-runs?limit=200").json()]
     write_job_draft("Backend developer with Python and FastAPI, 3 years experience")
     runs = client.get("/api/workflow-runs?limit=200").json()
-    assert len(runs) == before + 1
+    assert [run["id"] for run in runs if run["id"] not in before] == [runs[0]["id"]]     # exactly one new row
     last = runs[0]                                                 # newest first
     assert last["stage"] == "job_description" and last["outcome"] == "done" and last["error"] == ""
     assert last["seconds"] >= 0

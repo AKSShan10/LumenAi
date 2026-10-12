@@ -134,3 +134,10 @@ td.actions { white-space: nowrap; }
 td.actions button.link { display: block; margin: 2px 0; text-align: left; padding: 0; }
 .progress-line { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
 .progress-line progress { width: 260px; height: 10px; accent-color: var(--blue); }
+/* the interview invitation of one shortlisted candidate (InvitationEditor.jsx) */
+.invitation { display: grid; gap: 8px; padding: 10px 4px; font-size: 14px; }
+.invitation form.weights { margin: 0; }
+.invitation form.weights input, .invitation form.weights select { width: auto; margin-top: 0; padding: 4px 6px; }
+.invitation-form label { margin: 10px 0 4px; }
+.invitation-form textarea { font-family: inherit; line-height: 1.45; }
+.consent { background: #fff7e0; border-radius: 6px; padding: 8px 10px; }

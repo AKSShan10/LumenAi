@@ -59,6 +59,7 @@ def test_included_candidates_are_saved_with_the_rule(client, job, people):
     rows = shortlist(client, job)
     assert {r["candidate_id"] for r in rows} == {karima, rahim}
     assert all(r["rule"] == "Top 2" and r["added_by"] == "interviewer@example.com" and r["added_at"] for r in rows)
+    assert all(r["added_by_name"] == "Test Interviewer" for r in rows)       # the page shows the name
     assert log(karima) == ["added (Top 2)"]
 
     again = add(client, job, [karima, rahim]).json()                  # nobody is added twice

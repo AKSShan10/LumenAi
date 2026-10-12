@@ -13,6 +13,7 @@ workflow_run (stage "shortlist").
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from app.features.auth.models import User
 from app.features.candidates.models import Candidate
 from app.features.jobs.models import Job
 from app.features.screening.models import ScreeningResult, ShortlistEntry
@@ -91,13 +92,16 @@ def shortlist_rows(session: Session, job: Job) -> list[ShortlistRowOut]:
     candidates = {c.id: c for c in session.exec(select(Candidate).where(Candidate.id.in_(ids))).all()}
     scores = {r.candidate_id: r.weighted_score
               for r in session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id.in_(ids))).all()}
+    # the email is saved on each entry; the page shows the interviewer's name
+    names = {u.email: u.full_name for u in session.exec(select(User)).all()}
     rows = []
     for entry in entries:
         candidate = candidates.get(entry.candidate_id)
         if candidate:
             rows.append(ShortlistRowOut(candidate_id=candidate.id, number=candidate.number, full_name=candidate.full_name,
                                         email=candidate.email, weighted_score=scores.get(candidate.id), rule=entry.rule,
-                                        added_by=entry.added_by, added_at=entry.added_at))
+                                        added_by=entry.added_by, added_by_name=names.get(entry.added_by, ""),
+                                        added_at=entry.added_at))
     # highest final score first; the same score keeps the candidate order (the same list every time)
     rows.sort(key=lambda row: (-(row.weighted_score if row.weighted_score is not None else -1), row.number))
     return rows

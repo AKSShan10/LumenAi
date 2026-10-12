@@ -20,6 +20,7 @@ from app.ai.fake_chat_model import FakeToolChatModel  # noqa: E402
 from app.graphs.assistant_agent import LOCAL_TOOLS, keep_recent  # noqa: E402
 from app.graphs.cv_screening_graph import cv_screening_graph  # noqa: E402
 from app.graphs.job_description_graph import job_description_graph  # noqa: E402
+from app.graphs.invitation_graph import invitation_graph  # noqa: E402
 from app.graphs.job_post_graph import job_post_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
@@ -34,6 +35,8 @@ WORKFLOWS = [
      job_post_graph),
     ("CV screening workflow (pre-interview subgraph, one run per CV)", "backend/app/graphs/cv_screening_graph.py",
      cv_screening_graph),
+    ("Interview invitation workflow (pauses until the interviewer sends)", "backend/app/graphs/invitation_graph.py",
+     invitation_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),
 ]
 OUTPUT = BACKEND.parent / "docs" / "architecture" / "LumenAI_Workflows_From_Code.md"
