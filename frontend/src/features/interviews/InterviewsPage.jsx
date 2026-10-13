@@ -12,8 +12,10 @@ const CALL = {
   ended: { label: "Ended", badge: "draft" },
 };
 const LOOK_AGAIN_MS = 10000;      // the list refreshes itself, so "Live" and the join times appear
+// Turns a date text from the backend into a short local date and time (empty if no date)
 const when = (text) => (text ? new Date(text).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
 
+// The Interviews page: the interviews of a job, with Start, End and Copy link buttons; opened from App
 export default function InterviewsPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
@@ -30,8 +32,10 @@ export default function InterviewsPage() {
     }).catch((e) => setError(e.message));
   }, []);
 
+  // Loads the interviews of the job from GET /api/sessions?job_id=...
   function load(id = jobId) {
     if (!id) return Promise.resolve();
+    // → GET /api/sessions?job_id=...: the interviews of this job
     return interviewsApi.list(id).then(setSessions).catch((e) => setError(e.message));
   }
   useEffect(() => {
@@ -43,12 +47,14 @@ export default function InterviewsPage() {
   // The call opens in a new tab. window.open (inside the click) gives that tab a copy of this tab's login.
   function openCall(row) {
     setError(""); setNote(null);
+    // → opens the call page in a new tab; the new tab starts the LiveKit call
     const tab = window.open(`/interview-room/${row.id}`, "_blank");
     if (!tab) { setError("The browser blocked the new tab. Allow pop-ups for this site and click again."); return; }
     setNote({ ok: true, message: `The interview with ${row.candidate_name || "the candidate"} opened in a new tab.` });
     setTimeout(() => load(), 3000);                  // the new tab starts the call: show "Live" soon
   }
 
+  // On End interview: calls interviewsApi.end for this row, shows the answer and reloads the list
   async function end(row) {
     setBusy(`end-${row.id}`); setError("");
     try {
@@ -57,6 +63,7 @@ export default function InterviewsPage() {
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // On Copy candidate link: copies the join link; if copying fails, shows the link instead
   function copyLink(row) {
     navigator.clipboard?.writeText(row.join_link)
       .then(() => setNote({ ok: true, message: `The link of ${row.candidate_name || "the candidate"} was copied.` }))

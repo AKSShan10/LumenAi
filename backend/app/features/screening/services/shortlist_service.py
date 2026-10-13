@@ -21,6 +21,7 @@ from app.features.screening.schemas import ShortlistAddOut, ShortlistRowOut
 from app.features.system.models import WorkflowRun
 
 
+# Turns the shortlist rule into the text saved with the entry, like "Top 5" or "Added by hand"
 def rule_text(rule: str, value: float | None) -> str:
     if rule == "top":
         return f"Top {int(value)}"
@@ -29,6 +30,7 @@ def rule_text(rule: str, value: float | None) -> str:
     return "Added by hand"
 
 
+# Adds one workflow_run row (stage "shortlist") for a shortlist change
 def _log(session: Session, candidate_id: int, outcome: str) -> None:
     session.add(WorkflowRun(stage="shortlist", subject_id=candidate_id, outcome=outcome, seconds=0.0))
 
@@ -65,6 +67,7 @@ def add_to_shortlist(session: Session, job: Job, candidate_ids: list[int], rule:
     return ShortlistAddOut(ok=True, message=message, added=len(new), already=len(already))
 
 
+# Takes one candidate off the shortlist (404 if not on it) and logs it
 def remove_from_shortlist(session: Session, candidate_id: int) -> None:
     entry = session.exec(select(ShortlistEntry).where(ShortlistEntry.candidate_id == candidate_id)).first()
     if not entry:
@@ -86,6 +89,7 @@ def remove_unless_included(session: Session, candidate_id: int, final: str) -> N
         _log(session, candidate_id, f"removed (now {final.replace('_', ' ')})")
 
 
+# Returns the job's shortlist rows with names and scores, highest final score first
 def shortlist_rows(session: Session, job: Job) -> list[ShortlistRowOut]:
     entries = session.exec(select(ShortlistEntry).where(ShortlistEntry.job_id == job.id)).all()
     ids = [entry.candidate_id for entry in entries]

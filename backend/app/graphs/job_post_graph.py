@@ -49,6 +49,7 @@ class JobPostState(TypedDict, total=False):
 
 # ---------- steps ----------
 
+# Workflow step "check_job": checks the job is approved, the form link is https and the post length is OK
 def check_job(state: JobPostState) -> dict:
     with Session(engine) as session:
         action = session.get(AssistantAction, state["action_id"])
@@ -69,10 +70,12 @@ def check_job(state: JobPostState) -> dict:
 
 def ask_person(state: JobPostState) -> dict:
     """The pause. The value given to interrupt() is what the screen asks; the answer comes from answer_post()."""
+    # → PAUSE: waits for the Yes / No answer; answer_post() resumes it
     answer = interrupt({"action_id": state["action_id"], "question": "Post this job on the company blog?"})
     return {"yes": bool(answer.get("yes"))}
 
 
+# Workflow step "publish": posts the job to Blogger through the MCP tool (post_job) and reports the result
 def publish(state: JobPostState) -> dict:
     with Session(engine) as session:
         action = session.get(AssistantAction, state["action_id"])
@@ -88,6 +91,7 @@ def publish(state: JobPostState) -> dict:
         return {"status": "failed", "result": "The post was not accepted: " + posting.error}
 
 
+# Workflow step "save_result": saves done / failed / cancelled and one sentence on the AssistantAction
 def save_result(state: JobPostState) -> dict:
     if state.get("problem"):
         status, result = "failed", state["problem"]
@@ -104,10 +108,12 @@ def save_result(state: JobPostState) -> dict:
     return {"status": status, "result": result}
 
 
+# Routing after check_job: save_result if there is a problem, otherwise ask_person (the pause)
 def after_check(state: JobPostState) -> str:
     return "save_result" if state["problem"] else "ask_person"
 
 
+# Routing after ask_person: publish if the interviewer said Yes, otherwise save_result
 def after_answer(state: JobPostState) -> str:
     return "publish" if state["yes"] else "save_result"
 
@@ -155,4 +161,4 @@ def answer_post(action: AssistantAction, yes: bool) -> None:
         start_post(action)
         if runner().get_state(config).next != ("ask_person",):
             return                                    # check_job found a problem: it is saved on the question
-    runner().invoke(Command(resume={"yes": yes}), config)
+    runner().invoke(Command(resume={"yes": yes}), config)  # → RESUME: continues the paused ask_person step with Yes or No

@@ -10,9 +10,11 @@ export default function DecisionControl({ candidateId, final, decided, onDone })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // On Include, Exclude or Undo: saves the decision with screeningApi.decide and tells the parent
   async function send(decision) {
     setBusy(true); setError("");
     try {
+      // → PUT /api/candidates/{id}/decision: saves the person's decision
       const answer = await screeningApi.decide(candidateId, decision, note.trim());
       setOpen(false); setNote("");
       onDone(answer);

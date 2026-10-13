@@ -173,23 +173,157 @@ td.actions button.link { display: block; margin: 2px 0; text-align: left; paddin
 .call-chat-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
 .call-chat-close { margin: 0; padding: 0 8px; background: none; color: #555; font-size: 24px; line-height: 1; border-radius: 50%; }
 .call-chat-close:hover { background: #f1f3f6; color: #111; }
-.video-room .chat-button { position: relative; }
-.video-room .chat-button[aria-pressed="true"] { background: #2b5cd8; }
+.video-room .side-button { position: relative; }
+.video-room .side-button[aria-pressed="true"] { background: #2b5cd8; }
 .chat-badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e53935; color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
 .chat-popup { position: fixed; right: 20px; bottom: 90px; z-index: 50; width: 300px; max-width: calc(100vw - 32px); margin: 0; padding: 10px 14px; display: grid; gap: 2px; text-align: left; background: #fff; color: #222; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, .45); font-weight: normal; overflow-wrap: anywhere; animation: chat-popup-in .2s ease-out; }
+/* the interviewer's room, like the HireAI design: light page, cameras + chat on the left, the candidate's card on the right */
+.room-page.light { background: #f4f6fb; color: #1f2937; }
+.room-page.light .room-bar { background: #fff; border-bottom: 1px solid #e5e7eb; }
+.room-page.light .room-bar b { font-size: 18px; }
+.room-page.light .room-sub { color: #6b7280; font-size: 13px; }
+.room-actions { display: flex; align-items: center; gap: 16px; }
+.room-timer { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.room-timer-dot { width: 12px; height: 12px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 4px #fde2e2; }
+.end-button { margin: 0; background: #fdecec; color: #c62828; border: 1px solid #f5c2c2; font-weight: 600; }
+.end-button:hover { background: #fbdada; }
+.room-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; grid-template-rows: minmax(0, 1fr); gap: 16px; padding: 16px; }
+.room-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+/* the center: the video in the shape of a camera picture (16:9), as big as the column and the window allow */
+.room-center { min-width: 0; min-height: 0; display: flex; justify-content: center; align-items: flex-start; }
+.room-stage { padding: 8px; width: 100%; max-width: calc((100vh - 130px) * 16 / 9); }
+.room-stage .video-room.pair { aspect-ratio: 16 / 9; width: 100%; background: transparent; }
+.video-room.pair .lk-room-container { position: relative; background: transparent; }
+.video-room.pair .stage { height: 100%; }
+.video-room.pair .stage-share { padding: 0; }
+.video-room.pair .stage-main { inset: 0; border-radius: 10px; overflow: hidden; background: #1b1d22; }
+.video-room.pair .stage-main video { object-fit: contain !important; }      /* the whole face, never cut off at the top */
+.video-room.pair .stage-main .lk-participant-metadata { bottom: 70px; }     /* the name stays above the buttons */
+.video-room.pair .stage-self { right: 12px; bottom: 12px; width: 24%; min-width: 120px; z-index: 4; }   /* bottom-right, level with the buttons */
+/* the buttons lie on the video, at the bottom, on a soft dark strip */
+.video-room.pair .round-controls { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; justify-content: center; align-items: center; gap: 18px; padding: 22px 0 12px; border-radius: 0 0 10px 10px; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }
+.video-room.pair .round-control > button { width: 44px; height: 44px; margin: 0; padding: 0; border: none; border-radius: 50%; justify-content: center; background: rgba(58, 63, 75, .9); color: #fff; }
+.video-room.pair .round-control > button:hover { background: #2b2f38; }
+.video-room.pair .round-control.can-be-off > button[aria-pressed="false"] { background: #e53935; }   /* muted / camera off */
+.video-room.pair .round-control.leave > button { background: #e53935; color: #fff; }
+.room-talk .profile-tabs button { cursor: default; }
+.call-chat.embedded { width: auto; height: auto; flex: 1; min-height: 0; border: none; }
+.profile-panel { min-height: 0; }
+@media (max-width: 900px) {
+  .room-page.light { height: auto; min-height: 100vh; }
+  .room-grid { grid-template-columns: 1fr; grid-template-rows: none; }
+  .room-center { order: -1; }                              /* phone: the video first, then the chat, then the card */
+  .room-stage { max-width: none; }
+  .room-talk { height: 50vh; }
+}
+
+/* the candidate's profile at the side of the interviewer's call (same frame as the chat panel) */
+.profile-tabs { display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 12px; }
+.profile-tabs button { margin: 0; padding: 8px 10px; background: none; color: #555; border-radius: 0; border-bottom: 2px solid transparent; }
+.profile-tabs button.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.profile-body { flex: 1; overflow-y: auto; padding: 10px 14px; font-size: 14px; }
+.profile-person { display: flex; gap: 12px; align-items: center; margin: 6px 0 12px; }
+.profile-person b { font-size: 17px; }
+.avatar.large { width: 56px; height: 56px; font-size: 18px; border-radius: 12px; }
+.profile-lines p { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; overflow-wrap: anywhere; }
+.profile-lines .icon { flex: none; color: #555; margin-top: 1px; }
+.profile-body h4 { border-top: 1px solid #e5e7eb; padding-top: 12px; }
+.profile-body h4 { margin: 14px 0 6px; }
+.profile-body .badge { margin: 0 4px 4px 0; }
+.profile-score { font-size: 15px; margin: 4px 0 10px; }
+.profile-score b { font-size: 26px; }
+.profile-section { padding: 6px 0; border-bottom: 1px solid #f0f1f4; }
+.profile-ask { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .chat-popup:hover { background: #f5f7ff; }
 @keyframes chat-popup-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
-.call-chat-list { flex: 1; overflow-y: auto; padding: 10px 12px; display: grid; gap: 8px; align-content: start; }
-.call-chat-msg { background: #f1f3f6; border-radius: 8px; padding: 6px 10px; max-width: 90%; }
-.call-chat-msg.mine { background: #e3edff; justify-self: end; }
-.call-chat-who { font-size: 11px; color: #666; }
-.call-chat-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
-.call-chat-form { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid #e5e7eb; }
-.call-chat-form input { margin-top: 0; }
-.call-chat-form button { margin: 0; white-space: nowrap; }
+.call-chat-list { flex: 1; overflow-y: auto; padding: 12px 14px; display: grid; gap: 14px; align-content: start; }
+.call-chat-msg { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.call-chat-msg > div { min-width: 0; }
+.call-chat-msg .avatar { width: 34px; height: 34px; font-size: 11px; background: #7c3aed; }   /* the other person */
+.call-chat-msg.mine .avatar { background: var(--blue); }                                     /* you */
+.call-chat-who { font-size: 12px; color: #777; }
+.call-chat-who b { color: #111; font-size: 14px; margin-right: 6px; }
+.call-chat-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.45; color: #222; }
+.call-chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e5e7eb; }
+.call-chat-form input { margin-top: 0; border-radius: 10px; }
+.call-chat-send { margin: 0; width: 42px; height: 42px; padding: 0; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; }
 @media (max-width: 800px) {
   .room-body { flex-direction: column; }
   .call-chat { width: 100%; height: 40vh; border-left: none; border-top: 1px solid #333; }
   .video-room .bar-text { display: none; }
   .chat-popup { right: 16px; bottom: 80px; }
+}
+
+/* ---------- Candidates page: one tab and one color per step ---------- */
+/* Each step has its own color: Applications grey-blue, Included green, Excluded red, Shortlist blue */
+.tone-slate { --tone: #475569; --tone-soft: #f1f5f9; }
+.tone-green { --tone: #15803d; --tone-soft: #ecfdf3; }
+.tone-red   { --tone: #b91c1c; --tone-soft: #fef2f2; }
+.tone-blue  { --tone: #1d4ed8; --tone-soft: #eff6ff; }
+
+.page-top { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.page-top .job-pick { margin: 0; }
+.page-note { margin: -4px 0 12px; }
+
+/* the tab bar */
+.step-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-slot { display: flex; align-items: stretch; gap: 8px; flex: 1 1 190px; }
+.step-arrow { align-self: center; }
+.step-arrow { color: #9aa3b2; font-size: 24px; line-height: 1; }
+.step-tab { flex: 1; display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; text-align: left;
+  background: #fff; color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--tone); border-radius: 10px; }
+.step-tab:hover { background: var(--tone-soft); }
+.step-tab.active { background: var(--tone-soft); border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
+.step-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--tone-soft); color: var(--tone); }
+.step-tab.active .step-icon { background: var(--tone); color: #fff; }
+.step-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.step-text small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.step-text em { font-style: normal; font-size: 12px; color: var(--tone); }
+.step-count { min-width: 30px; padding: 2px 8px; border-radius: 12px; text-align: center; font-weight: 700;
+  background: var(--tone-soft); color: var(--tone); }
+.step-tab.active .step-count { background: var(--tone); color: #fff; }
+
+/* the colored section under the tabs */
+.card.section { border-top: 4px solid var(--tone); }
+.section-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.section-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  background: var(--tone-soft); color: var(--tone); }
+.section-title { flex: 1; min-width: 220px; }
+.section-title h3 { font-size: 17px; margin: 0 0 2px; color: var(--tone); }
+.section-title p { margin: 0; }
+.section-count { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 13px; vertical-align: 2px;
+  background: var(--tone); color: #fff; }
+.section-actions { display: flex; align-items: center; gap: 8px; }
+.section-actions label.inline { margin: 0; }
+.section th { background: var(--tone-soft); color: var(--tone); }
+/* the table sits in a box, so you can see where it ends */
+.section table { border: 1px solid var(--line); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.section tbody tr:last-child > td { border-bottom: none; }
+.section tbody tr:hover > td { background: #fafbfc; }
+.section .pager { margin-top: 10px; }
+.section .filter-bar { background: var(--tone-soft); border-radius: 8px; padding: 6px 12px; }
+.badge.shortlisted { background: #dbeafe; color: #1d4ed8; }
+button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
+
+/* Applications: the two ways in, side by side */
+.add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.add-grid .card { margin-bottom: 0; }
+.add-grid .two-columns { grid-template-columns: 1fr; gap: 0; }
+
+/* the score weights, folded into one line */
+.weights-box { background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 4px 0 10px; font-size: 13px; }
+.weights-box summary { cursor: pointer; }
+.weights-box summary .link { color: var(--blue); }
+.weights-box form.weights { margin: 10px 0 4px; }
+.screening-strip { padding: 8px 16px; border-left: 4px solid var(--blue); }
+.screening-strip .row-between button { margin: 2px 0; }
+.screening-strip .progress-line progress { width: 320px; max-width: 60vw; }
+
+@media (max-width: 900px) {
+  .add-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .step-slot { flex: 1 1 45%; }
+  .step-arrow { display: none; }
 }

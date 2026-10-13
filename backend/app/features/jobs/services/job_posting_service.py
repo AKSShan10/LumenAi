@@ -23,6 +23,7 @@ CHANNEL = "blogger"                                  # saved with every post
 BUTTON_TEXT = "Apply now"
 
 
+# Answers 400 if the job is not approved; only an approved job can be posted
 def must_be_approved(job: Job) -> None:
     if job.status != "approved":
         raise HTTPException(400, "Approve the job first. Only an approved job can be posted.")
@@ -44,11 +45,13 @@ def approved_post(job: Job) -> str:
 def _send(job: Job, text: str, apply_url: str) -> dict:
     """Calls the Blogger MCP tool. Returns {"ok", "link", "error"}.
     The job title is the title of the blog post; the link becomes "Apply now" under the text, added by code."""
+    # → starts the Blogger MCP server and runs its publish_blog_post tool
     return json.loads(call_tool(BLOGGER_SERVER, "publish_blog_post",
                                 {"title": job.title, "text": text.strip(),
                                  "button_text": BUTTON_TEXT, "button_url": apply_url}))
 
 
+# Posts the job to Blogger through the MCP tool and saves the post row; called by job_post_graph
 def post_job(session: Session, job: Job, text: str, apply_url: str) -> JobPosting:
     must_be_approved(job)
     posting = JobPosting(job_id=job.id, channel=CHANNEL, text=text.strip(), apply_url=apply_url)
@@ -71,6 +74,7 @@ def post_job(session: Session, job: Job, text: str, apply_url: str) -> JobPostin
 def posting_check() -> dict:
     """Is Blogger set up? Posts nothing. Used by the Settings page."""
     try:
+        # → runs the Blogger MCP server's check_blogger_settings tool
         return json.loads(call_tool(BLOGGER_SERVER, "check_blogger_settings"))
     except (McpError, ValueError) as problem:
         return {"ok": False, "message": f"The Blogger tool did not answer ({problem})"}

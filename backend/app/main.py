@@ -49,6 +49,7 @@ def resume_unfinished_work() -> None:
             log.exception("could not resume %s", resume.__name__)
 
 
+# Runs when the app starts: applies migrations, sets up the checkpointer, resumes unfinished screening
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()                                    # apply the database migrations that are still missing
@@ -81,6 +82,7 @@ async def unexpected_error(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Something went wrong. Please try again."})
 
 
+# GET /api/health: returns ok, the app name and which AI provider is used
 @app.get("/api/health", tags=["System"])
 def health():
     return {"status": "ok", "app_name": config.APP_NAME, "llm": config.LLM_PROVIDER}

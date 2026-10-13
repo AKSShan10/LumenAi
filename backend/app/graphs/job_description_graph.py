@@ -50,6 +50,7 @@ class JobDraftState(TypedDict):
 
 # ---------- helpers ----------
 
+# Cleans a skill list from the AI: text only, trimmed, no duplicates, at most 30
 def _skills(value) -> list[str]:
     items = value if isinstance(value, list) else []
     cleaned = [str(s).strip()[:60] for s in items if str(s).strip()]
@@ -70,6 +71,7 @@ def clean_draft(answer: dict) -> dict:
             "description": str(answer.get("description") or "").strip()[:5000]}
 
 
+# Checks if a text talks about pay (salary, BDT, USD, taka, $ ...)
 def _mentions_pay(text: str) -> bool:
     return bool(re.search(r"\b(salary|bdt|usd|tk|taka)\b|[$৳]", text, re.IGNORECASE))
 
@@ -91,12 +93,14 @@ def find_problems(draft: dict, prompt: str) -> list[str]:
     return problems
 
 
+# Keeps only the title and text of each found document, to send them to the AI
 def _for_ai(documents: list) -> list[dict]:
     return [{"title": d["title"], "text": d["text"]} for d in documents]
 
 
 # ---------- nodes ----------
 
+# Workflow step "retrieve_documents": finds similar past job descriptions and policy notes (RAG)
 def retrieve_documents(state: JobDraftState) -> dict:
     with Session(engine) as session:
         examples = find_documents(session, state["prompt"], "job_description", TOP_EXAMPLES, MIN_EXAMPLE_SIMILARITY)
@@ -104,6 +108,7 @@ def retrieve_documents(state: JobDraftState) -> dict:
     return {"examples": examples, "policies": policies}
 
 
+# Workflow step "write_draft": Gemini (llm_json) writes the job profile from the prompt and found documents
 def write_draft(state: JobDraftState) -> dict:
     data = {"prompt": state["prompt"], "examples": _for_ai(state["examples"]),
             "company_policy": _for_ai(state["policies"])}
@@ -116,6 +121,7 @@ def write_draft(state: JobDraftState) -> dict:
     return {"draft": clean_draft(answer)}
 
 
+# Workflow step "check_draft": checks the draft with plain rules (find_problems), unless the AI failed
 def check_draft(state: JobDraftState) -> dict:
     if state["error"]:
         return {}
@@ -123,6 +129,7 @@ def check_draft(state: JobDraftState) -> dict:
     return {"problems": find_problems(state["draft"], state["prompt"] + " " + state["change_request"])}
 
 
+# Workflow step "revise_draft": asks Gemini to fix the problems the check found; keeps the old draft if no answer
 def revise_draft(state: JobDraftState) -> dict:
     answer = llm_json(JOB_REVISE_PROMPT, {"prompt": state["prompt"], "change_request": state["change_request"],
                                           "draft": state["draft"], "problems": state["problems"],
@@ -133,6 +140,7 @@ def revise_draft(state: JobDraftState) -> dict:
     return {"draft": draft, "revisions": state["revisions"] + 1}
 
 
+# Workflow step "log_run": saves one workflow_run row with the outcome, error and time taken
 def log_run(state: JobDraftState) -> dict:
     with Session(engine) as session:
         session.add(WorkflowRun(stage="job_description", subject_id=0, outcome="failed" if state["error"] else "done",
@@ -143,6 +151,7 @@ def log_run(state: JobDraftState) -> dict:
 
 # ---------- routing ----------
 
+# Routing after check_draft: revise_draft if problems remain and a revision is left, otherwise log_run
 def after_check(state: JobDraftState) -> str:
     if state["error"] or not state["problems"] or state["revisions"] >= MAX_REVISIONS:
         return "log_run"

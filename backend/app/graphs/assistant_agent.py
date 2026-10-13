@@ -44,21 +44,18 @@ MAX_AI_MESSAGES = 30             # how many of the newest thread messages the mo
 
 
 def mcp_servers() -> dict:
-    """The MCP servers the assistant can use. Each one is a small program started over stdio."""
+    """The MCP servers the assistant can use: their Docker services over HTTP when MCP_*_URL is set,
+    otherwise small programs started over stdio."""
     environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}       # same settings as the backend; can import `app`
+
+    def server(module: str, url: str) -> dict:
+        if url:
+            return {"url": url, "transport": "streamable_http"}  # → the server's Docker service
+        return {"command": sys.executable, "args": ["-m", module], "transport": "stdio", "env": environment}
+
     return {
-        "recruitment": {
-            "command": sys.executable,
-            "args": ["-m", "app.mcp_servers.recruitment_server"],
-            "transport": "stdio",
-            "env": environment,
-        },
-        "blogger": {
-            "command": sys.executable,
-            "args": ["-m", "app.mcp_servers.blogger_server"],
-            "transport": "stdio",
-            "env": environment,
-        },
+        "recruitment": server("app.mcp_servers.recruitment_server", config.MCP_RECRUITMENT_URL),
+        "blogger": server("app.mcp_servers.blogger_server", config.MCP_BLOGGER_URL),
     }
 
 
@@ -69,6 +66,7 @@ HIDDEN_TOOLS = {"publish_blog_post"}
 
 # ---------- the two tools that only ask ----------
 
+# Checks the job, then saves an AssistantAction so the screen shows a Yes / No question (it does not act)
 def _ask(kind: str, job_id: int, text: str = "", apply_url: str = "") -> str:
     with Session(engine) as session:
         job = session.get(Job, job_id)
@@ -111,11 +109,13 @@ LOCAL_TOOLS = [request_job_approval, request_job_post]
 
 # ---------- the AI model ----------
 
+# Returns the chat model for the agent: Gemini (ChatGoogleGenerativeAI), or the fake model in tests
 def chat_model():
     if config.LLM_PROVIDER == "fake":
         from app.ai.fake_chat_model import FakeToolChatModel
         return FakeToolChatModel()
     from langchain_google_genai import ChatGoogleGenerativeAI
+    # → the Gemini chat model that chooses the tools in the assistant
     return ChatGoogleGenerativeAI(model=config.LLM_MODEL, google_api_key=config.LLM_API_KEY)
 
 
@@ -137,8 +137,10 @@ def keep_recent(state: dict) -> dict:
     return {"llm_input_messages": recent or state["messages"][-1:]}
 
 
+# Starts the MCP servers, builds the ReAct agent with the checkpointer and runs one chat turn in its thread
 async def _run(messages: list[dict], thread_id: str) -> dict:
-    client = MultiServerMCPClient(mcp_servers())
+    client = MultiServerMCPClient(mcp_servers())  # → MCP: starts the recruitment and blogger MCP servers (mcp_servers)
+    # → MCP: collects the servers' tools for the agent, minus publish_blog_post
     mcp_tools = [t for t in await client.get_tools() if t.name not in HIDDEN_TOOLS]
     settings = {"configurable": {"thread_id": thread_id}, "recursion_limit": MAX_STEPS}
     async with async_checkpointer() as saver:
@@ -147,12 +149,14 @@ async def _run(messages: list[dict], thread_id: str) -> dict:
         agent = create_react_agent(chat_model(), mcp_tools + LOCAL_TOOLS, prompt=ASSISTANT_PROMPT,
                                    pre_model_hook=keep_recent, checkpointer=saver)  # ----------------  Need to reviw this part in weekend
         before = len((await agent.aget_state(settings)).values.get("messages", []))   # what the thread had already
+        # → runs the LangGraph agent: Gemini and tools loop until an answer
         result = await asyncio.wait_for(agent.ainvoke({"messages": messages}, settings), TIMEOUT_SEC)
     new = result["messages"][before + len(messages):]              # what the agent added in this turn
     used = [call["name"] for message in new for call in (getattr(message, "tool_calls", None) or [])]
     return {"answer": _text(new[-1].content) if new else "", "tools": used, "error": ""}
 
 
+# Turns an agent error into a short safe message for the screen (rate limit, bad key, too many steps)
 def _plain_reason(problem: Exception) -> str:
     text, name = str(problem), type(problem).__name__
     if "429" in text or "RESOURCE_EXHAUSTED" in text:

@@ -38,17 +38,20 @@ _progress_lock = threading.Lock()
 _progress: dict[int, dict] = {}          # job id -> the latest screening run of that job
 
 
+# Makes a fresh progress record for a new screening run (all counts at 0)
 def _empty(total: int, running: bool) -> dict:
     return {"running": running, "total": total, "done": 0, "included": 0, "excluded": 0, "needs_review": 0,
             "started_at": datetime.now(timezone.utc).isoformat(), "finished_at": None}
 
 
+# Returns a copy of the latest screening progress of the job (read by the status endpoint)
 def progress_of(job_id: int) -> dict:
     with _progress_lock:
         return dict(_progress.get(job_id) or {"running": False, "total": 0, "done": 0, "included": 0, "excluded": 0,
                                               "needs_review": 0, "started_at": None, "finished_at": None})
 
 
+# Changes fields of the job's progress record, safely under the progress lock
 def _update(job_id: int, **changes) -> None:
     with _progress_lock:
         _progress.setdefault(job_id, _empty(0, False)).update(changes)
@@ -70,7 +73,7 @@ def start_screening(job_id: int) -> int:
             current["total"] = current["done"] + waiting
         else:
             _progress[job_id] = _empty(waiting, True)
-    _jobs.put(job_id)
+    _jobs.put(job_id)  # → puts the job in the queue; the background thread (_work) screens it
     with _thread_lock:
         if _thread is None or not _thread.is_alive():
             _thread = threading.Thread(target=_work, name="screening-worker", daemon=True)
@@ -78,6 +81,7 @@ def start_screening(job_id: int) -> int:
     return waiting
 
 
+# Checks if a result failed only because the free Gemini quota said "too many requests"
 def _rate_limited(result) -> bool:
     return result.result == "needs_review" and "too many requests" in (result.reason or "").lower()
 
@@ -97,6 +101,7 @@ def screen_waiting(job_id: int) -> dict:
                 _progress[job_id] = _empty(len(waiting), True)
         while waiting:
             candidate = waiting[0]
+            # → screen_candidate runs the LangGraph screening workflow for this CV
             result = screen_candidate(session, candidate, job)
             tries = 1
             while _rate_limited(result) and tries < RATE_LIMIT_TRIES:
@@ -119,6 +124,7 @@ def screen_waiting(job_id: int) -> dict:
     return run
 
 
+# Runs in the background thread: takes job ids from the queue and calls screen_waiting for each
 def _work() -> None:
     while True:
         job_id = _jobs.get()

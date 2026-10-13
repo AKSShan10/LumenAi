@@ -34,6 +34,7 @@ export default function JobsPage() {
   if (!jobs) return <div className="card">{error ? <p className="error">{error}</p> : <p>Loading...</p>}</div>;
   const job = jobs.find((j) => j.id === jobId);
 
+  // After Yes in the pop-up: deletes the shown job with jobsApi.remove and reloads the list
   async function remove() {
     setAskDelete(false); setError("");
     try { await jobsApi.remove(job.id); await load(null); } catch (e) { setError(e.message); }
@@ -71,8 +72,10 @@ export default function JobsPage() {
                 { key: "when", title: "When", render: (p) => new Date(p.created_at).toLocaleString() },
                 { key: "where", title: "Where", render: (p) => PLACES[p.channel] || p.channel },
                 { key: "result", title: "Result",
+                  // Result column: a green or red badge with the post's status
                   render: (p) => <span className={`badge ${p.status === "posted" ? "done" : "failed"}`}>{p.status}</span> },
                 { key: "details", title: "Details", className: "small",
+                  // Details column: the error if posting failed, otherwise a link to the post
                   render: (p) => (p.status === "failed" ? p.error
                     : p.message_link ? <a href={p.message_link} target="_blank" rel="noreferrer">Open the post</a> : "Posted") },
               ]} />

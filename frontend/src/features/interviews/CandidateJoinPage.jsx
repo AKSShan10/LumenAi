@@ -11,6 +11,7 @@ const VideoRoom = lazy(() => import("./VideoRoom.jsx"));
 // After the end: the call closes and cannot be joined again.
 const LOOK_AGAIN_MS = 5000;
 
+// The candidate's page from the invitation link (/join/<secret>): waits, then joins the call
 export default function CandidateJoinPage({ joinToken }) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
@@ -21,6 +22,7 @@ export default function CandidateJoinPage({ joinToken }) {
   const [chatOpen, setChatOpen] = useState(false);  // the chat panel: closed until the Chat button is clicked
   const [unread, setUnread] = useState(0);
 
+  // Asks GET /api/join/{token} for the interview status; leaves the call when it has ended
   function look() {
     return interviewsApi.joinInfo(joinToken).then((answer) => {
       setInfo(answer);
@@ -38,9 +40,11 @@ export default function CandidateJoinPage({ joinToken }) {
     return () => clearInterval(timer);
   }, [status]);                                      // eslint-disable-line react-hooks/exhaustive-deps
 
+  // On Join: gets a LiveKit ticket with interviewsApi.joinTicket, which opens the video call
   async function join(event) {
     event.preventDefault();
     setBusy(true); setError(""); setLeft(false);
+    // → POST /api/join/{token}/ticket: gets the candidate's LiveKit ticket
     try { setCall(await interviewsApi.joinTicket(joinToken, name.trim())); }
     catch (e) { setError(e.message); look().catch(() => {}); }
     finally { setBusy(false); }

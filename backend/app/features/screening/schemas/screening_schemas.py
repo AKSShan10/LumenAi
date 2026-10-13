@@ -68,6 +68,7 @@ class WeightsIn(BaseModel):
     experience: int = Field(ge=0, le=100)
     qualifications: int = Field(ge=0, le=100)
 
+    # Rejects the weights unless skills + experience + qualifications add up to 100
     @model_validator(mode="after")
     def add_up_to_100(self):
         if self.skills + self.experience + self.qualifications != 100:
@@ -90,6 +91,7 @@ class ShortlistIn(BaseModel):
     rule: Literal["top", "min_score", "by_hand"]
     value: Optional[float] = Field(default=None, ge=0)
 
+    # Checks the value fits the rule: Top K needs a whole number 1+, min score must be 0-100
     @model_validator(mode="after")
     def value_fits_the_rule(self):
         if self.rule == "top" and (self.value is None or self.value < 1 or self.value != int(self.value)):

@@ -28,10 +28,12 @@ def _fold(line: str) -> str:
     return "\r\n ".join(parts)
 
 
+# Writes a time as UTC in the .ics format, e.g. 20261020T090000Z
 def _utc(moment: datetime) -> str:
     return moment.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+# Builds the .ics text of the interview event (same UID, higher SEQUENCE on a new time)
 def calendar_invite(uid: str, start: datetime, minutes: int, title: str, description: str, link: str,
                     organizer: str, attendee: str, attendee_name: str, sequence: int) -> str:
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//LumenAI//Interview invitation//EN", "CALSCALE:GREGORIAN",

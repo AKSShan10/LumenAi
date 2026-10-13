@@ -39,6 +39,7 @@ __all__ = ["candidate_ticket", "email_check", "end_call", "reschedule", "rewrite
            "session_out", "start_call"]
 
 
+# Converts the start to UTC and checks it is in the future and within one year
 def _check_time(start: datetime) -> datetime:
     start = start.astimezone(timezone.utc)
     now = datetime.now(timezone.utc)
@@ -49,6 +50,7 @@ def _check_time(start: datetime) -> datetime:
     return start
 
 
+# Adds a WorkflowRun row (stage 'invitation') so the step shows in the workflow run log
 def _log(session: Session, interview: InterviewSession, outcome: str) -> None:
     session.add(WorkflowRun(stage="invitation", subject_id=interview.candidate_id, outcome=outcome, seconds=0.0))
 
@@ -59,6 +61,7 @@ def _fresh(session: Session, interview: InterviewSession) -> InterviewSession:
     return session.get(InterviewSession, interview.id)
 
 
+# Creates the interview with a join token and room, then starts the invitation graph (start_invitation)
 def schedule(session: Session, candidate_id: int, start: datetime, minutes: int, time_zone: str, by: str) -> SessionOut:
     candidate = session.get(Candidate, candidate_id)
     if not candidate:
@@ -84,6 +87,7 @@ def schedule(session: Session, candidate_id: int, start: datetime, minutes: int,
     return session_out(session, _fresh(session, interview), message)
 
 
+# Saves a new time, raises calendar_sequence, and asks the paused graph for a new draft (answer)
 def reschedule(session: Session, interview: InterviewSession, start: datetime, minutes: int, time_zone: str,
                by: str) -> SessionOut:
     if interview.status != "scheduled":
@@ -98,7 +102,9 @@ def reschedule(session: Session, interview: InterviewSession, start: datetime, m
                        "New time saved. " + message.replace("Check it, then click Send email.", "Send it so the candidate knows."))
 
 
+# Resumes the paused invitation graph with 'write_again' so the AI writes a new draft (answer)
 def rewrite(session: Session, interview: InterviewSession, by: str) -> SessionOut:
+    # → resumes the paused invitation graph: write a new draft (invitation_graph)
     message = answer(interview, {"action": "write_again"}, interviewer_name(session, by))
     return session_out(session, _fresh(session, interview), message)
 
@@ -107,11 +113,13 @@ def send_invitation(session: Session, interview: InterviewSession, to: str, subj
     """Only after the interviewer clicked Send: the workflow continues from ask_person to send_email."""
     if interview.status == "ended":
         raise HTTPException(400, "This interview has ended.")
+    # → resumes the paused invitation graph at ask_person, which goes to send_email
     message = answer(interview, {"action": "send", "to": to, "subject": subject, "body": body},
                      interviewer_name(session, by))
     return session_out(session, _fresh(session, interview), message)
 
 
+# Builds the SessionOut answer for the page: candidate, job, time, join link, invitation, call times
 def session_out(session: Session, interview: InterviewSession, message: str = "") -> SessionOut:
     candidate = session.get(Candidate, interview.candidate_id)
     job = session.get(Job, interview.job_id)
@@ -128,6 +136,7 @@ def session_out(session: Session, interview: InterviewSession, message: str = ""
                       ended_at=_maybe_utc(interview.ended_at))
 
 
+# Returns the time marked as UTC, or None when there is no time
 def _maybe_utc(moment):
     return as_utc(moment) if moment else None
 
@@ -149,6 +158,7 @@ def start_call(session: Session, interview: InterviewSession, by: str) -> Ticket
         session.commit()
         session.refresh(interview)
         log.info("call started session=%s", interview.id)
+    # → signs a LiveKit ticket for this one room (video_service.make_ticket)
     ticket = make_ticket(interview.room_name, "interviewer", interviewer_name(session, by))
     return TicketOut(server_url=config.LIVEKIT_URL, ticket=ticket, room_name=interview.room_name,
                      identity="interviewer", session=session_out(session, interview))
@@ -180,5 +190,6 @@ def candidate_ticket(session: Session, interview: InterviewSession, name: str) -
         _log(session, interview, "candidate joined")
         session.add(interview)
         session.commit()
+    # → candidate's LiveKit ticket for the same room (video_service.make_ticket)
     return TicketOut(server_url=config.LIVEKIT_URL, ticket=make_ticket(interview.room_name, "candidate", name.strip()),
                      room_name=interview.room_name, identity="candidate")

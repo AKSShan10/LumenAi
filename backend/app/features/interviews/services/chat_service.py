@@ -23,6 +23,7 @@ from app.features.interviews.services.invitation_service import as_utc
 MAX_CHARS = 1000
 
 
+# Finds the sender's name: the interviewer's account name or the candidate's name
 def _name_of(session: Session, interview: InterviewSession, sender: str, by: str) -> str:
     if sender == "interviewer":
         user = session.exec(select(User).where(User.email == by)).first()
@@ -31,11 +32,13 @@ def _name_of(session: Session, interview: InterviewSession, sender: str, by: str
     return (candidate.full_name or "") if candidate else ""
 
 
+# Turns a saved chat row into CallMessageOut; shows 'Interviewer'/'Candidate' when no name
 def _out(row: CallMessage) -> CallMessageOut:
     shown = row.sender_name or row.sender.capitalize()          # "Interviewer" / "Candidate" when no name was saved
     return CallMessageOut(id=row.id, sender=row.sender, sender_name=shown, text=row.text, sent_at=as_utc(row.sent_at))
 
 
+# Returns the call chat messages of one interview after a message id, oldest first
 def messages(session: Session, interview: InterviewSession, after: int = 0) -> list[CallMessageOut]:
     rows = session.exec(select(CallMessage).where(CallMessage.session_id == interview.id, CallMessage.id > after)
                         .order_by(CallMessage.id)).all()

@@ -22,6 +22,7 @@ MAX_BYTES = 1_000_000
 OLD_FILES_KEPT = 5
 
 
+# Sends log lines to the terminal and to a rotating log file (LOG_FILE); called once in main.py
 def setup_logging(log_file: str) -> None:
     logging.basicConfig(level=logging.INFO, format=FORMAT)          # the terminal
     # The web client library would log the full address of every outside call. An address can hold a

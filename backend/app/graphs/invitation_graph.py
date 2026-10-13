@@ -29,11 +29,11 @@ from app.ai.llm_client import last_error, llm_json
 from app.core.database import engine
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.services import smtp_service
-from app.features.interviews.services.invitation_prompt import INVITATION_PROMPT
 from app.features.interviews.services.invitation_service import (
     as_utc, calendar_for, deliver, draft_problems, email_facts, join_link, standard_text, with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
+from app.graphs.invitation_prompts import INVITATION_PROMPT
 
 log = logging.getLogger("invitation_graph")
 
@@ -53,6 +53,7 @@ class InvitationState(TypedDict, total=False):
 
 # ---------- steps ----------
 
+# Workflow step "write_draft": Gemini (llm_json) writes the invitation subject and text from the facts
 def write_draft(state: InvitationState) -> dict:
     with Session(engine) as session:
         facts = email_facts(session, session.get(InterviewSession, state["session_id"]), state["interviewer"])
@@ -66,6 +67,7 @@ def write_draft(state: InvitationState) -> dict:
             "writes": writes}
 
 
+# Workflow step "check_draft": checks the AI's email with draft_problems (link placeholder, date, length)
 def check_draft(state: InvitationState) -> dict:
     with Session(engine) as session:
         facts = email_facts(session, session.get(InterviewSession, state["session_id"]), state["interviewer"])
@@ -74,6 +76,7 @@ def check_draft(state: InvitationState) -> dict:
     return {"problems": draft_problems(state["subject"], state["body"], facts)}
 
 
+# Workflow step "save_draft": puts the real join link in and saves the draft (or the standard text if it failed)
 def save_draft(state: InvitationState) -> dict:
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
@@ -93,11 +96,13 @@ def save_draft(state: InvitationState) -> dict:
 
 def ask_person(state: InvitationState) -> dict:
     """The pause. The page shows the draft; the interviewer's click continues the run (answer())."""
+    # → PAUSE: waits for Send / Write again; answer() resumes it
     answer = interrupt({"session_id": state["session_id"], "question": "Send this invitation?"})
     answer = answer if isinstance(answer, dict) else {}
     return {"answer": answer, "interviewer": answer.get("interviewer") or state["interviewer"]}
 
 
+# Workflow step "send_email": saves the edited email and sends it with the calendar invite (deliver)
 def send_email(state: InvitationState) -> dict:
     answer = state["answer"]
     with Session(engine) as session:
@@ -113,6 +118,7 @@ def send_email(state: InvitationState) -> dict:
             message = ("Saved, but not sent: email sending is not set up (SMTP_HOST in .env). "
                        "Copy the text and the link, or set up SMTP and send again.")
         else:
+            # → email MCP server tool send_email (or SMTP directly), in invitation_service
             result = deliver(to, interview.invitation_subject, interview.invitation_body,
                              calendar_for(session, interview, to))
             if result.get("ok"):
@@ -126,6 +132,7 @@ def send_email(state: InvitationState) -> dict:
     return {"message": message}
 
 
+# Workflow step "save_result": writes one workflow_run row with the send outcome (sent, failed ...)
 def save_result(state: InvitationState) -> dict:
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
@@ -139,12 +146,14 @@ def save_result(state: InvitationState) -> dict:
 
 # ---------- routing (Python decides which step comes next) ----------
 
+# Routing after check_draft: back to write_draft if problems and tries remain, otherwise save_draft
 def after_check(state: InvitationState) -> str:
     if state.get("problems") and state.get("writes", 0) < MAX_WRITES:
         return "write_draft"
     return "save_draft"
 
 
+# Routing after ask_person: send_email if the interviewer clicked Send, otherwise write_draft again
 def after_answer(state: InvitationState) -> str:
     return "send_email" if state["answer"].get("action") == "send" else "write_draft"
 
@@ -184,6 +193,7 @@ def thread_of(interview: InterviewSession) -> str:
     return f"invitation-{interview.id}-{int(as_utc(interview.created_at).timestamp() * 1_000_000)}"
 
 
+# Returns the LangGraph config with this interview's thread_id (thread_of)
 def _config(interview: InterviewSession) -> dict:
     return {"configurable": {"thread_id": thread_of(interview)}}
 
@@ -204,5 +214,6 @@ def answer(interview: InterviewSession, reply: dict, interviewer: str) -> str:
         start_invitation(interview, interviewer)
         if reply.get("action") != "send":
             return runner().get_state(_config(interview)).values.get("message", "")   # starting wrote a new draft
+    # → RESUME: continues the paused ask_person step with the click
     result = runner().invoke(Command(resume={**reply, "interviewer": interviewer}), _config(interview))
     return result.get("message", "")

@@ -51,6 +51,7 @@ def last_error() -> str:
     return _last_error or "unknown problem, see the backend terminal"
 
 
+# Remembers why the last AI call failed (read by last_error) and writes a warning to the log
 def _fail(reason: str) -> None:
     global _last_error
     _last_error = reason
@@ -66,12 +67,14 @@ def settings_problem() -> str:
     return ""
 
 
+# Creates the OpenAI client pointed at LLM_BASE_URL (Gemini by default), with retries on rate limits
 def _client():
     from openai import OpenAI
     # max_retries: waits and tries again on "too many requests" (free plans have a per-minute limit)
     return OpenAI(api_key=config.LLM_API_KEY, base_url=config.LLM_BASE_URL, timeout=90, max_retries=4)
 
 
+# Sends instructions + data to the AI model and returns its JSON answer as a dict, or None on failure
 def llm_json(instructions: str, data) -> dict | None:
     if config.LLM_PROVIDER == "fake":
         from app.ai.fake_llm import fake_answer
@@ -86,7 +89,7 @@ def llm_json(instructions: str, data) -> dict | None:
     try:
         client = _client()
         options = {} if config.LLM_TEMPERATURE is None else {"temperature": config.LLM_TEMPERATURE}
-        response = client.chat.completions.create(
+        response = client.chat.completions.create(  # → the actual Gemini call (OpenAI-compatible API at LLM_BASE_URL)
             model=config.LLM_MODEL,
             messages=[
                 {"role": "system", "content": instructions + "\nReply with one JSON object only."},

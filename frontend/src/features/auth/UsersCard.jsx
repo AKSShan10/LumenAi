@@ -16,9 +16,11 @@ export default function UsersCard() {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
 
+  // Loads the interviewer accounts from GET /api/auth/users into the table
   const load = () => authApi.users().then(setUsers).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
 
+  // On Create account: registers a new interviewer with authApi.addUser, then reloads the list
   async function add(event) {
     event.preventDefault();
     setError(""); setNote(""); setBusy(true);
@@ -33,6 +35,7 @@ export default function UsersCard() {
     } finally { setBusy(false); }
   }
 
+  // After Yes in the pop-up: deletes the chosen account with authApi.removeUser and reloads the list
   async function remove() {
     const user = toRemove;
     setToRemove(null); setError(""); setNote("");
@@ -44,10 +47,12 @@ export default function UsersCard() {
       <h2>Interviewer accounts <small className="muted">({users.length})</small></h2>
       <DataTable rows={users} empty="No accounts yet." columns={[
         { key: "name", title: "Name",
+          // Name column: the full name, with "(you)" for the logged-in interviewer
           render: (user) => <>{user.full_name}{user.email === auth.email() && <span className="muted small"> (you)</span>}</> },
         { key: "email", title: "Email", className: "small" },
         { key: "created", title: "Created", className: "small", render: (user) => new Date(user.created_at).toLocaleDateString() },
         { key: "remove", title: "",
+          // Remove column: a Remove button for every account except your own
           render: (user) => user.email !== auth.email() && <button className="link" onClick={() => setToRemove(user)}>Remove</button> },
       ]} />
 

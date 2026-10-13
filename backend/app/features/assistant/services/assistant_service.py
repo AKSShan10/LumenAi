@@ -34,6 +34,7 @@ TITLE_CHARS = 60                 # how much of the first message is shown in the
 PREVIEW_CHARS = 600              # how much of an attached file the AI sees (the tool stores the whole text)
 
 
+# Turns one saved chat message into {role, content} for the AI; a file becomes a short note with its start
 def _for_ai(message: ChatMessage) -> dict:
     content = message.content
     if message.attachment_text:                       # the AI gets a note, not the whole file
@@ -54,6 +55,7 @@ def current_conversation(session: Session) -> ChatConversation:
     return conversation
 
 
+# Returns all messages of one chat from the database, oldest first
 def _messages(session: Session, conversation_id: int) -> list[ChatMessage]:
     return session.exec(select(ChatMessage).where(ChatMessage.conversation_id == conversation_id)
                         .order_by(ChatMessage.id)).all()
@@ -97,6 +99,7 @@ def _new_lines_for_ai(session: Session, conversation: ChatConversation) -> list[
     return list(reversed(recent))
 
 
+# Saves the user's message, runs the agent (run_assistant) on the new lines, saves and returns its answer
 def send_message(session: Session, text: str, attachment_name: str = "", attachment_text: str = "") -> ChatOut:
     conversation = current_conversation(session)
     session.add(ChatMessage(conversation_id=conversation.id, role="user", content=text.strip(),
@@ -110,9 +113,10 @@ def send_message(session: Session, text: str, attachment_name: str = "", attachm
 
     last_question = session.exec(select(AssistantAction.id).order_by(AssistantAction.id.desc())).first() or 0
     started = time.time()
+    # → runs the LangGraph chat agent, which picks tools (graphs/assistant_agent.py)
     result = run_assistant([_for_ai(message) for message in new_lines], conversation.agent_thread)
     seconds = round(time.time() - started, 2)
-    _start_posting_runs(session, last_question)
+    _start_posting_runs(session, last_question)  # → starts a paused posting workflow for each new 'post this job?' question
 
     answer = result["answer"] or "I have no answer for that."
     if result["error"]:
@@ -144,6 +148,7 @@ def _start_posting_runs(session: Session, after_id: int) -> None:
     session.expire_all()                              # the workflow may have saved a problem on a question
 
 
+# Handles a Yes/No click: resumes the posting workflow (answer_post) or approves the job (approve_job)
 def confirm_action(session: Session, action_id: int, yes: bool) -> ChatOut:
     action = session.get(AssistantAction, action_id)
     if not action:
@@ -152,7 +157,7 @@ def confirm_action(session: Session, action_id: int, yes: bool) -> ChatOut:
         raise HTTPException(400, "That question was already answered")
 
     if action.kind == "post_job":                     # the posting workflow continues with the answer
-        answer_post(action, yes)
+        answer_post(action, yes)  # → resumes the paused job posting graph with Yes/No (job_post_graph.answer_post)
         session.refresh(action)
     elif not yes:
         action.status, action.result = "cancelled", "You said No. Nothing was changed."

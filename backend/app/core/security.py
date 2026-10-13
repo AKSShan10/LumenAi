@@ -18,17 +18,20 @@ from app.core import config
 bearer = HTTPBearer(auto_error=False)
 
 
+# Returns SECRET_KEY used to sign tokens, or stops with 503 if it is not set in .env
 def _secret() -> str:
     if not config.SECRET_KEY:
         raise HTTPException(503, "Login is not configured: set SECRET_KEY in .env")
     return config.SECRET_KEY
 
 
+# Makes a signed JWT with the role and email that expires after TOKEN_HOURS (used by the login route)
 def create_token(role: str = "interviewer", email: str = "") -> str:
     expires = datetime.now(timezone.utc) + timedelta(hours=config.TOKEN_HOURS)
     return jwt.encode({"role": role, "email": email, "exp": expires}, _secret(), algorithm="HS256")
 
 
+# Checks that a JWT is signed with our secret, not expired, and has the interviewer role
 def is_valid_token(token: str) -> bool:
     try:
         return jwt.decode(token, _secret(), algorithms=["HS256"]).get("role") == "interviewer"

@@ -11,10 +11,11 @@ import re
 from app.utils.skill_names import find_skill
 
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
+from app.graphs.invitation_prompts import INVITATION_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
-from app.features.interviews.services.invitation_prompt import INVITATION_PROMPT
 
 
+# Returns a word-rule answer instead of Gemini, chosen by which prompt was sent (used by llm_json)
 def fake_answer(instructions: str, data) -> dict:
     if instructions == JOB_DRAFT_PROMPT:
         return _fake_job(data)
@@ -61,7 +62,7 @@ KNOWN_SKILLS = ("Python", "FastAPI", "Django", "Flask", "PostgreSQL", "MySQL", "
 
 
 def _fake_cv_fields(data: dict) -> dict:
-    """CV fields by word rules: known skill names, the largest "N years", lines with a degree.
+    """CV fields by word rules: known skill names, the largest "N years", lines with a degree, "Job: ... at ..." lines.
     The qualification is judged like the real AI does in the same call."""
     text = data["cv"]
     if "FAKE-BAD-ANSWER" in text:                    # lets a test check what happens when the AI answers badly
@@ -73,6 +74,8 @@ def _fake_cv_fields(data: dict) -> dict:
     letters = [c for c in text if c.isalpha()]
     english = not letters or sum(c.isascii() for c in letters) / len(letters) > 0.7
     education = [{"degree": d, "institute": ""} for d in degrees]
+    jobs = [{"title": m.group(1).strip(), "company": m.group(2).strip(), "years": 0}        # "Job: <title> at <company>"
+            for m in re.finditer(r"^Job:\s*(.+?)\s+at\s+(.+)$", text, re.MULTILINE)]
     total = max(years, default=0)
     qualification = None
     if data["required_qualification"]:
@@ -80,7 +83,7 @@ def _fake_cv_fields(data: dict) -> dict:
         qualification = {"status": "met" if q["met"] else "unmet", "reason": q["reason"],
                          "evidence": degrees[0] if q["met"] and degrees else ""}
     return {"skills": skills, "total_years": total, "education": education,
-            "experience": [], "language": "en" if english else "bn",
+            "experience": jobs, "language": "en" if english else "bn",
             "requirement_checks": [_fake_requirement_check(r, text) for r in data.get("requirements", [])],
             "years_check": _fake_years_check(total, data.get("min_years") or 0, text),
             "qualification_check": qualification}

@@ -137,12 +137,14 @@ class Profile(BaseModel):
     years_check: dict | None = None        # None when the job asks no minimum years
     qualification_check: dict | None = None   # None when the job asks no qualification
 
+    # Cleans the AI's skill list: trims names to 60 characters, drops empty and duplicate ones, keeps 80
     @field_validator("skills")
     @classmethod
     def short_names(cls, skills: list[str]) -> list[str]:
         cleaned = [str(s).strip()[:60] for s in skills if str(s).strip()]
         return list(dict.fromkeys(cleaned))[:80]
 
+    # Keeps the AI's total years between 0 and 60, rounded to one decimal
     @field_validator("total_years")
     @classmethod
     def sensible_years(cls, years: float) -> float:
@@ -159,12 +161,14 @@ def remove_contacts(text: str) -> str:
     return PHONE.sub(lambda m: "[phone]" if 9 <= sum(c.isdigit() for c in m.group(0)) <= 15 else m.group(0), text)
 
 
+# Returns the non-empty degree names from the AI's education list
 def _degree_names(education: list[dict]) -> list[str]:
     return [str(item.get("degree") or "").strip() for item in education if str(item.get("degree") or "").strip()]
 
 
 # ---------- nodes ----------
 
+# Workflow step "parse_cv": reads the text out of the saved CV file with read_file_text
 def parse_cv(state: CvScreenState) -> dict:
     path = Path(state["file_path"]) if state["file_path"] else None
     if not path or not path.is_file():
@@ -176,6 +180,7 @@ def parse_cv(state: CvScreenState) -> dict:
     return {"text": text, "pages": pages, "text_source": "file" if text else ""}
 
 
+# Workflow step "validate_extraction": checks the text is usable (not empty or garbled) and English
 def validate_extraction(state: CvScreenState) -> dict:
     if state["problem"] and not state["text"]:              # parse_cv found no usable file at all
         return {}
@@ -186,7 +191,9 @@ def validate_extraction(state: CvScreenState) -> dict:
     return {"problem": problem, "english": english}
 
 
+# Workflow step "ocr_once": lets Gemini read a scanned PDF as pictures (llm_read_pdf), only once
 def ocr_once(state: CvScreenState) -> dict:
+    # → Gemini reads the scanned PDF itself (llm_client.llm_read_pdf)
     text = llm_read_pdf(OCR_PROMPT, Path(state["file_path"]).read_bytes())
     tried = {"ocr_tries": state["ocr_tries"] + 1, "ai_calls": state["ai_calls"] + 1}
     if not text:
@@ -194,6 +201,7 @@ def ocr_once(state: CvScreenState) -> dict:
     return {**tried, "text": text, "pages": 1, "text_source": "ai_read"}
 
 
+# Workflow step "needs_review": sets result needs_review with the reason a person must look at the CV
 def needs_review(state: CvScreenState) -> dict:
     if state["problem"]:
         reason = state["problem"]
@@ -205,6 +213,7 @@ def needs_review(state: CvScreenState) -> dict:
     return {"result": "needs_review", "reason": f"The AI could not read the CV into a profile: {state['error']}."}
 
 
+# Workflow step "extract_profile": one Gemini call (llm_json) reads the CV and judges each requirement
 def extract_profile(state: CvScreenState) -> dict:
     clean = remove_contacts(state["text"])[:MAX_CV_CHARS]
     job = state["job"]
@@ -280,6 +289,7 @@ def justifications(state: CvScreenState) -> dict:
     return {"result": "passed", "reason": f"All {len(must)} must-have requirement(s) are met."}
 
 
+# Workflow step "score_sections": one Gemini call scores skills, experience and qualifications 0-100
 def score_sections(state: CvScreenState) -> dict:
     job = {key: state["job"][key] for key in ("title", "required_skills", "preferred_skills", "min_years", "qualifications")}
     answer = llm_json(SCORE_SECTIONS_PROMPT, {"job": job, "cv": state["clean_text"]})
@@ -298,6 +308,7 @@ def score_sections(state: CvScreenState) -> dict:
     return {"ai_calls": calls, "sections": sections}
 
 
+# Lowercases text and squeezes spaces, so a quote can be compared with the CV text
 def _plain(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
@@ -324,10 +335,12 @@ def ats_match(state: CvScreenState) -> dict:
                     "total": len(keywords)}}
 
 
+# Workflow step "combine_score": computes the weighted score from the section scores and job weights
 def combine_score(state: CvScreenState) -> dict:
     return {"weighted_score": weighted_score(state["sections"], state["job"]["weights"])}
 
 
+# Workflow step "save_result": saves the screening result, scores and text, updates the shortlist, logs a run
 def save_result(state: CvScreenState) -> dict:
     with Session(engine) as session:
         row = session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == state["candidate_id"])).first()
@@ -360,6 +373,7 @@ def save_result(state: CvScreenState) -> dict:
 def hr_review(state: CvScreenState) -> dict:
     """The run pauses here. LangGraph saves it (checkpointer) and gives the question to the backend; the run
     continues when the backend resumes it with the person's answer (decide() below)."""
+    # → PAUSE: run is saved by the checkpointer until decide() resumes it
     answer = interrupt({"candidate_id": state["candidate_id"], "system_result": state["result"]})
     return {"decision": answer if isinstance(answer, dict) else {}}
 
@@ -386,10 +400,12 @@ def apply_decision(state: CvScreenState) -> dict:
 
 # ---------- routing (Python decides which step comes next) ----------
 
+# Routing at START: goes straight to hr_review for a decision-only run, otherwise to parse_cv
 def where_to_start(state: CvScreenState) -> str:
     return "hr_review" if state.get("review_only") else "parse_cv"
 
 
+# Routing after validate_extraction: extract_profile if OK, ocr_once for a first weak PDF, else needs_review
 def after_validate(state: CvScreenState) -> str:
     if not state["problem"]:
         return "extract_profile" if state["english"] else "needs_review"
@@ -399,14 +415,17 @@ def after_validate(state: CvScreenState) -> str:
     return "needs_review"
 
 
+# Routing after justifications: save_result if it needs review, otherwise score_sections
 def after_justify(state: CvScreenState) -> str:
     return "save_result" if state["result"] == "needs_review" else "score_sections"
 
 
+# Routing after score_sections: check_quotes if scores came back, otherwise save_result without scores
 def after_score(state: CvScreenState) -> str:
     return "check_quotes" if state["sections"] else "save_result"   # the AI could not score: saved without scores
 
 
+# Routing after extract_profile: match_requirements if OK, ask the AI once more, else needs_review
 def after_extract(state: CvScreenState) -> str:
     if state["profile"]:
         return "match_requirements"
@@ -455,10 +474,11 @@ def runner():
     """The workflow with the checkpointer, so a run can pause in hr_review and be continued later."""
     global _runner
     if _runner is None:
-        _runner = graph.compile(checkpointer=checkpointer())
+        _runner = graph.compile(checkpointer=checkpointer())  # → checkpointer (PostgreSQL) keeps paused runs across restarts
     return _runner
 
 
+# Makes a new unique thread_id for one CV screening run in the checkpointer
 def _thread(candidate_id: int) -> str:
     return f"cv-screening-{candidate_id}-{uuid.uuid4().hex[:12]}"
 
@@ -499,4 +519,5 @@ def decide(candidate_id: int, job_id: int, decision: str, note: str, by: str) ->
             row.thread_id = thread_id
             session.add(row)
             session.commit()
+    # → RESUME: continues the paused hr_review with the person's decision
     graph_runner.invoke(Command(resume={"decision": decision, "note": note, "by": by}), config)

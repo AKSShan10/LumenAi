@@ -11,6 +11,7 @@
   POST /api/sessions/{id}/end             end the call for both (status ended)
   GET  /api/sessions/{id}/chat?after=12   the call chat: the messages after message 12 (0 = all)
   POST /api/sessions/{id}/chat            send a chat message as the interviewer
+  GET  /api/sessions/{id}/profile         the candidate's profile and screening result (interviewer only)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -19,14 +20,16 @@ from app.core.database import get_session
 from app.core.security import current_email, require_interviewer
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.schemas import (
-    CallMessageOut, ChatIn, InvitationIn, RescheduleIn, ScheduleIn, SessionOut, TicketOut)
+    CallMessageOut, ChatIn, InvitationIn, ProfileOut, RescheduleIn, ScheduleIn, SessionOut, TicketOut)
 from app.features.interviews.services import chat_service
+from app.features.interviews.services.profile_service import candidate_profile
 from app.features.interviews.services.interview_service import (
     end_call, reschedule, rewrite, schedule, send_invitation, session_out, start_call)
 
 router = APIRouter(prefix="/api/sessions", tags=["Interviews"], dependencies=[Depends(require_interviewer)])
 
 
+# Loads one interview by id or stops the request with 404; used by the routes below
 def get_interview_or_404(session: Session, session_id: int) -> InterviewSession:
     interview = session.get(InterviewSession, session_id)
     if not interview:
@@ -34,11 +37,13 @@ def get_interview_or_404(session: Session, session_id: int) -> InterviewSession:
     return interview
 
 
+# POST /api/sessions: schedules an interview for a shortlisted candidate and starts the invitation (schedule)
 @router.post("", response_model=SessionOut, status_code=201)
 def create(body: ScheduleIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
     return schedule(session, body.candidate_id, body.scheduled_at, body.duration_minutes, body.time_zone, email)
 
 
+# GET /api/sessions?job_id=: returns the interviews of one job, ordered by time (session_out)
 @router.get("", response_model=list[SessionOut])
 def list_sessions(job_id: int, session: Session = Depends(get_session)):
     rows = session.exec(select(InterviewSession).where(InterviewSession.job_id == job_id)
@@ -46,11 +51,13 @@ def list_sessions(job_id: int, session: Session = Depends(get_session)):
     return [session_out(session, row) for row in rows]
 
 
+# GET /api/sessions/{session_id}: returns one interview with its invitation draft (session_out)
 @router.get("/{session_id}", response_model=SessionOut)
 def get_one(session_id: int, session: Session = Depends(get_session)):
     return session_out(session, get_interview_or_404(session, session_id))
 
 
+# PUT /api/sessions/{session_id}/time: saves a new time and gets a new draft (reschedule)
 @router.put("/{session_id}/time", response_model=SessionOut)
 def change_time(session_id: int, body: RescheduleIn, session: Session = Depends(get_session),
                 email: str = Depends(current_email)):
@@ -58,32 +65,44 @@ def change_time(session_id: int, body: RescheduleIn, session: Session = Depends(
     return reschedule(session, interview, body.scheduled_at, body.duration_minutes, body.time_zone, email)
 
 
+# POST /api/sessions/{session_id}/invitation: asks the paused workflow for a new AI draft (rewrite)
 @router.post("/{session_id}/invitation", response_model=SessionOut)
 def write_again(session_id: int, session: Session = Depends(get_session), email: str = Depends(current_email)):
     return rewrite(session, get_interview_or_404(session, session_id), email)
 
 
+# PUT /api/sessions/{session_id}/invitation: sends the edited email and calendar invite (send_invitation)
 @router.put("/{session_id}/invitation", response_model=SessionOut)
 def send(session_id: int, body: InvitationIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
     return send_invitation(session, get_interview_or_404(session, session_id), body.to, body.subject, body.body, email)
 
 
+# POST /api/sessions/{session_id}/start: starts or rejoins the call, returns a LiveKit ticket (start_call)
 @router.post("/{session_id}/start", response_model=TicketOut)
 def start(session_id: int, session: Session = Depends(get_session), email: str = Depends(current_email)):
     return start_call(session, get_interview_or_404(session, session_id), email)
 
 
+# POST /api/sessions/{session_id}/end: ends the video call for both sides (end_call)
 @router.post("/{session_id}/end", response_model=SessionOut)
 def end(session_id: int, session: Session = Depends(get_session)):
     return end_call(session, get_interview_or_404(session, session_id))
 
 
+# GET /api/sessions/{session_id}/chat: returns call chat messages after the given id (chat_service.messages)
 @router.get("/{session_id}/chat", response_model=list[CallMessageOut])
 def chat(session_id: int, after: int = 0, session: Session = Depends(get_session)):
     return chat_service.messages(session, get_interview_or_404(session, session_id), after)
 
 
+# POST /api/sessions/{session_id}/chat: saves a chat message from the interviewer (chat_service.send)
 @router.post("/{session_id}/chat", response_model=CallMessageOut)
 def chat_send(session_id: int, body: ChatIn, session: Session = Depends(get_session),
               email: str = Depends(current_email)):
     return chat_service.send(session, get_interview_or_404(session, session_id), "interviewer", body.text, email)
+
+
+# GET /api/sessions/{session_id}/profile: returns the candidate's profile and screening result
+@router.get("/{session_id}/profile", response_model=ProfileOut)
+def profile(session_id: int, session: Session = Depends(get_session)):
+    return candidate_profile(session, get_interview_or_404(session, session_id))

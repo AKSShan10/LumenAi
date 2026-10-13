@@ -69,6 +69,7 @@ def _paragraph_lines(element) -> list[str]:
     return lines
 
 
+# Reads a DOCX file: header, body (with tables and text boxes) and footer lines, without repeats
 def _docx_text(data: bytes) -> str:
     document = Document(io.BytesIO(data))
     lines = []
@@ -80,6 +81,7 @@ def _docx_text(data: bytes) -> str:
     return "\n".join(dict.fromkeys(lines))         # a header repeated by several sections is kept once
 
 
+# Reads an old Word .doc file with the antiword program; raises ValueError if it is missing or fails
 def _doc_text(data: bytes) -> str:
     program = shutil.which("antiword")
     if not program:

@@ -13,6 +13,7 @@ class JobCreate(BaseModel):
     qualifications: str = Field(default="", max_length=300)
     prompt: str = Field(default="", max_length=2000)
 
+    # Trims the skill names, drops empty ones and removes duplicates (keeps the order)
     @field_validator("required_skills", "preferred_skills")
     @classmethod
     def clean_skills(cls, skills: list[str]) -> list[str]:

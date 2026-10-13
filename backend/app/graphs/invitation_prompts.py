@@ -1,6 +1,6 @@
-"""The prompt for the interview invitation email (one AI call; no workflow is needed)."""
+"""Prompt of the interview invitation workflow (invitation_graph.py)."""
 
-# Used by the step write_draft of the invitation workflow (app/graphs/invitation_graph.py).
+# Step "write_draft": the AI writes the invitation email.
 # The AI never gets the candidate's email address. It writes {join_link} where the link goes; code puts in the real
 # link, so the AI can never write a wrong link. The calendar invite is made by code too (calendar_service.py).
 INVITATION_PROMPT = (

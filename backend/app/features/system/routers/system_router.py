@@ -18,21 +18,25 @@ from app.features.system.models import WorkflowRun
 router = APIRouter(prefix="/api", tags=["System"], dependencies=[Depends(require_interviewer)])
 
 
+# GET /api/llm-check: makes one tiny AI call and says if the AI service works (check_connection)
 @router.get("/llm-check")
 def llm_check():
     return check_connection()
 
 
+# GET /api/email-check: checks the email settings through the email MCP server; sends nothing
 @router.get("/email-check")
 def email_check():
     return check_email()
 
 
+# GET /api/video-check: checks the LiveKit settings by making a test ticket; connects to nothing
 @router.get("/video-check")
 def video_check():
     return check_video()
 
 
+# GET /api/workflow-runs: returns the latest WorkflowRun rows, newest first
 @router.get("/workflow-runs")
 def workflow_runs(limit: int = Query(default=20, ge=1, le=200), session: Session = Depends(get_session)):
     rows = session.exec(select(WorkflowRun).order_by(WorkflowRun.id.desc()).limit(limit)).all()

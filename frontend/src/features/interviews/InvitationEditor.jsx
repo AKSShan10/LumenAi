@@ -9,10 +9,12 @@ const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";     // t
 
 // "2026-10-20T10:00" (the browser's datetime-local box) for a Date
 function forInput(date) {
+  // Writes a number with two digits, e.g. 7 -> "07"
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+// The default interview time for a new invitation: tomorrow at 10:00, in the date box format
 function tomorrowAtTen() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
@@ -20,6 +22,7 @@ function tomorrowAtTen() {
   return forInput(date);
 }
 
+// Schedules one shortlisted candidate's interview and edits and sends the invitation; used in ScreeningCard
 export default function InvitationEditor({ candidate, session, onChange }) {
   const [when, setWhen] = useState(session ? forInput(new Date(session.scheduled_at)) : tomorrowAtTen());
   const [minutes, setMinutes] = useState(session ? session.duration_minutes : 45);
@@ -38,13 +41,16 @@ export default function InvitationEditor({ candidate, session, onChange }) {
     onChange(saved);
   }
 
+  // Runs one interviews API call, then shows the saved interview it returns (or the error)
   async function run(name, call) {
     setBusy(name); setError(""); setNote(null);
     try { show(await call()); } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // The time sent to the backend: start time in UTC, length in minutes and your time zone
   const timeBody = () => ({ scheduled_at: new Date(when).toISOString(), duration_minutes: Number(minutes), time_zone: ZONE });
 
+  // Builds the date, time and length form; used both to schedule and to change the time
   function timeForm(label, onSubmit) {
     return (
       <form className="weights" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>

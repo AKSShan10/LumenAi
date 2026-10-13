@@ -58,6 +58,7 @@ class Application:
     file_id: str                 # "" if the row has no usable CV link
     warnings: list = field(default_factory=list)
 
+    # Gives a unique key for this form answer (the CV's Drive id) so it is never saved twice
     @property
     def key(self) -> str:
         # Normally the CV's Drive id. A row without a file still needs a key so it is not added twice.
@@ -135,6 +136,7 @@ def _new_after_checkpoint(session: Session, job: Job) -> tuple[list[Application]
         job.google_form_link, job.google_form_id, job.form_checkpoint_row = link, "", 1
     first_row = job.form_checkpoint_row + 1
     try:
+        # → drive_service.read_form_rows: reads the Google Form answers
         header, rows, job.google_form_id = drive_service.read_form_rows(link, first_row, job.google_form_id)
         applications = read_applications([header] + rows, first_row)
     except DriveError as problem:
@@ -182,6 +184,7 @@ def reset_checkpoint(session: Session, job: Job) -> CheckOut:
     return check_applications(session, job)
 
 
+# Downloads the CVs of new form answers, saves one candidate each, then calls start_screening
 def fetch_applications(session: Session, job: Job) -> FetchOut:
     # 1. only the answers after the checkpoint, and of those only the ones that are not saved yet
     new, last_row_read, problem = _new_after_checkpoint(session, job)
@@ -198,6 +201,7 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
         reading = None
         if application.file_id:
             try:
+                # → drive_service.download_file: downloads this answer's CV from Google Drive
                 file_name, data = drive_service.download_file(application.file_id)
             except (DriveError, OSError) as problem:
                 warnings.append(f"The CV could not be downloaded: {problem}")
@@ -243,5 +247,6 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
     return FetchOut(ok=True, message=message, added=len(now), needs_review=needs_review, left_for_next_time=len(later))
 
 
+# Passes the Settings page "Test Google Drive" check on to drive_service.check_drive
 def drive_check() -> dict:
     return drive_service.check_drive()

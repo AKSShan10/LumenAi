@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/company-documents", tags=["Company documents"],
                    dependencies=[Depends(require_interviewer)])
 
 
+# GET /api/company-documents: lists the company documents used for RAG, newest first
 @router.get("", response_model=list[DocumentOut])
 def list_documents(session: Session = Depends(get_session)):
     rows = session.exec(select(CompanyDocument).order_by(CompanyDocument.id.desc())).all()
@@ -33,6 +34,7 @@ def try_search(q: str, session: Session = Depends(get_session)):
     return [DocumentHit(**{key: hit[key] for key in ("id", "kind", "title", "similarity")}) for hit in hits]
 
 
+# DELETE /api/company-documents/{document_id}: deletes one company document
 @router.delete("/{document_id}", status_code=204)
 def remove(document_id: int, session: Session = Depends(get_session)):
     row = session.get(CompanyDocument, document_id)

@@ -23,6 +23,7 @@ from app.features.jobs.models import Job
 router = APIRouter(prefix="/api/join", tags=["Candidate join page"])
 
 
+# Finds the interview by the private join token from the email link, or stops with 404
 def interview_of(session: Session, token: str) -> InterviewSession:
     interview = session.exec(select(InterviewSession).where(InterviewSession.join_token == token)).first() if len(token) >= 20 else None
     if not interview:
@@ -30,6 +31,7 @@ def interview_of(session: Session, token: str) -> InterviewSession:
     return interview
 
 
+# GET /api/join/{token}: returns only job title, candidate name, time and status for the candidate page
 @router.get("/{token}", response_model=JoinInfoOut)
 def join_info(token: str, session: Session = Depends(get_session)):
     interview = interview_of(session, token)
@@ -39,16 +41,19 @@ def join_info(token: str, session: Session = Depends(get_session)):
                        status=interview.status)
 
 
+# POST /api/join/{token}/ticket: gives the candidate a LiveKit ticket while the call is live
 @router.post("/{token}/ticket", response_model=TicketOut)
 def join_ticket(token: str, body: JoinTicketIn, session: Session = Depends(get_session)):
     return candidate_ticket(session, interview_of(session, token), body.name)
 
 
+# GET /api/join/{token}/chat: returns the call chat of this interview for the candidate
 @router.get("/{token}/chat", response_model=list[CallMessageOut])
 def join_chat(token: str, after: int = 0, session: Session = Depends(get_session)):
     return chat_service.messages(session, interview_of(session, token), after)
 
 
+# POST /api/join/{token}/chat: saves a chat message from the candidate (only while live)
 @router.post("/{token}/chat", response_model=CallMessageOut)
 def join_chat_send(token: str, body: ChatIn, session: Session = Depends(get_session)):
     return chat_service.send(session, interview_of(session, token), "candidate", body.text)

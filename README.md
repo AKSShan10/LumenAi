@@ -164,11 +164,28 @@ cp .env.example .env      # then fill in your keys
 | Action | Command |
 |---|---|
 | Build and run | `docker compose up --build` |
+| Build and run with a public https:// address (candidate on another device) | `docker compose --profile tunnel up --build` |
+| Show the tunnel's https:// address | `docker compose logs tunnel` |
 | Stop | `docker compose down` |
 | Reset (delete all data) | `docker compose down -v` |
 | Run the tests | `pytest` |
 | New database change (in `backend`) | `alembic revision --autogenerate -m "what changed"` |
 | Show the database version (in `backend`) | `alembic current` |
+
+### Docker services
+
+| Service | What it runs |
+|---|---|
+| `db` | PostgreSQL |
+| `api` | the FastAPI backend (database migrations at start, CV screening worker) |
+| `web` | the React app on nginx; passes `/api` to the backend and `/rtc` to LiveKit |
+| `livekit` | the video call server (used when `LIVEKIT_URL=/`) |
+| `email-mcp`, `blogger-mcp`, `recruitment-mcp` | the MCP servers, each as its own service (HTTP, only reachable by the other containers) |
+| `tunnel` | optional public `https://` address (Cloudflare quick tunnel), started with `--profile tunnel` |
+
+Gemini, Google Drive / Forms, Blogger and Gmail are online services; the containers call them over the internet.
+
+**A candidate on another device:** start with `--profile tunnel`, put the tunnel's `https://` address in `APP_URL` in `.env`, and restart (`docker compose up -d api`). For the video, use the `livekit` service when the candidate is on the same Wi-Fi (set `LIVEKIT_NODE_IP` to this computer's Wi-Fi address), or LiveKit Cloud (`LIVEKIT_URL=wss://...`) when the candidate is on another network.
 
 ## Configuration
 

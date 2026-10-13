@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "../../shared/utils/Icon.jsx";
+import { initials } from "./initials.js";
 
 // The chat inside the video call, for the interviewer and the candidate: text and links.
 // load(after) gets the messages after a message id; send(text) sends one. The page asks for new messages every
 // 2 seconds. The text is shown as plain text (React escapes it); web addresses become links that open in a new tab.
 //
-// Like Google Meet: the panel is closed until the Chat button is clicked, and the × closes it again.
+// The candidate's page, like Google Meet: the panel is closed until the Chat button is clicked, and the × closes it.
+// The interviewer's room shows it always, under the videos (embedded: no title, no ×).
 // While it is closed, a new message from the other person
 //   - shows a small pop-up for a few seconds (click it to open the chat),
 //   - is counted on the Chat button (onUnread) and in the browser tab title, e.g. "(2) Interview".
@@ -12,6 +15,7 @@ const LOOK_AGAIN_MS = 2000;
 const POPUP_MS = 6000;
 const LINK = /(https?:\/\/[^\s<>"]+)/g;
 
+// Splits a message into plain text and web addresses; each address becomes a link opening a new tab
 function withLinks(text) {
   return text.split(LINK).map((part, index) => (
     index % 2 === 1
@@ -23,7 +27,8 @@ function withLinks(text) {
 // Your own messages say "You"; the other person's show their name (the backend saves it with each message).
 const whoIs = (m, me) => (m.sender === me ? "You" : m.sender_name);
 
-export default function CallChat({ me, load, send, open, onUnread, onOpen, onClose }) {
+// The in-call chat panel for interviewer and candidate; used in InterviewRoomPage and CandidateJoinPage
+export default function CallChat({ me, load, send, open, onUnread = () => {}, onOpen, onClose, embedded = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -35,6 +40,7 @@ export default function CallChat({ me, load, send, open, onUnread, onOpen, onClo
   const input = useRef(null);
   const title = useRef(document.title);             // the tab title without the count
 
+  // Gets the messages newer than the last one we have (load) and adds each new one once
   function look() {
     return load(newest.current).then((more) => {
       if (more.length === 0) return;
@@ -83,6 +89,7 @@ export default function CallChat({ me, load, send, open, onUnread, onOpen, onClo
     return () => clearTimeout(timer);
   }, [popup]);
 
+  // On Send: sends the typed message with send(), clears the box and loads the new messages
   async function submit(event) {
     event.preventDefault();
     if (!text.trim()) return;
@@ -102,28 +109,34 @@ export default function CallChat({ me, load, send, open, onUnread, onOpen, onClo
           <span>{popup.text.length > 120 ? `${popup.text.slice(0, 120)}...` : popup.text}</span>
         </button>
       )}
-      <aside className="call-chat" hidden={!open}>
-        <div className="call-chat-head">
-          <b>In-call messages</b>
-          <button type="button" className="call-chat-close" onClick={onClose} aria-label="Close the chat" title="Close">×</button>
-        </div>
+      <aside className={`call-chat ${embedded ? "embedded" : ""}`} hidden={!open}>
+        {!embedded && (
+          <div className="call-chat-head">
+            <b>In-call messages</b>
+            <button type="button" className="call-chat-close" onClick={onClose} aria-label="Close the chat" title="Close">×</button>
+          </div>
+        )}
         <div className="call-chat-list" ref={list}>
           {messages.length === 0 && <p className="muted small">No messages yet. You can share text and links here.</p>}
-          {messages.map((m) => (
+          {messages.map((m) => (                  // like a chat app: round avatar, name and time, then the text
             <div key={m.id} className={`call-chat-msg ${m.sender === me ? "mine" : ""}`}>
-              <div className="call-chat-who">
-                {whoIs(m, me)}
-                {" · "}{new Date(m.sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <span className="avatar">{m.sender === me ? "You" : initials(m.sender_name)}</span>
+              <div>
+                <div className="call-chat-who">
+                  <b>{whoIs(m, me)}</b>
+                  <span>{new Date(m.sent_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <div className="call-chat-text">{withLinks(m.text)}</div>
               </div>
-              <div className="call-chat-text">{withLinks(m.text)}</div>
             </div>
           ))}
         </div>
         {error && <p className="error small">{error}</p>}
         <form className="call-chat-form" onSubmit={submit}>
-          <input id={`call-chat-${me}`} ref={input} value={text} maxLength="1000" placeholder="Type a message or paste a link"
+          <input id={`call-chat-${me}`} ref={input} value={text} maxLength="1000" placeholder="Type a message..."
                  onChange={(e) => setText(e.target.value)} />
-          <button type="submit" disabled={!text.trim()}>Send</button>
+          <button type="submit" className="call-chat-send" disabled={!text.trim()} aria-label="Send" title="Send">
+            <Icon name="send" size={18} /></button>
         </form>
       </aside>
     </>

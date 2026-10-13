@@ -29,6 +29,7 @@ class CvText:
     problem: str                 # "" when the text looks complete
 
 
+# Counts the words (2+ letters, no digits) in a text; used by text_problem
 def _words(text: str) -> int:
     return len(re.findall(r"[^\W\d_]{2,}", text))
 

@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 
+# Picks the list of tools to run from simple words in the interviewer's message (fake AI only)
 def _plan(text: str) -> list[str]:
     low = text.lower()
     has_job_number = bool(re.search(r"job\s*#?\d+", low))
@@ -35,6 +36,7 @@ def _plan(text: str) -> list[str]:
     return []
 
 
+# Turns a tool's answer (MCP text parts or a plain string) into a dict, so the fake model can read it
 def _json(message: ToolMessage) -> dict:
     content = message.content
     if isinstance(content, list):                     # MCP tools answer with a list of text parts
@@ -47,16 +49,20 @@ def _json(message: ToolMessage) -> dict:
 
 
 class FakeToolChatModel(BaseChatModel):
+    # Returns the name LangChain uses for this fake chat model
     @property
     def _llm_type(self) -> str:
         return "fake-tool-chat-model"
 
+    # Ignores the tool list and returns itself: the word rules already know the tool names
     def bind_tools(self, tools, **kwargs):
         return self                                   # the rules below know the tool names already
 
+    # Called by LangChain for each model turn: wraps the fake decision (_decide) in a ChatResult
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
         return ChatResult(generations=[ChatGeneration(message=self._decide(messages))])
 
+    # Asks for the next unused tool of the plan, or writes the final answer once every tool has answered
     def _decide(self, messages) -> AIMessage:
         last_human = max(i for i, m in enumerate(messages) if isinstance(m, HumanMessage))
         text = str(messages[last_human].content)
@@ -72,6 +78,7 @@ class FakeToolChatModel(BaseChatModel):
                                                       "id": f"fake-{step}", "type": "tool_call"}])
         return AIMessage(content=self._answer(plan, results))
 
+    # Builds the arguments for one tool call from the message text and the earlier tool results
     def _arguments(self, step: str, text: str, results: dict) -> dict:
         number = re.search(r"job\s*#?(\d+)", text.lower())
         jobs = results.get("list_jobs", {}).get("jobs") or [{}]
@@ -97,6 +104,7 @@ class FakeToolChatModel(BaseChatModel):
                     "apply_url": link.group(0) if link else ""}
         return {}
 
+    # Writes the fake model's final chat answer from the result of the last tool in the plan
     def _answer(self, plan: list[str], results: dict) -> str:
         if not plan:
             return ("I can store company documents, write a job description, ask you to approve a job and "

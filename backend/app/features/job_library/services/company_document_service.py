@@ -24,8 +24,10 @@ MIN_EXAMPLE_SIMILARITY = 0.05    # a past job less similar than this is left out
 TOP_POLICIES = 3                 # company policy notes
 
 
+# Saves a company document with its embedding (embed_texts); called by approve_job and the chat tools
 def add_document(session: Session, title: str, text: str, kind: str = "job_description",
                  source: str = "added", job_id: int | None = None) -> CompanyDocument:
+    # → llm_client.embed_texts: AI embedding of the document for RAG search
     vector = (embed_texts([f"{title}\n{text}"]) or [None])[0]
     document = CompanyDocument(kind=kind, title=title.strip(), text=text.strip(), source=source,
                                job_id=job_id, embedding=vector)
@@ -35,6 +37,7 @@ def add_document(session: Session, title: str, text: str, kind: str = "job_descr
     return document
 
 
+# Finds the documents of one kind most similar to the text (RAG); used by job_description_graph
 def find_documents(session: Session, query: str, kind: str, top_k: int, min_similarity: float = 0.0) -> list[dict]:
     rows = session.exec(select(CompanyDocument).where(CompanyDocument.kind == kind)).all()
     if not rows or not query.strip():
@@ -53,11 +56,13 @@ def find_documents(session: Session, query: str, kind: str, top_k: int, min_simi
     return hits[:top_k]
 
 
+# Checks if this approved job's description is already saved as a company document
 def has_document_for_job(session: Session, job_id: int) -> bool:
     return session.exec(select(CompanyDocument).where(CompanyDocument.job_id == job_id,
                                                       CompanyDocument.source == "approved job")).first() is not None
 
 
+# Turns a document row into the list row for the page (with its word count)
 def document_out(row: CompanyDocument) -> DocumentOut:
     return DocumentOut(id=row.id, kind=row.kind, title=row.title, source=row.source, job_id=row.job_id,
                        words=len(row.text.split()), created_at=row.created_at)

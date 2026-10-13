@@ -3,6 +3,7 @@
 const KEY = "lumenai_token";
 const EMAIL_KEY = "lumenai_email";
 const NAME_KEY = "lumenai_name";
+// Reads one value from sessionStorage; gives "" if it is missing or storage is blocked
 const read = (key) => { try { return sessionStorage.getItem(key) || ""; } catch { return ""; } };
 
 export const auth = {
