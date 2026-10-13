@@ -15,6 +15,7 @@ import json
 from mcp.server.fastmcp import FastMCP
 
 from app.features.interviews.services import smtp_service
+from app.mcp_servers.serve import serve
 
 server = FastMCP("lumenai-email")
 
@@ -33,4 +34,4 @@ def check_email_settings() -> str:
 
 
 if __name__ == "__main__":
-    server.run()          # stdio transport
+    serve(server)         # stdio, or an HTTP service in Docker (mcp_servers/serve.py)

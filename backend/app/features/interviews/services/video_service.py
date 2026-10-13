@@ -43,4 +43,5 @@ def video_check() -> dict:
         make_ticket("settings-check", "check", "check")
     except Exception as problem:                     # never str(problem): it could contain the secret
         return {"ok": False, "message": f"A call ticket could not be made ({type(problem).__name__}). Check the LiveKit keys."}
-    return {"ok": True, "message": f"Video is set up ({config.LIVEKIT_URL}). Try a real call with two browsers."}
+    where = "the LiveKit server in Docker" if config.LIVEKIT_URL.startswith("/") else config.LIVEKIT_URL
+    return {"ok": True, "message": f"Video is set up ({where}). Try a real call with two browsers."}

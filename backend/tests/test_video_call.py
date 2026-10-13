@@ -96,3 +96,11 @@ def test_login_rules(anonymous, client, interview, livekit):
     assert anonymous.post(f"/api/sessions/{interview['id']}/end").status_code == 401
     assert anonymous.get("/api/video-check").status_code == 401
     assert client.get("/api/video-check").json()["ok"] is True
+
+
+def test_livekit_in_docker_uses_the_apps_own_address(client, interview, livekit, monkeypatch):
+    """LIVEKIT_URL=/ (the livekit service): the browser gets "/" and connects to /rtc on the app's address."""
+    monkeypatch.setattr(config, "LIVEKIT_URL", "/")
+    started = client.post(f"/api/sessions/{interview['id']}/start").json()
+    assert started["server_url"] == "/" and claims(started["ticket"])["video"]["room"] == started["room_name"]
+    assert "LiveKit server in Docker" in client.get("/api/video-check").json()["message"]

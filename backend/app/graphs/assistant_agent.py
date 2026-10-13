@@ -44,21 +44,18 @@ MAX_AI_MESSAGES = 30             # how many of the newest thread messages the mo
 
 
 def mcp_servers() -> dict:
-    """The MCP servers the assistant can use. Each one is a small program started over stdio."""
+    """The MCP servers the assistant can use: their Docker services over HTTP when MCP_*_URL is set,
+    otherwise small programs started over stdio."""
     environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}       # same settings as the backend; can import `app`
+
+    def server(module: str, url: str) -> dict:
+        if url:
+            return {"url": url, "transport": "streamable_http"}  # → the server's Docker service
+        return {"command": sys.executable, "args": ["-m", module], "transport": "stdio", "env": environment}
+
     return {
-        "recruitment": {
-            "command": sys.executable,
-            "args": ["-m", "app.mcp_servers.recruitment_server"],
-            "transport": "stdio",
-            "env": environment,
-        },
-        "blogger": {
-            "command": sys.executable,
-            "args": ["-m", "app.mcp_servers.blogger_server"],
-            "transport": "stdio",
-            "env": environment,
-        },
+        "recruitment": server("app.mcp_servers.recruitment_server", config.MCP_RECRUITMENT_URL),
+        "blogger": server("app.mcp_servers.blogger_server", config.MCP_BLOGGER_URL),
     }
 
 

@@ -2,6 +2,23 @@
 # Then open http://localhost:8090 (app) and http://localhost:8010/docs (API docs)
 # Ports on YOUR computer come from .env (WEB_PORT, API_PORT, DB_HOST_PORT). If one is
 # "already allocated", change the number in .env. Inside Docker the ports stay the same.
+#
+# Services:
+#   db               PostgreSQL
+#   api              the FastAPI backend (+ database migrations at start, + the CV screening worker)
+#   web              the React app, served by nginx; nginx passes /api to the backend and /rtc to LiveKit
+#   livekit          the video call server (LiveKit). LIVEKIT_URL=/ in .env uses it; a wss://... address uses LiveKit Cloud
+#   email-mcp        MCP server: send_email, check_email_settings
+#   blogger-mcp      MCP server: publish_blog_post, check_blogger_settings
+#   recruitment-mcp  MCP server: the assistant's tools (documents, jobs, job drafts, post text)
+#   tunnel           (optional) a public https:// address for the app:  docker compose --profile tunnel up
+#
+# The three MCP servers use the backend's image and code; only the start command differs. They have no ports on
+# your computer: only the other containers can reach them.
+
+x-backend: &backend                     # shared by api and the MCP servers
+  build: ./backend
+  env_file: .env
 
 services:
   db:
@@ -20,19 +37,32 @@ services:
       retries: 20
 
   api:
-    build: ./backend
-    env_file: .env
+    <<: *backend
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-recruit}:${POSTGRES_PASSWORD:-recruit}@db:5432/${POSTGRES_DB:-recruit}
+      # the MCP servers are their own services (empty = start them as child processes instead)
+      MCP_EMAIL_URL: http://email-mcp:8001/mcp
+      MCP_BLOGGER_URL: http://blogger-mcp:8002/mcp
+      MCP_RECRUITMENT_URL: http://recruitment-mcp:8003/mcp
+      # the video call: "/" = the livekit service below, through the app's own address
+      LIVEKIT_URL: ${LIVEKIT_URL:-/}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-lumenai-dev}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-lumenai-dev-secret-change-me-at-least-32-chars}
     depends_on:
       db:
         condition: service_healthy          # the API starts only when PostgreSQL is ready
-    ports:
-      - "${API_PORT:-8010}:8000"            # your computer : container
+      email-mcp:
+        condition: service_started
+      blogger-mcp:
+        condition: service_started
+      recruitment-mcp:
+        condition: service_started
     volumes:
       - ./backend/logs:/app/logs          # the log file is kept on your computer: backend/logs/lumenai.log
       - ./backend/storage:/app/storage    # the downloaded and uploaded CVs are kept on your computer: backend/storage/cvs
       - ./secrets:/app/secrets:ro         # the Google Drive key file (read only); never committed
+    ports:
+      - "${API_PORT:-8010}:8000"            # your computer : container
 
   web:
     build: ./frontend
@@ -40,6 +70,63 @@ services:
       - api
     ports:
       - "${WEB_PORT:-8090}:80"
+
+  livekit:
+    image: livekit/livekit-server:v1.9.3
+    environment:
+      # The LiveKit settings. The key and secret are the same ones the backend signs the call tickets with.
+      # node_ip is the address the browsers send the video to: 127.0.0.1 = this computer only. For a phone on the
+      # same Wi-Fi, set LIVEKIT_NODE_IP in .env to this computer's address (e.g. 192.168.0.5).
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: false
+          node_ip: ${LIVEKIT_NODE_IP:-127.0.0.1}
+        keys:
+          ${LIVEKIT_API_KEY:-lumenai-dev}: ${LIVEKIT_API_SECRET:-lumenai-dev-secret-change-me-at-least-32-chars}
+    command: --bind 0.0.0.0
+    ports:
+      - "${LIVEKIT_PORT:-7880}:7880"        # signalling; only needed by "npm run dev" (Docker's web passes /rtc itself)
+      - "7881:7881"                         # video over TCP (when UDP is blocked)
+      - "7882:7882/udp"                     # video over UDP
+
+  email-mcp:
+    <<: *backend
+    command: python -m app.mcp_servers.email_server
+    environment:
+      MCP_HTTP_PORT: "8001"
+      MCP_ALLOWED_HOSTS: email-mcp:*        # the only host name it answers to (besides localhost)
+
+  blogger-mcp:
+    <<: *backend
+    command: python -m app.mcp_servers.blogger_server
+    environment:
+      MCP_HTTP_PORT: "8002"
+      MCP_ALLOWED_HOSTS: blogger-mcp:*
+    volumes:
+      - ./backend/logs:/app/logs
+
+  recruitment-mcp:
+    <<: *backend
+    command: python -m app.mcp_servers.recruitment_server
+    environment:
+      MCP_HTTP_PORT: "8003"
+      MCP_ALLOWED_HOSTS: recruitment-mcp:*
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-recruit}:${POSTGRES_PASSWORD:-recruit}@db:5432/${POSTGRES_DB:-recruit}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/logs
+
+  tunnel:                                   # optional: docker compose --profile tunnel up
+    image: cloudflare/cloudflared:2024.12.2
+    command: tunnel --no-autoupdate --url http://web:80
+    depends_on:
+      - web
+    profiles: ["tunnel"]                    # starts only with --profile tunnel; the https address is in its log
 
 volumes:
   pgdata:

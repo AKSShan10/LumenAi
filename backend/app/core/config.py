@@ -89,9 +89,17 @@ SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() != "false"
 #   smtp - the backend sends it itself (same SMTP code, no MCP server)
 EMAIL_TRANSPORT = os.getenv("EMAIL_TRANSPORT", "mcp")
 
+# ---------------- MCP servers ----------------
+# Empty (default): the backend starts each MCP server itself as a short-lived child process (stdio).
+# Docker: each server is its own service and these are their addresses (docker-compose.yml sets them).
+MCP_EMAIL_URL = os.getenv("MCP_EMAIL_URL", "")                    # http://email-mcp:8001/mcp
+MCP_BLOGGER_URL = os.getenv("MCP_BLOGGER_URL", "")                # http://blogger-mcp:8002/mcp
+MCP_RECRUITMENT_URL = os.getenv("MCP_RECRUITMENT_URL", "")        # http://recruitment-mcp:8003/mcp
+
 # ---------------- Video call (LiveKit) ----------------
 # A LiveKit Cloud project (the free plan is enough): Settings > Keys. The secret signs the call tickets; keep it in .env.
 # Empty = everything works except the video itself (the page says "Video is not set up").
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud
+# "/" = the LiveKit server in Docker, reached through the same address as the app (nginx passes /rtc to it).
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud, or /
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
