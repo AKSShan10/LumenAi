@@ -55,7 +55,7 @@ def test_schedule_writes_a_draft_with_the_private_link(client, job, people):
     assert session["join_link"] == f"{config.APP_URL}/join/{token}" and len(token) >= 40
     assert session["invitation_status"] == ""                        # a draft: nothing is sent by itself
     assert session["invite_email"] == "karima@example.com"
-    assert session["invitation_subject"] == "Interview invitation: Backend Developer"
+    assert session["invitation_subject"].startswith("Interview invitation: Backend Developer - ")   # + date and time
     body = session["invitation_body"]
     assert session["join_link"] in body and "{join_link}" not in body  # code put the real link in
     assert "Dear Karima Akter" in body and "3:00 PM (Asia/Dhaka, GMT+06)" in body   # 09:00 UTC = 15:00 in Dhaka
@@ -119,7 +119,7 @@ def test_send_with_the_calendar_invite(client, job, people, fake_smtp, monkeypat
     assert sent["invitation_status"] == "sent" and sent["sent_at"] and "calendar invite" in sent["message"]
 
     message = email.message_from_string(fake_smtp.messages[-1])
-    assert message["To"] == "karima@example.com" and message["Subject"] == "Interview invitation: Backend Developer"
+    assert message["To"] == "karima@example.com" and message["Subject"] == session["invitation_subject"]
     parts = {part.get_content_type(): part for part in message.walk()}
     text = parts["text/plain"].get_payload(decode=True).decode()
     assert "Edited by the interviewer" in text and session["join_link"] in text
@@ -146,6 +146,24 @@ def test_a_new_time_updates_the_same_calendar_event(client, job, people, fake_sm
     uid = lambda text: next(line for line in text.splitlines() if line.startswith("UID:"))   # noqa: E731
     assert first["invitation_status"] == "sent"
     assert uid(calendars[0]) == uid(calendars[1]) and "SEQUENCE:1" in calendars[1]
+
+
+def in_dhaka(when: str) -> str:
+    """How the subject writes a time: "15 Oct 2026, 3:00 PM" in Dhaka (UTC+6)."""
+    local = datetime.fromisoformat(when.replace("Z", "+00:00")) + timedelta(hours=6)
+    return f"{local.day} {local:%b %Y}, " + local.strftime("%I:%M %p").lstrip("0")
+
+
+def test_the_subject_has_the_date_and_time_so_a_new_time_starts_a_new_thread(client, job, people):
+    first_time, new_time = later(days=3, hour=9), later(days=6, hour=4)
+    session = schedule(client, people["Karima Akter"], first_time).json()
+    assert session["invitation_subject"] == f"Interview invitation: Backend Developer - {in_dhaka(first_time)}"
+    assert in_dhaka(first_time).endswith("3:00 PM")
+    moved = client.put(f"/api/sessions/{session['id']}/time",
+                       json={"scheduled_at": new_time, "duration_minutes": 45, "time_zone": "Asia/Dhaka"}).json()
+    assert moved["invitation_subject"] == f"Interview invitation: Backend Developer - {in_dhaka(new_time)}"
+    again = client.post(f"/api/sessions/{session['id']}/invitation").json()        # Write again: the time only once
+    assert again["invitation_subject"].count(in_dhaka(new_time)) == 1
 
 
 def test_write_again_with_ai(client, job, people):
