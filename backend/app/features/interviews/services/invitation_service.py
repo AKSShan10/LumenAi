@@ -48,6 +48,17 @@ def when_text(interview: InterviewSession) -> tuple[str, str]:
     return local.strftime("%A, %d %B %Y").replace(" 0", " "), f"{clock} ({interview.time_zone}, {hours})"
 
 
+# Adds the interview's date and time to the subject ("... - 15 Oct 2026, 10:00 AM"), so mail apps such as Gmail
+# start a new thread for a new interview or a new time instead of putting it under the old email
+def subject_with_time(subject: str, interview: InterviewSession) -> str:
+    local = as_utc(interview.scheduled_at).astimezone(ZoneInfo(interview.time_zone))
+    when = f"{local.day} {local:%b %Y}, " + local.strftime("%I:%M %p").lstrip("0")    # 15 Oct 2026, 10:00 AM
+    subject = subject.strip()
+    if when in subject:                               # already there: never twice
+        return subject
+    return f"{subject} - {when}" if subject else when
+
+
 # Returns the interviewer's full name for an email, or 'The interviewer' (never the email address)
 def interviewer_name(session: Session, email: str) -> str:
     user = session.exec(select(User).where(User.email == email)).first()

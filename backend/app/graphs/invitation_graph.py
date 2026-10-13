@@ -30,7 +30,8 @@ from app.core.database import engine
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.services import smtp_service
 from app.features.interviews.services.invitation_service import (
-    as_utc, calendar_for, deliver, draft_problems, email_facts, join_link, standard_text, with_link)
+    as_utc, calendar_for, deliver, draft_problems, email_facts, join_link, standard_text, subject_with_time,
+    with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
 from app.graphs.invitation_prompts import INVITATION_PROMPT
@@ -85,7 +86,7 @@ def save_draft(state: InvitationState) -> dict:
             subject, body = standard_text(email_facts(session, interview, state["interviewer"]))
             message = ("The AI's email did not pass the check (" + "; ".join(state["problems"]) +
                        "), so a standard text was used. Check it before sending.")
-        interview.invitation_subject = subject
+        interview.invitation_subject = subject_with_time(subject, interview)   # date + time: a new Gmail thread
         interview.invitation_body = with_link(body, join_link(interview))
         interview.invitation_status = ""                                 # a new draft: not sent yet
         session.add(interview)
