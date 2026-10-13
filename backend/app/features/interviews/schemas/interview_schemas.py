@@ -5,6 +5,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.features.candidates.schemas import CandidateOut
+from app.features.screening.schemas import ScreeningRowOut
+
 
 class _When(BaseModel):
     """scheduled_at: the start with its time offset, e.g. 2026-10-20T15:00:00+06:00 (the browser sends UTC "...Z").
@@ -103,3 +106,13 @@ class CallMessageOut(BaseModel):
     sender_name: str                 # the name shown in the chat
     text: str
     sent_at: datetime
+
+
+class ProfileOut(BaseModel):
+    """The candidate's profile for the interviewer during the call. Never sent to the candidate."""
+    candidate: CandidateOut          # name, email, phone, where they applied from, CV file
+    job_title: str
+    weights: dict                    # {"skills": 40, "experience": 35, "qualifications": 25}
+    screening: Optional[ScreeningRowOut] = None   # None = the CV was not screened
+    jobs: list[dict] = []            # from the CV, as the AI read it: [{"title", "company", "years"}], latest first
+    degrees: list[dict] = []         # from the CV: [{"degree", "institute"}]

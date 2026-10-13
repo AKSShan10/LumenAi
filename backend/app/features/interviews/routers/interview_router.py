@@ -11,6 +11,7 @@
   POST /api/sessions/{id}/end             end the call for both (status ended)
   GET  /api/sessions/{id}/chat?after=12   the call chat: the messages after message 12 (0 = all)
   POST /api/sessions/{id}/chat            send a chat message as the interviewer
+  GET  /api/sessions/{id}/profile         the candidate's profile and screening result (interviewer only)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -19,8 +20,9 @@ from app.core.database import get_session
 from app.core.security import current_email, require_interviewer
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.schemas import (
-    CallMessageOut, ChatIn, InvitationIn, RescheduleIn, ScheduleIn, SessionOut, TicketOut)
+    CallMessageOut, ChatIn, InvitationIn, ProfileOut, RescheduleIn, ScheduleIn, SessionOut, TicketOut)
 from app.features.interviews.services import chat_service
+from app.features.interviews.services.profile_service import candidate_profile
 from app.features.interviews.services.interview_service import (
     end_call, reschedule, rewrite, schedule, send_invitation, session_out, start_call)
 
@@ -87,3 +89,8 @@ def chat(session_id: int, after: int = 0, session: Session = Depends(get_session
 def chat_send(session_id: int, body: ChatIn, session: Session = Depends(get_session),
               email: str = Depends(current_email)):
     return chat_service.send(session, get_interview_or_404(session, session_id), "interviewer", body.text, email)
+
+
+@router.get("/{session_id}/profile", response_model=ProfileOut)
+def profile(session_id: int, session: Session = Depends(get_session)):
+    return candidate_profile(session, get_interview_or_404(session, session_id))

@@ -5,6 +5,7 @@
     decide_candidate(...)                     the interviewer includes or excludes a candidate, or undoes it
     final_status(result)                      included | excluded | needs_review: the person's decision if there is one
     screening_rows(session, job)              every candidate of the job with its result, for the page
+    screening_row(candidate, result)          one candidate's result (also for the profile in the interview room)
 
 Each CV goes through the workflow in app/graphs/cv_screening_graph.py (one run per CV). The workflow reads the saved
 CV file itself, saves its result, and then pauses in hr_review until a person decides. In the normal app the
@@ -105,27 +106,27 @@ def decide_candidate(session: Session, candidate: Candidate, decision: str | Non
     return session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).one()
 
 
+def screening_row(candidate: Candidate, result: ScreeningResult | None) -> ScreeningRowOut:
+    """One candidate's screening for the page (also used by the candidate profile in the interview room)."""
+    if not result:
+        return ScreeningRowOut(candidate_id=candidate.id, full_name=candidate.full_name, waiting=True)
+    parsed, matches = result.parsed or {}, result.matches or []
+    must = [m for m in matches if m["kind"] == "must"]
+    nice = [m for m in matches if m["kind"] == "nice"]
+    return ScreeningRowOut(
+        candidate_id=candidate.id, full_name=candidate.full_name, result=result.result, reason=result.reason,
+        final=final_status(result), waiting=result.stale,
+        decision=result.decision, decision_note=result.decision_note, decided_by=result.decided_by,
+        decided_at=result.decided_at,
+        skills=parsed.get("skills", []), total_years=parsed.get("total_years", 0),
+        education=[str(e.get("degree", "")) for e in parsed.get("education", []) if e.get("degree")],
+        matches=matches, must_met=sum(m.get("status") == "met" for m in must), must_total=len(must),
+        nice_met=sum(m.get("status") == "met" for m in nice), nice_total=len(nice), screened_at=result.screened_at,
+        sections=result.sections or {}, weighted_score=result.weighted_score,
+        ats=result.ats or {}, ats_score=result.ats_score)
+
+
 def screening_rows(session: Session, job: Job) -> list[ScreeningRowOut]:
     candidates = session.exec(select(Candidate).where(Candidate.job_id == job.id).order_by(Candidate.id)).all()
     results = {r.candidate_id: r for r in session.exec(select(ScreeningResult).where(ScreeningResult.job_id == job.id)).all()}
-    rows = []
-    for candidate in candidates:
-        result = results.get(candidate.id)
-        row = ScreeningRowOut(candidate_id=candidate.id, full_name=candidate.full_name, waiting=True)
-        if result:
-            parsed, matches = result.parsed or {}, result.matches or []
-            must = [m for m in matches if m["kind"] == "must"]
-            nice = [m for m in matches if m["kind"] == "nice"]
-            row = ScreeningRowOut(
-                candidate_id=candidate.id, full_name=candidate.full_name, result=result.result, reason=result.reason,
-                final=final_status(result), waiting=result.stale,
-                decision=result.decision, decision_note=result.decision_note, decided_by=result.decided_by,
-                decided_at=result.decided_at,
-                skills=parsed.get("skills", []), total_years=parsed.get("total_years", 0),
-                education=[str(e.get("degree", "")) for e in parsed.get("education", []) if e.get("degree")],
-                matches=matches, must_met=sum(m.get("status") == "met" for m in must), must_total=len(must),
-                nice_met=sum(m.get("status") == "met" for m in nice), nice_total=len(nice), screened_at=result.screened_at,
-                sections=result.sections or {}, weighted_score=result.weighted_score,
-                ats=result.ats or {}, ats_score=result.ats_score)
-        rows.append(row)
-    return rows
+    return [screening_row(candidate, results.get(candidate.id)) for candidate in candidates]

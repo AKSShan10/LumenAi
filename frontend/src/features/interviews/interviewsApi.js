@@ -12,6 +12,7 @@ export const interviewsApi = {
   // the video call: the answers have {server_url, ticket, room_name, identity} for LiveKit
   start: (sessionId) => request(`/api/sessions/${sessionId}/start`, { method: "POST" }),   // start or join again
   end: (sessionId) => request(`/api/sessions/${sessionId}/end`, { method: "POST" }),       // end for both
+  profile: (sessionId) => request(`/api/sessions/${sessionId}/profile`),   // the candidate's profile (interviewer only)
   joinTicket: (token, name) => request(`/api/join/${token}/ticket`, json({ name })),        // public: the candidate
   // the chat in the call: "after" = the newest message id the page already has (0 = all)
   chat: (sessionId, after = 0) => request(`/api/sessions/${sessionId}/chat?after=${after}`),

@@ -29,11 +29,11 @@ from app.ai.llm_client import last_error, llm_json
 from app.core.database import engine
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.services import smtp_service
-from app.features.interviews.services.invitation_prompt import INVITATION_PROMPT
 from app.features.interviews.services.invitation_service import (
     as_utc, calendar_for, deliver, draft_problems, email_facts, join_link, standard_text, with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
+from app.graphs.invitation_prompts import INVITATION_PROMPT
 
 log = logging.getLogger("invitation_graph")
 

@@ -1,6 +1,6 @@
 import "@livekit/components-styles";
 import { ChatIcon, ConnectionStateToast, DisconnectButton, LeaveIcon, LiveKitRoom, MediaDeviceMenu, ParticipantTile,
-  RoomAudioRenderer, StartMediaButton, TrackToggle, useTracks } from "@livekit/components-react";
+  RoomAudioRenderer, StartMediaButton, TrackToggle, useLocalParticipant, useTracks } from "@livekit/components-react";
 import { Track } from "livekit-client";
 
 // The video call itself, the same for the interviewer and the candidate.
@@ -8,20 +8,20 @@ import { Track } from "livekit-client";
 // LiveKit sends the camera, microphone and a shared screen, and reconnects by itself after a short network drop
 // (ConnectionStateToast shows "Reconnecting...").
 //
-// Speaker view, like Zoom:
-//   nobody shares:  the other person big, yourself small in the corner
-//   a screen share: the shared screen big, both cameras in a strip at the side
-//
-// chat = {open, unread, onToggle}: the Chat button in the bar below opens and closes our chat panel (CallChat.jsx).
-export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "the other person", chat }) {
+// Speaker view for both: the other person big, yourself small in the corner; a shared screen goes big and the
+// cameras move to a strip at the side. Only the buttons differ:
+//   layout="speaker" (the candidate): a bar with a Chat button (chat = {open, unread, onToggle} opens CallChat.jsx)
+//   layout="pair"    (the interviewer's room): round buttons on top of the video, at the bottom
+export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "the other person", chat, layout = "speaker" }) {
+  const pair = layout === "pair";
   return (
-    <div className="video-room" data-lk-theme="default">
+    <div className={`video-room ${pair ? "pair" : ""}`} data-lk-theme="default">
       <LiveKitRoom serverUrl={serverUrl} token={ticket} connect video audio onDisconnected={onLeave}
                    style={{ height: "100%" }}>
         <Stage waitingFor={waitingFor} />
         <RoomAudioRenderer />
         <ConnectionStateToast />
-        <CallControls chat={chat} />
+        {pair ? <RoundControls /> : <CallControls chat={chat} />}
       </LiveKitRoom>
     </div>
   );
@@ -29,8 +29,8 @@ export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "th
 
 const canShareScreen = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;   // not on most phones
 
-// The bar under the video: microphone, camera, share screen, chat, leave (LiveKit's own buttons + our Chat button).
-// On a narrow screen only the icons are shown (CSS hides .bar-text).
+// The candidate's bar under the video: microphone, camera, share screen, chat, leave
+// (LiveKit's own buttons + our Chat button). On a narrow screen only the icons are shown (CSS hides .bar-text).
 function CallControls({ chat }) {
   return (
     <div className="lk-control-bar">
@@ -48,13 +48,43 @@ function CallControls({ chat }) {
         </TrackToggle>
       )}
       {chat && (
-        <button type="button" className="lk-button chat-button" aria-pressed={chat.open} onClick={chat.onToggle}
+        <button type="button" className="lk-button side-button chat-button" aria-pressed={chat.open} onClick={chat.onToggle}
                 title={chat.open ? "Close the chat" : "Open the chat"}>
           <ChatIcon /><span className="bar-text">Chat</span>
           {chat.unread > 0 && !chat.open && <span className="chat-badge" aria-label={`${chat.unread} new`}>{chat.unread}</span>}
         </button>
       )}
       <DisconnectButton><LeaveIcon /><span className="bar-text">Leave</span></DisconnectButton>
+      <StartMediaButton />
+    </div>
+  );
+}
+
+// The interviewer's buttons: round, on top of the video at the bottom (like Google Meet), so the video gets the
+// whole height. The words (Mute / Unmute ...) show when the mouse is on a button.
+// "Leave" only leaves the call; "End interview for both" is at the top of the page.
+function RoundControls() {
+  const { isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
+  const mic = isMicrophoneEnabled ? "Mute" : "Unmute";
+  const camera = isCameraEnabled ? "Stop Video" : "Start Video";
+  const share = isScreenShareEnabled ? "Stop Share" : "Share";
+  return (
+    <div className="round-controls">
+      <div className="round-control can-be-off">
+        <TrackToggle source={Track.Source.Microphone} title={mic} aria-label={mic} />
+      </div>
+      <div className="round-control can-be-off">
+        <TrackToggle source={Track.Source.Camera} title={camera} aria-label={camera} />
+      </div>
+      {canShareScreen && (
+        <div className="round-control">
+          <TrackToggle source={Track.Source.ScreenShare} captureOptions={{ audio: true, selfBrowserSurface: "include" }}
+                       title={share} aria-label={share} />
+        </div>
+      )}
+      <div className="round-control leave">
+        <DisconnectButton title="Leave" aria-label="Leave"><LeaveIcon /></DisconnectButton>
+      </div>
       <StartMediaButton />
     </div>
   );
@@ -82,10 +112,11 @@ function Stage({ waitingFor }) {
       </div>
     );
   }
+  const waiting = <div className="stage-waiting">Waiting for {waitingFor} to join...</div>;
   return (                                           // the other person big, yourself small
     <div className="stage">
       <div className="stage-main">
-        {other ? <ParticipantTile trackRef={other} /> : <div className="stage-waiting">Waiting for {waitingFor} to join...</div>}
+        {other ? <ParticipantTile trackRef={other} /> : waiting}
       </div>
       {mine && <div className="stage-self"><ParticipantTile trackRef={mine} /></div>}
     </div>
