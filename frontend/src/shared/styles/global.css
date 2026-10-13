@@ -253,3 +253,77 @@ td.actions button.link { display: block; margin: 2px 0; text-align: left; paddin
   .video-room .bar-text { display: none; }
   .chat-popup { right: 16px; bottom: 80px; }
 }
+
+/* ---------- Candidates page: one tab and one color per step ---------- */
+/* Each step has its own color: Applications grey-blue, Included green, Excluded red, Shortlist blue */
+.tone-slate { --tone: #475569; --tone-soft: #f1f5f9; }
+.tone-green { --tone: #15803d; --tone-soft: #ecfdf3; }
+.tone-red   { --tone: #b91c1c; --tone-soft: #fef2f2; }
+.tone-blue  { --tone: #1d4ed8; --tone-soft: #eff6ff; }
+
+.page-top { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.page-top .job-pick { margin: 0; }
+.page-note { margin: -4px 0 12px; }
+
+/* the tab bar */
+.step-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-slot { display: flex; align-items: stretch; gap: 8px; flex: 1 1 190px; }
+.step-arrow { align-self: center; }
+.step-arrow { color: #9aa3b2; font-size: 24px; line-height: 1; }
+.step-tab { flex: 1; display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; text-align: left;
+  background: #fff; color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--tone); border-radius: 10px; }
+.step-tab:hover { background: var(--tone-soft); }
+.step-tab.active { background: var(--tone-soft); border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
+.step-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--tone-soft); color: var(--tone); }
+.step-tab.active .step-icon { background: var(--tone); color: #fff; }
+.step-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.step-text small { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.step-text em { font-style: normal; font-size: 12px; color: var(--tone); }
+.step-count { min-width: 30px; padding: 2px 8px; border-radius: 12px; text-align: center; font-weight: 700;
+  background: var(--tone-soft); color: var(--tone); }
+.step-tab.active .step-count { background: var(--tone); color: #fff; }
+
+/* the colored section under the tabs */
+.card.section { border-top: 4px solid var(--tone); }
+.section-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.section-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  background: var(--tone-soft); color: var(--tone); }
+.section-title { flex: 1; min-width: 220px; }
+.section-title h3 { font-size: 17px; margin: 0 0 2px; color: var(--tone); }
+.section-title p { margin: 0; }
+.section-count { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 13px; vertical-align: 2px;
+  background: var(--tone); color: #fff; }
+.section-actions { display: flex; align-items: center; gap: 8px; }
+.section-actions label.inline { margin: 0; }
+.section th { background: var(--tone-soft); color: var(--tone); }
+/* the table sits in a box, so you can see where it ends */
+.section table { border: 1px solid var(--line); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.section tbody tr:last-child > td { border-bottom: none; }
+.section tbody tr:hover > td { background: #fafbfc; }
+.section .pager { margin-top: 10px; }
+.section .filter-bar { background: var(--tone-soft); border-radius: 8px; padding: 6px 12px; }
+.badge.shortlisted { background: #dbeafe; color: #1d4ed8; }
+button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
+
+/* Applications: the two ways in, side by side */
+.add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.add-grid .card { margin-bottom: 0; }
+.add-grid .two-columns { grid-template-columns: 1fr; gap: 0; }
+
+/* the score weights, folded into one line */
+.weights-box { background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 4px 0 10px; font-size: 13px; }
+.weights-box summary { cursor: pointer; }
+.weights-box summary .link { color: var(--blue); }
+.weights-box form.weights { margin: 10px 0 4px; }
+.screening-strip { padding: 8px 16px; border-left: 4px solid var(--blue); }
+.screening-strip .row-between button { margin: 2px 0; }
+.screening-strip .progress-line progress { width: 320px; max-width: 60vw; }
+
+@media (max-width: 900px) {
+  .add-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .step-slot { flex: 1 1 45%; }
+  .step-arrow { display: none; }
+}

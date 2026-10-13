@@ -15,6 +15,9 @@ const PATHS = {
   cap: "M2 9l10-5 10 5-10 5zM6 11.5V16c2 2 10 2 12 0v-4.5",
   clock: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2",
   code: "M8 8l-4 4 4 4M16 8l4 4-4 4M13 6l-2 12",
+  check: "M12 21a9 9 0 100-18 9 9 0 000 18zM8 12.5l2.8 2.8L16.5 9.5",
+  cross: "M12 21a9 9 0 100-18 9 9 0 000 18zM9 9l6 6M15 9l-6 6",
+  star: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z",
 };
 
 // Draws one small line icon by name as an SVG; used in the sidebar and on buttons

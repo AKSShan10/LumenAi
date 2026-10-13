@@ -5,6 +5,7 @@ import DataTable from "../../shared/utils/DataTable.jsx";
 import { filterIncluded } from "./includedFilter.js";
 import InvitationEditor from "../interviews/InvitationEditor.jsx";
 import { interviewsApi, invitationStatus } from "../interviews/interviewsApi.js";
+import { SectionHead } from "../candidates/StepTabs.jsx";
 
 // Met / Partially met / Unmet of one requirement (old results only have met: true / false)
 const STATUS = {
@@ -30,7 +31,10 @@ const asUtc = (text) => new Date(/Z|[+-]\d\d:\d\d$/.test(text) ? text : text + "
 // from one group to the other (Change); the system result stays visible next to the person's decision.
 // The Shortlist: included candidates the interviewer chose (with the Top K / minimum score filter, or one by one).
 // It is saved in the database; the interview invitation starts from it.
-export default function ScreeningCard({ jobId, candidates, onScreened }) {
+// view = the open tab of the Candidates page: "included", "excluded" or "shortlist" show that list in its own color;
+// "applications" shows only the screening progress. onCounts tells the page the sizes of the lists for the tabs,
+// onOpen(tab) opens another tab (e.g. the Shortlist after adding someone).
+export default function ScreeningCard({ jobId, candidates, onScreened, view = "included", onCounts, onOpen }) {
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(null);           // the candidate whose details are shown
   const [note, setNote] = useState(null);
@@ -62,6 +66,14 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
       }
     });
   }
+
+  useEffect(() => {                                  // the counts on the page's tabs
+    onCounts?.({
+      included: rows.filter((r) => r.final === "included").length,
+      excluded: rows.filter((r) => r.final === "excluded").length,
+      shortlist: shortlist.length,
+    });
+  }, [rows, shortlist]);                             // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!jobId) return;
@@ -144,7 +156,11 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   // The shortlist. Only included candidates can be put on it (the backend checks this too).
   async function addToShortlist(ids, rule, value) {
     setError(""); setNote(null); setBusy("shortlist");
-    try { setNote(await screeningApi.addToShortlist(jobId, ids, rule, value)); await load(); }
+    try {
+      const answer = await screeningApi.addToShortlist(jobId, ids, rule, value);
+      setNote({ ...answer, openShortlist: answer.ok });   // the note gets an "Open the Shortlist" button
+      await load();
+    }
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
@@ -202,10 +218,9 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   }
 
   // Builds one results table (Included or Excluded) with scores and the row buttons
-  function table(list, title, empty, info = null) {
+  function table(list, empty, info = null) {
     return (
       <>
-        <h4>{title} <small className="muted">({title === "Included" ? included.length : list.length})</small></h4>
         {info}
         <DataTable rows={list} rowKey={(row) => row.candidate_id} empty={empty}
                    expanded={(row) => (open === row.candidate_id ? details(row) : null)} columns={[
@@ -214,7 +229,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
             <>
               <b>{row.full_name || "(name not given)"}</b>
               {row.decision && <div className="small"><span className="badge draft">changed by {row.decided_by || "an interviewer"}</span></div>}
-              {onShortlist.has(row.candidate_id) && <div className="small"><span className="badge done">shortlisted</span></div>}
+              {onShortlist.has(row.candidate_id) && <div className="small"><span className="badge shortlisted">★ shortlisted</span></div>}
               {row.waiting && <div className="muted small">waiting to be screened again</div>}
             </>
           ) },
@@ -241,8 +256,8 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
                 {open === row.candidate_id ? "Hide" : "Details"}</button>
               <DecisionControl candidateId={row.candidate_id} final={row.final} decided={!!row.decision} onDone={decided} />
               {row.final === "included" && !row.waiting && !onShortlist.has(row.candidate_id) && (
-                <button className="link" onClick={() => addToShortlist([row.candidate_id], "by_hand")} disabled={busy !== ""}>
-                  Shortlist</button>
+                <button className="link to-shortlist" onClick={() => addToShortlist([row.candidate_id], "by_hand")} disabled={busy !== ""}>
+                  ★ Shortlist</button>
               )}
               <button className="link" onClick={() => screenOne(row)} disabled={busy !== ""}>
                 {busy === `one-${row.candidate_id}` ? "Screening..." : "Screen again"}</button>
@@ -264,9 +279,6 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   function shortlistTable() {
     return (
       <>
-        <h4>Shortlist <small className="muted">({shortlist.length})</small></h4>
-        <p className="muted small">Included candidates chosen for the interview, highest final score first. The interview
-          invitation starts from this list. A candidate who is excluded later is taken off it.</p>
         <DataTable rows={shortlist} rowKey={(row) => row.candidate_id}
                    expanded={(row) => (inviting === row.candidate_id
                      ? <InvitationEditor key={sessionOf(row.candidate_id)?.id || "new"} candidate={row}
@@ -361,48 +373,102 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     );
   }
 
-  return (
-    <div className="card">
-      <div className="row-between">
-        <h3>Screening</h3>
-        <button type="button" className="secondary" onClick={screenAllAgain} disabled={busy !== "" || rows.length === 0 || running}
-                title="Screen every CV of this job again, for example after the requirements changed. The system decides again; decisions made by a person are cleared.">
-          {busy === "again" ? "Starting..." : "Screen all again"}
-        </button>
-      </div>
-      <p className="muted small">New CVs are screened by the backend by itself. The AI reads each CV (email and phone are removed
-        first); the code checks every requirement and decides. You can move anyone between Included and Excluded; screening again lets the system decide again. Nobody is deleted.</p>
+  const screenAllButton = (
+    <button type="button" className="secondary" onClick={screenAllAgain} disabled={busy !== "" || rows.length === 0 || running}
+            title="Screen every CV of this job again, for example after the requirements changed. The system decides again; decisions made by a person are cleared.">
+      {busy === "again" ? "Starting..." : "Screen all again"}
+    </button>
+  );
 
-      {draft && (
-        <form className="weights" onSubmit={saveWeights}>
-          <b>Weights</b>
-          {SECTIONS.map(([key, label]) => (
-            <label key={key} className="inline">{label}{" "}
-              <input type="number" min="0" max="100" value={draft[key]} style={{ width: 70 }}
-                     onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })} /> %
-            </label>
-          ))}
-          {(() => {
-            const sum = draft.skills + draft.experience + draft.qualifications;
-            const changed = SECTIONS.some(([key]) => draft[key] !== weights[key]);
-            return (<>
-              <span className={sum === 100 ? "muted small" : "error small"}>total {sum}{sum !== 100 && " (must be 100)"}</span>
-              <button type="submit" className="secondary" disabled={!changed || sum !== 100 || busy !== ""}>
-                {busy === "weights" ? "Saving..." : "Save weights"}</button>
-            </>);
-          })()}
-        </form>
-      )}
+  // The weights, folded: one line shows them, a click opens the form to change them
+  const weightsBox = draft && weights && (
+    <details className="weights-box">
+      <summary>Score weights: {SECTIONS.map(([key, label]) => `${label} ${weights[key]}%`).join(" · ")}
+        <span className="link small"> change</span></summary>
+      <form className="weights" onSubmit={saveWeights}>
+        {SECTIONS.map(([key, label]) => (
+          <label key={key} className="inline">{label}{" "}
+            <input type="number" min="0" max="100" value={draft[key]} style={{ width: 70 }}
+                   onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })} /> %
+          </label>
+        ))}
+        {(() => {
+          const sum = draft.skills + draft.experience + draft.qualifications;
+          const changed = SECTIONS.some(([key]) => draft[key] !== weights[key]);
+          return (<>
+            <span className={sum === 100 ? "muted small" : "error small"}>total {sum}{sum !== 100 && " (must be 100)"}</span>
+            <button type="submit" className="secondary" disabled={!changed || sum !== 100 || busy !== ""}>
+              {busy === "weights" ? "Saving..." : "Save weights"}</button>
+          </>);
+        })()}
+      </form>
+      <p className="muted small">New weights only recalculate the final scores with plain maths; the AI is not asked again.</p>
+    </details>
+  );
+
+  // The progress bar and the messages, shown on every tab
+  const messages = (
+    <>
       {running && (
         <div className="progress-line">
           <progress value={progress.done} max={Math.max(progress.total, 1)} />
           <span className="small">Screening {progress.done} of {progress.total} CV(s)...</span>
         </div>
       )}
-      {note && <p className={note.ok ? "ok" : "error"}>{note.message}</p>}
+      {note && (
+        <p className={note.ok ? "ok" : "error"}>{note.message}
+          {note.openShortlist && view !== "shortlist" && (
+            <> <button type="button" className="link" onClick={() => onOpen?.("shortlist")}>Open the Shortlist →</button></>
+          )}
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
+    </>
+  );
 
-      {table(picked.shown, "Included",
+  if (view === "applications") {                     // the screening of ALL CVs: Screen all again + the progress
+    return (
+      <div className="card screening-strip">
+        <div className="row-between">
+          <span className="small"><b>CV screening</b>{" "}
+            <span className="muted">New CVs are screened by themselves. Screen all again after the job's requirements change.</span></span>
+          {screenAllButton}
+        </div>
+        {messages}
+      </div>
+    );
+  }
+
+  if (view === "shortlist") {
+    return (
+      <div className="card section tone-blue">
+        <SectionHead step="shortlist" count={shortlist.length}
+                     text="Included candidates chosen for the interview, highest final score first. Schedule the interview from here. A candidate who is excluded later is taken off it." />
+        {messages}
+        {shortlistTable()}
+      </div>
+    );
+  }
+
+  if (view === "excluded") {
+    return (
+      <div className="card section tone-red">
+        <SectionHead step="excluded" count={excluded.length}
+                     text="CVs that did not meet the job's requirements, with the reason. Nobody is deleted: use Change to move someone to Included." />
+        {weightsBox}
+        {messages}
+        {table(excluded, "Nobody is excluded.")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card section tone-green">
+      <SectionHead step="included" count={included.length}
+                   text="CVs that meet the job's requirements, highest final score first. Pick the best with Top K or a minimum score and add them to the shortlist." />
+      {weightsBox}
+      {messages}
+      {table(picked.shown,
              filter.mode === "all" ? "Nobody is included yet." : "No included candidate matches this filter.",
              included.length > 0 && (
                <>
@@ -411,7 +477,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
                  {picked.message && (
                    <p className="muted small">{picked.message}{" "}
                      {toAdd.length > 0 ? (
-                       <button type="button" className="secondary" disabled={busy !== ""}
+                       <button type="button" disabled={busy !== ""}
                                onClick={() => addToShortlist(toAdd.map((row) => row.candidate_id), filter.mode, Number(filter.value))}>
                          {busy === "shortlist" ? "Adding..." : `Add ${toAdd.length === 1 ? "this 1" : `these ${toAdd.length}`} to the shortlist`}
                        </button>
@@ -420,8 +486,6 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
                  )}
                </>
              ))}
-      {shortlistTable()}
-      {table(excluded, "Excluded", "Nobody is excluded.")}
     </div>
   );
 }
