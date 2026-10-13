@@ -22,11 +22,14 @@ export default function InterviewRoomPage({ sessionId }) {
   const [profile, setProfile] = useState(null);     // the candidate's profile (only the interviewer gets it)
   const [profileError, setProfileError] = useState("");
 
+  // Starts or rejoins the call (interviewsApi.start), then loads the candidate's profile card
   async function open() {
     setState("opening"); setError("");
     try {
+      // → POST /api/sessions/{id}/start: gets the LiveKit server URL and ticket
       const answer = await interviewsApi.start(sessionId);
       setCall(answer); setState("in_call");
+      // → GET /api/sessions/{id}/profile: loads the candidate card
       interviewsApi.profile(sessionId).then(setProfile).catch((e) => setProfileError(e.message));
       document.title = `Interview: ${answer.session.candidate_name || "candidate"}`;
     } catch (e) { setError(e.message); setState("error"); }
@@ -34,8 +37,10 @@ export default function InterviewRoomPage({ sessionId }) {
 
   useEffect(() => { if (auth.get()) open(); }, [sessionId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // On End interview for both: calls interviewsApi.end, which closes the call for everyone
   async function endForBoth() {
     setBusy(true);
+    // → POST /api/sessions/{id}/end: closes the call for both people
     try { await interviewsApi.end(sessionId); setState("ended"); }
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -106,6 +111,7 @@ function Elapsed({ since }) {
   }, []);
   if (!since) return null;
   const seconds = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
+  // Writes a number with two digits, e.g. 7 -> "07", for the timer
   const two = (n) => String(n).padStart(2, "0");
   return (
     <span className="room-timer" title="Time since the interview started. Nothing is recorded.">

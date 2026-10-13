@@ -18,6 +18,7 @@ from app.core import config
 TIMEOUT_SEC = 20
 
 
+# Checks the SMTP settings in .env and tries to log in; sends nothing (Settings 'Test email')
 def check_email_settings() -> dict:
     if not config.SMTP_HOST:
         return {"ok": False, "message": "SMTP_HOST is empty in .env, so invitations are saved but not sent."}
@@ -34,6 +35,7 @@ def check_email_settings() -> dict:
     return {"ok": True, "message": f"The email server {config.SMTP_HOST} accepted the login. Nothing was sent."}
 
 
+# Opens the SMTP connection: SSL on port 465, otherwise plain with STARTTLS when set
 def _connect() -> smtplib.SMTP:
     if config.SMTP_PORT == 465:
         return smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT, timeout=TIMEOUT_SEC)
@@ -43,6 +45,7 @@ def _connect() -> smtplib.SMTP:
     return server
 
 
+# Turns an SMTP error into a plain reason without the password or server text
 def _reason(problem: Exception) -> str:
     if isinstance(problem, smtplib.SMTPAuthenticationError):
         return "the email server did not accept the login (check SMTP_USER and SMTP_PASSWORD; Gmail needs an app password)"
@@ -55,6 +58,7 @@ def _reason(problem: Exception) -> str:
     return f"the email server refused the email ({type(problem).__name__})"
 
 
+# Builds the email: text, plus the calendar invite as a calendar part and as invite.ics
 def build_message(to: str, subject: str, body: str, calendar: str = "") -> EmailMessage:
     message = EmailMessage()
     message["From"], message["To"], message["Subject"] = config.SMTP_FROM, to, subject
@@ -68,6 +72,7 @@ def build_message(to: str, subject: str, body: str, calendar: str = "") -> Email
     return message
 
 
+# Sends one email over SMTP; called by the email MCP server (or deliver when EMAIL_TRANSPORT=smtp)
 def send_email(to: str, subject: str, body: str, calendar: str = "") -> dict:
     problem = check_settings_quickly()
     if problem:
@@ -78,7 +83,7 @@ def send_email(to: str, subject: str, body: str, calendar: str = "") -> dict:
         with _connect() as server:
             if config.SMTP_USER:
                 server.login(config.SMTP_USER, config.SMTP_PASSWORD)
-            server.send_message(build_message(to, subject, body, calendar))
+            server.send_message(build_message(to, subject, body, calendar))  # → hands the finished email to the SMTP server
     except Exception as problem:
         return {"ok": False, "error": _reason(problem)}
     return {"ok": True, "error": ""}

@@ -17,6 +17,7 @@ const PATHS = {
   code: "M8 8l-4 4 4 4M16 8l4 4-4 4M13 6l-2 12",
 };
 
+// Draws one small line icon by name as an SVG; used in the sidebar and on buttons
 export default function Icon({ name, size = 20 }) {
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"

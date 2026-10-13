@@ -19,6 +19,7 @@ from app.features.screening.services.score_service import job_weights
 from app.features.screening.services.screening_service import screening_row
 
 
+# Collects the candidate details, screening result, job weights and CV jobs/degrees for the call tab
 def candidate_profile(session: Session, interview: InterviewSession) -> ProfileOut:
     candidate = session.get(Candidate, interview.candidate_id)
     if not candidate:

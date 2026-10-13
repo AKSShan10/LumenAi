@@ -22,6 +22,7 @@ _lock = threading.Lock()
 _saver = None
 
 
+# Creates the shared LangGraph checkpointer once: PostgresSaver (makes its tables) or InMemorySaver in tests
 def checkpointer():
     global _saver
     with _lock:

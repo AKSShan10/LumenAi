@@ -90,8 +90,10 @@ function RoundControls() {
   );
 }
 
+// A unique React key for a video tile: the person's identity plus the source (camera or screen)
 const keyOf = (track) => `${track.participant.identity}-${track.source}`;
 
+// Shows the LiveKit videos: the other person big and you small, or a shared screen big
 function Stage({ waitingFor }) {
   const tracks = useTracks(
     [{ source: Track.Source.Camera, withPlaceholder: true }, { source: Track.Source.ScreenShare, withPlaceholder: false }],

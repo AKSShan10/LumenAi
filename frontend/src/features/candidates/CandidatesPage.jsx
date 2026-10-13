@@ -65,6 +65,7 @@ export default function CandidatesPage() {
     return () => clearInterval(timer);                             // stops when you leave the page or change the job
   }, [jobId, formReady]);
 
+  // Picks a job: clears old messages, loads its candidates and checks its Google Form for new answers
   function choose(job) {
     setJobId(job.id);
     setNews(null); setCheckedAt(null); setResult(null); setUploadNotes([]); setError(""); setShow("all");
@@ -72,10 +73,11 @@ export default function CandidatesPage() {
     check(job.id);                                  // so you know about new applications as soon as the page opens
   }
 
+  // On Fetch: downloads the new form applications, then reloads the candidates and the new count
   async function fetchNew() {
     setError(""); setResult(null); setBusy("fetch");
     try {
-      setResult(await candidatesApi.fetchNew(jobId));
+      setResult(await candidatesApi.fetchNew(jobId));  // → POST /api/jobs/{id}/applications/fetch: downloads the new CVs
       setCandidates(await candidatesApi.list(jobId));
       setNews(await candidatesApi.check(jobId));
     } catch (e) { setError(e.message); } finally { setBusy(""); }
@@ -97,6 +99,7 @@ export default function CandidatesPage() {
     } catch (e) { setError(e.message); } finally { setUploadNotes(notes); setBusy(""); }
   }
 
+  // On Screen again: asks the backend to screen this one CV again, then reloads the candidates
   async function screenAgain(candidate) {
     setError(""); setBusy(`screen-${candidate.id}`);
     setResult({ ok: true, message: `Screening ${candidate.full_name || "this candidate"}...` });
@@ -104,6 +107,7 @@ export default function CandidatesPage() {
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // After Yes in the pop-up: deletes the candidate with candidatesApi.remove and reloads the list
   async function remove() {
     const candidate = toDelete;
     setToDelete(null); setError("");

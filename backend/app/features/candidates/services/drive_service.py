@@ -66,6 +66,7 @@ def _path(setting: str) -> Path:
 
 # ---------------------------------------------------------------- Google
 
+# Loads the Google service-account key file with read-only Drive and Forms scopes
 def _credentials():
     from google.oauth2 import service_account
     path = _path(config.GOOGLE_DRIVE_KEY_FILE)
@@ -77,6 +78,7 @@ def _credentials():
         raise DriveError("the Google Drive key file is not a valid service-account key")
 
 
+# Makes an HTTP session that signs every Google API request with the service account
 def _session():
     from google.auth.transport.requests import AuthorizedSession
     return AuthorizedSession(_credentials())
@@ -90,6 +92,7 @@ def _google_reason(response) -> str:
         return ""
 
 
+# Sends one GET request to a Google API and turns errors (404, 403, ...) into a plain DriveError
 def _get(session, url: str, params: dict):
     try:
         response = session.get(url, params=params, timeout=60)
@@ -186,11 +189,12 @@ def _google_form_rows(form_link: str, from_row: int, form_id: str) -> tuple[list
         if not form_id and not public_id:
             raise DriveError("this is not a link to a Google Form")
         form_id = form_id or _find_form_id(session, public_id)
-    form = _get(session, f"{FORMS_API}/forms/{form_id}", {}).json()
+    form = _get(session, f"{FORMS_API}/forms/{form_id}", {}).json()  # → Google Forms API: reads the form's questions
     questions = [(item["questionItem"]["question"]["questionId"], str(item.get("title", "")))
                  for item in form.get("items", []) if "questionItem" in item]
     answers, page = [], ""
     while True:
+        # → Google Forms API: reads all answers of the form, page by page
         listing = _get(session, f"{FORMS_API}/forms/{form_id}/responses",
                        {"pageSize": 5000, **({"pageToken": page} if page else {})}).json()
         answers += listing.get("responses", [])
@@ -205,8 +209,10 @@ def _google_form_rows(form_link: str, from_row: int, form_id: str) -> tuple[list
     return header, rows[from_row - 2:], form_id
 
 
+# Downloads one file from Google Drive by its id; a Google Doc is exported as PDF
 def _google_download(file_id: str) -> tuple[str, bytes]:
     session = _session()
+    # → Google Drive API: reads the CV file's name and type
     info = _get(session, f"{DRIVE_API}/files/{file_id}", {"fields": "name, mimeType", "supportsAllDrives": "true"}).json()
     if info.get("mimeType") == GOOGLE_DOC:           # a Google Doc has no file of its own: export it as PDF
         content = _get(session, f"{DRIVE_API}/files/{file_id}/export", {"mimeType": "application/pdf"}).content
@@ -216,6 +222,7 @@ def _google_download(file_id: str) -> tuple[str, bytes]:
 
 # ---------------------------------------------------------------- fake (a folder on this computer)
 
+# Returns the local folder used instead of Google Drive when DRIVE_PROVIDER=fake
 def _fake_folder() -> Path:
     folder = _path(config.DRIVE_FAKE_FOLDER)
     if not folder.is_dir():
@@ -223,6 +230,7 @@ def _fake_folder() -> Path:
     return folder
 
 
+# Reads the form answers from responses.csv in the fake Drive folder (DRIVE_PROVIDER=fake)
 def _fake_form_rows(from_row: int) -> tuple[list[str], list[list[str]]]:
     sheet = _fake_folder() / "responses.csv"
     if not sheet.exists():
@@ -231,6 +239,7 @@ def _fake_form_rows(from_row: int) -> tuple[list[str], list[list[str]]]:
     return (rows[0] if rows else []), rows[from_row - 1:]            # row 1 is rows[0]
 
 
+# Reads one CV file from the fake Drive folder; the file id is the file name
 def _fake_download(file_id: str) -> tuple[str, bytes]:
     name = os.path.basename(file_id)                 # a file id is a file name here; never leave the folder
     path = _fake_folder() / name
@@ -255,6 +264,7 @@ def download_file(file_id: str) -> tuple[str, bytes]:
     return _fake_download(file_id) if config.DRIVE_PROVIDER == "fake" else _google_download(file_id)
 
 
+# Tests the Google Drive access with one small file listing and says in plain words if it works
 def check_drive() -> dict:
     if config.DRIVE_PROVIDER == "fake":
         return {"ok": True, "message": "Fake Google Drive is on (DRIVE_PROVIDER=fake): a folder on this computer is read instead."}

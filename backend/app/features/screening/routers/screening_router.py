@@ -38,6 +38,7 @@ router = APIRouter(prefix="/api", tags=["Screening"], dependencies=[Depends(requ
 WORDS = {"included": "included", "excluded": "excluded", "needs_review": "needs a look"}
 
 
+# Finds the job (get_job_or_404) and answers 400 if it is not approved; screening needs approval
 def approved_job_or_400(session: Session, job_id: int) -> Job:
     job = get_job_or_404(session, job_id)
     if job.status != "approved":
@@ -45,6 +46,7 @@ def approved_job_or_400(session: Session, job_id: int) -> Job:
     return job
 
 
+# Loads one candidate from the database or answers 404
 def get_candidate_or_404(session: Session, candidate_id: int) -> Candidate:
     candidate = session.get(Candidate, candidate_id)
     if not candidate:
@@ -52,6 +54,7 @@ def get_candidate_or_404(session: Session, candidate_id: int) -> Candidate:
     return candidate
 
 
+# Turns a screening run's progress into a sentence for the page, like "Screening 3 of 7 CV(s)..."
 def summary(run: dict) -> str:
     if run["running"]:
         return f"Screening {run['done']} of {run['total']} CV(s)..."
@@ -61,6 +64,7 @@ def summary(run: dict) -> str:
             + (f", {run['needs_review']} need(s) a look." if run["needs_review"] else "."))
 
 
+# POST /api/jobs/{job_id}/screening: screens the waiting CVs (start_screening, or screen_waiting in tests)
 @router.post("/jobs/{job_id}/screening", response_model=ScreenOut)
 def screen(job_id: int, body: ScreenIn | None = None, session: Session = Depends(get_session)):
     job = approved_job_or_400(session, job_id)
@@ -76,6 +80,7 @@ def screen(job_id: int, body: ScreenIn | None = None, session: Session = Depends
     return ScreenOut(ok=True, message=summary(run), screened=run["done"])
 
 
+# GET /api/jobs/{job_id}/screening/status: returns the screening progress for the bar (progress_of)
 @router.get("/jobs/{job_id}/screening/status", response_model=ProgressOut)
 def status(job_id: int, session: Session = Depends(get_session)):
     get_job_or_404(session, job_id)
@@ -83,11 +88,13 @@ def status(job_id: int, session: Session = Depends(get_session)):
     return ProgressOut(**run, message=summary(run))
 
 
+# GET /api/jobs/{job_id}/screening: lists every candidate of the job with its result (screening_rows)
 @router.get("/jobs/{job_id}/screening", response_model=list[ScreeningRowOut])
 def results(job_id: int, session: Session = Depends(get_session)):
     return screening_rows(session, get_job_or_404(session, job_id))
 
 
+# POST /api/candidates/{candidate_id}/screening: screens one candidate again now (screen_candidate)
 @router.post("/candidates/{candidate_id}/screening", response_model=ScreenOut)
 def screen_one(candidate_id: int, session: Session = Depends(get_session)):
     candidate = get_candidate_or_404(session, candidate_id)
@@ -96,6 +103,7 @@ def screen_one(candidate_id: int, session: Session = Depends(get_session)):
     return ScreenOut(ok=True, message=f"Done: {name} is {WORDS[final_status(result)]}. {result.reason}", screened=1)
 
 
+# PUT /api/candidates/{candidate_id}/decision: saves or undoes the interviewer's decision (decide_candidate)
 @router.put("/candidates/{candidate_id}/decision", response_model=ScreenOut)
 def decision(candidate_id: int, body: DecisionIn, session: Session = Depends(get_session),
              email: str = Depends(current_email)):
@@ -111,11 +119,13 @@ def decision(candidate_id: int, body: DecisionIn, session: Session = Depends(get
                                       "(the system result).")
 
 
+# GET /api/jobs/{job_id}/score-weights: returns the job's scoring weights (job_weights)
 @router.get("/jobs/{job_id}/score-weights", response_model=WeightsOut)
 def get_weights(job_id: int, session: Session = Depends(get_session)):
     return WeightsOut(**job_weights(get_job_or_404(session, job_id)))
 
 
+# PUT /api/jobs/{job_id}/score-weights: saves new weights and recalculates every score (set_weights)
 @router.put("/jobs/{job_id}/score-weights", response_model=WeightsOut)
 def put_weights(job_id: int, body: WeightsIn, session: Session = Depends(get_session)):
     job = get_job_or_404(session, job_id)
@@ -123,11 +133,13 @@ def put_weights(job_id: int, body: WeightsIn, session: Session = Depends(get_ses
     return WeightsOut(**job_weights(job), updated=updated)
 
 
+# GET /api/jobs/{job_id}/shortlist: returns the job's shortlist, best score first (shortlist_rows)
 @router.get("/jobs/{job_id}/shortlist", response_model=list[ShortlistRowOut])
 def get_shortlist(job_id: int, session: Session = Depends(get_session)):
     return shortlist_rows(session, get_job_or_404(session, job_id))
 
 
+# POST /api/jobs/{job_id}/shortlist: puts included candidates on the shortlist (add_to_shortlist)
 @router.post("/jobs/{job_id}/shortlist", response_model=ShortlistAddOut)
 def add_shortlist(job_id: int, body: ShortlistIn, session: Session = Depends(get_session),
                   email: str = Depends(current_email)):
@@ -135,6 +147,7 @@ def add_shortlist(job_id: int, body: ShortlistIn, session: Session = Depends(get
     return add_to_shortlist(session, job, body.candidate_ids, body.rule, body.value, email)
 
 
+# DELETE /api/candidates/{candidate_id}/shortlist: takes one candidate off the shortlist
 @router.delete("/candidates/{candidate_id}/shortlist", status_code=204)
 def remove_shortlist(candidate_id: int, session: Session = Depends(get_session)):
     remove_from_shortlist(session, get_candidate_or_404(session, candidate_id).id)

@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 
 
+# Returns the current time in UTC (used for approved_at and opened_at)
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 

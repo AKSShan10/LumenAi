@@ -39,11 +39,13 @@ export default function AssistantPage() {
   useEffect(() => { assistantApi.chat().then(setChat).catch((e) => setError(e.message)); }, []);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chat, sent]);
 
+  // Runs one assistant API call, shows the chat it returns, and handles the busy and error states
   async function run(action) {
     setError(""); setBusy(true);
     try { setChat(await action()); } catch (e) { setError(e.message); } finally { setBusy(false); setSent(null); }
   }
 
+  // On Send: shows your message at once, clears the box and sends text + file with assistantApi.send
   function send(event) {
     event.preventDefault();
     if (!text.trim() && !file) return;

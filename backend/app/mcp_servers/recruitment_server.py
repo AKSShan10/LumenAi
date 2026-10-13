@@ -38,10 +38,12 @@ server = FastMCP("lumenai-recruitment")
 KINDS = ("job_description", "policy")
 
 
+# Turns a tool's result into a JSON string (every MCP tool here answers with JSON)
 def _answer(data) -> str:
     return json.dumps(data, default=str)
 
 
+# Turns a Job row into a dict with its main fields, for a tool's JSON answer
 def _job(job: Job) -> dict:
     return {"id": job.id, "title": job.title, "status": job.status, "required_skills": job.required_skills,
             "preferred_skills": job.preferred_skills, "min_years": job.min_years,

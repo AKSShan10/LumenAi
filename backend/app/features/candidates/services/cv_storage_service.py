@@ -77,6 +77,7 @@ def cv_file(candidate: Candidate) -> Path | None:
     return path if path.is_file() else None
 
 
+# Deletes the saved CV file, the screening data (forget_screening) and the candidate row
 def delete_candidate(session: Session, candidate: Candidate) -> None:
     path = cv_file(candidate)
     if path:

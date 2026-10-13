@@ -15,6 +15,7 @@ from app.graphs.invitation_prompts import INVITATION_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 
 
+# Returns a word-rule answer instead of Gemini, chosen by which prompt was sent (used by llm_json)
 def fake_answer(instructions: str, data) -> dict:
     if instructions == JOB_DRAFT_PROMPT:
         return _fake_job(data)

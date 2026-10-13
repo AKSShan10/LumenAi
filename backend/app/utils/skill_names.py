@@ -29,6 +29,7 @@ OTHER_NAMES = {
 }
 
 
+# Returns one simple form of a skill name (lowercase, other names mapped, e.g. postgres -> postgresql)
 def skill_key(name: str) -> str:
     key = re.sub(r"\s+", " ", str(name).lower().strip())
     return OTHER_NAMES.get(key, key)

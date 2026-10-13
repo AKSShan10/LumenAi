@@ -12,6 +12,7 @@ const SECTIONS = [["skills", "Skills"], ["experience", "Experience"], ["qualific
 const STATUS = { met: "Met", partial: "Partially met", unmet: "Unmet" };
 const SOURCES = { google_form: "Google Form", upload: "Uploaded by hand" };
 
+// The candidate card at the right of the interviewer's call, with Candidate Info and Evaluation tabs
 export default function ProfilePanel({ profile, error }) {
   const [tab, setTab] = useState("info");         // info | evaluation
 
@@ -30,12 +31,14 @@ export default function ProfilePanel({ profile, error }) {
   );
 }
 
+// Candidate Info tab: contact details, key CV highlights and an Open CV button
 function Info({ profile }) {
   const c = profile.candidate;
   const s = profile.screening;
   const [latest, previous] = profile.jobs;
   const degree = profile.degrees[0];
   const [problem, setProblem] = useState("");
+  // Shows a job as "title at company", or only the title when there is no company
   const role = (job) => (job.company ? `${job.title} at ${job.company}` : job.title);
   const highlights = [
     ["calendar", s && `${s.total_years} years of experience`],
@@ -75,6 +78,7 @@ function Info({ profile }) {
   );
 }
 
+// Evaluation tab: the screening scores with reasons and the requirements worth asking about
 function Evaluation({ profile }) {
   const s = profile.screening;
   if (!s) return <p className="muted small">The CV has not been screened, so there is no result.</p>;

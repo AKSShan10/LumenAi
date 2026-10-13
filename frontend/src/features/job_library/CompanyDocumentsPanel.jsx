@@ -13,13 +13,16 @@ export default function CompanyDocumentsPanel() {
   const [hits, setHits] = useState(null);
   const [error, setError] = useState("");
 
+  // Loads the company documents from GET /api/company-documents into the table
   const load = () => companyDocumentsApi.list().then(setItems).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
 
+  // Runs one action (search or remove), then reloads the documents; shows any error
   async function run(action) {
     setError("");
     try { await action(); await load(); } catch (e) { setError(e.message); }
   }
+  // On Search: finds the documents most similar to the typed text with companyDocumentsApi.search
   const search = (event) => {
     event.preventDefault();
     run(async () => setHits(await companyDocumentsApi.search(query)));
@@ -38,6 +41,7 @@ export default function CompanyDocumentsPanel() {
         { key: "source", title: "From", className: "small" },
         { key: "words", title: "Words" },
         { key: "remove", title: "",
+          // Remove column: a button that deletes the document with companyDocumentsApi.remove
           render: (d) => <button className="link" onClick={() => run(() => companyDocumentsApi.remove(d.id))}>Remove</button> },
       ]} />
 

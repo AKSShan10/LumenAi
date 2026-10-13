@@ -18,6 +18,7 @@ export default function LoginPage({ appName, onDone }) {
     authApi.status().then((answer) => setFirstRun(!answer.has_account)).catch((e) => { setFirstRun(false); setError(e.message); });
   }, []);
 
+  // On submit: creates the first account (setup) or logs in, then keeps the token and opens the app
   async function submit(event) {
     event.preventDefault();
     setError("");
@@ -26,6 +27,7 @@ export default function LoginPage({ appName, onDone }) {
     try {
       const answer = firstRun ? await authApi.setup(fullName.trim(), email.trim(), password)
                               : await authApi.login(email.trim(), password);
+      // → keeps the backend's login token in sessionStorage for later requests
       auth.set(answer.token, answer.email, answer.full_name);
       onDone();
     } catch (e) {

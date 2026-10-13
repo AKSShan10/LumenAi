@@ -11,6 +11,7 @@ export default function ChangePasswordCard() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
+  // On Change password: checks both new passwords match, then calls authApi.changePassword
   async function submit(event) {
     event.preventDefault();
     setError(""); setDone(false);

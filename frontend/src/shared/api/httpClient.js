@@ -2,11 +2,12 @@
 // Every feature has its own small *Api.js file that uses these helpers.
 import { auth } from "./authToken.js";
 
+// Calls the backend with the login token; logs out on 401 and turns errors into plain messages
 export async function request(path, options = {}) {
   const token = auth.get();
   const headers = { ...(options.headers || {}) };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(path, { ...options, headers });
+  if (token) headers.Authorization = `Bearer ${token}`;  // → the backend reads this header to know who is logged in
+  const response = await fetch(path, { ...options, headers });  // → sends the HTTP request to the FastAPI backend
 
   if (response.status === 401 && token) {   // login expired -> back to the login page
     auth.clear();
@@ -44,6 +45,7 @@ export async function download(path, filename) {
 // has arrived. A file the browser cannot show (a Word file) is downloaded instead and the empty tab is closed.
 const SHOWN_IN_TAB = ["application/pdf", "text/plain"];
 
+// Fetches a file with the login token and shows it in a new tab, or downloads it if it cannot be shown
 export async function openInNewTab(path, filename) {
   const tab = window.open("", "_blank");
   const token = auth.get();
@@ -68,12 +70,14 @@ export async function openInNewTab(path, filename) {
   URL.revokeObjectURL(address);
 }
 
+// Request options for a POST that sends `data` as JSON
 export const json = (data) => ({
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(data),
 });
 
+// Request options for a PUT that sends `data` as JSON
 export const put = (data) => ({ ...json(data), method: "PUT" });
 export const post = { method: "POST" };
 export const del = { method: "DELETE" };

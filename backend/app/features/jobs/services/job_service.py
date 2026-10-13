@@ -14,6 +14,7 @@ from app.features.jobs.schemas import JobCreate
 from app.utils.datetime_utils import utc_now
 
 
+# Loads one job from the database or answers 404
 def get_job_or_404(session: Session, job_id: int) -> Job:
     job = session.get(Job, job_id)
     if not job:
@@ -21,6 +22,7 @@ def get_job_or_404(session: Session, job_id: int) -> Job:
     return job
 
 
+# Saves a new job as a draft; called by the chat's save tool in recruitment_server.py
 def create_job(session: Session, body: JobCreate) -> Job:
     job = Job(**body.model_dump())
     session.add(job)
@@ -29,6 +31,7 @@ def create_job(session: Session, body: JobCreate) -> Job:
     return job
 
 
+# Saves job changes; a changed job goes back to draft; called from recruitment_server.py
 def update_job(session: Session, job: Job, body: JobCreate) -> Job:
     changes = body.model_dump()
     changed = any(getattr(job, field) != value for field, value in changes.items())
@@ -42,6 +45,7 @@ def update_job(session: Session, job: Job, body: JobCreate) -> Job:
     return job
 
 
+# Approves the job and can add its description to the company documents (add_document)
 def approve_job(session: Session, job: Job, add_to_library: bool) -> Job:
     if not (job.description or "").strip():
         raise HTTPException(400, "Write or generate the job description before approving")

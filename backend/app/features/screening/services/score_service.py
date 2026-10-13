@@ -15,6 +15,7 @@ from app.features.screening.models import ScreeningResult
 SECTIONS = ("skills", "experience", "qualifications")
 
 
+# Returns the job's three scoring weights (skills, experience, qualifications) as a dict
 def job_weights(job: Job) -> dict:
     return {"skills": job.weight_skills, "experience": job.weight_experience, "qualifications": job.weight_qualifications}
 

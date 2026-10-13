@@ -28,23 +28,27 @@ function pageFromAddress() {
   return MENU.some(([page]) => page === key) ? key : "dashboard";    // "/" or an unknown address -> Dashboard
 }
 
+// The main interviewer app: login page, or the sidebar with the chosen page; shown by main.jsx
 export default function App() {
   const [appName, setAppName] = useState("LumenAI");
   const [loggedIn, setLoggedIn] = useState(Boolean(auth.get()));
   const [page, setPage] = useState(pageFromAddress);
 
   useEffect(() => {
+    // → GET /api/health: shows the app name in the sidebar and tab title
     systemApi.health().then((h) => { setAppName(h.app_name); document.title = h.app_name; }).catch(() => {});
   }, []);
 
   useEffect(() => {
     // "/" or an unknown address shows the Dashboard: write /dashboard in the address bar too
     if (window.location.pathname !== `/${page}`) window.history.replaceState(null, "", `/${page}`);
+    // Runs when Back or Forward is pressed: reads the page from the address bar again
     const onBack = () => setPage(pageFromAddress());
     window.addEventListener("popstate", onBack);
     return () => window.removeEventListener("popstate", onBack);
   }, []);
 
+  // Opens a sidebar page: writes its address in the address bar (pushState) and shows it
   function openPage(key) {
     if (key !== page) window.history.pushState(null, "", `/${key}`);
     setPage(key);

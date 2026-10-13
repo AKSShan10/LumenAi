@@ -40,6 +40,7 @@ def ats_keywords(session: Session, job: Job) -> list[str]:
     saved = job.ats_keywords or {}
     if saved.get("source") == source and saved.get("keywords"):
         return list(saved["keywords"])
+    # → Gemini via llm_json: makes the job's ATS keyword list
     answer = llm_json(ATS_KEYWORDS_PROMPT, {"title": job.title, "description": job.description,
                                             "required_skills": job.required_skills, "preferred_skills": job.preferred_skills,
                                             "qualification": job.qualifications})
@@ -55,6 +56,7 @@ def ats_keywords(session: Session, job: Job) -> list[str]:
     return keywords
 
 
+# Collects the job's requirements, weights and ATS keywords that screen_cv gives the workflow
 def job_requirements(session: Session, job: Job) -> dict:
     return {"title": job.title, "required_skills": list(job.required_skills or []),
             "preferred_skills": list(job.preferred_skills or []), "min_years": job.min_years or 0,
@@ -81,6 +83,7 @@ def waiting_candidates(session: Session, job: Job) -> list[Candidate]:
 def screen_candidate(session: Session, candidate: Candidate, job: Job) -> ScreeningResult:
     """Runs the screening workflow for one CV. The workflow's step save_result saves the result."""
     path = cv_file(candidate)
+    # → runs the LangGraph CV screening workflow (cv_screening_graph.screen_cv)
     screen_cv(candidate.id, job.id, job_requirements(session, job), str(path) if path else "")
     session.expire_all()                              # the workflow saved with its own session: read it fresh
     row = session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).one()
@@ -101,6 +104,7 @@ def mark_for_screening_again(session: Session, job: Job) -> int:
 
 def decide_candidate(session: Session, candidate: Candidate, decision: str | None, note: str, by: str) -> ScreeningResult:
     """Continues the candidate's paused workflow run (hr_review) with the person's answer."""
+    # → resumes the paused LangGraph run at hr_review (cv_screening_graph.decide)
     decide(candidate.id, candidate.job_id, decision or "", note, by)
     session.expire_all()
     return session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).one()
@@ -126,6 +130,7 @@ def screening_row(candidate: Candidate, result: ScreeningResult | None) -> Scree
         ats=result.ats or {}, ats_score=result.ats_score)
 
 
+# Returns every candidate of the job with its screening result, for the screening page
 def screening_rows(session: Session, job: Job) -> list[ScreeningRowOut]:
     candidates = session.exec(select(Candidate).where(Candidate.job_id == job.id).order_by(Candidate.id)).all()
     results = {r.candidate_id: r for r in session.exec(select(ScreeningResult).where(ScreeningResult.job_id == job.id)).all()}

@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 
+# Checks that the email looks like name@domain.tld and returns it trimmed; used by SetupIn
 def _check_email(email: str) -> str:
     email = email.strip()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):

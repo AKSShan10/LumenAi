@@ -19,6 +19,7 @@ from app.core import config
 TIMEOUT_SEC = 20
 
 
+# Says which Blogger setting is missing in .env, or "" when all are set
 def settings_problem() -> str:
     for name in ("BLOGGER_BLOG_ID", "BLOGGER_CLIENT_ID", "BLOGGER_CLIENT_SECRET", "BLOGGER_REFRESH_TOKEN"):
         if not getattr(config, name):
@@ -29,6 +30,7 @@ def settings_problem() -> str:
 def _access_token() -> tuple[str, str]:
     """Swaps the refresh token for an access token. Returns (token, problem)."""
     try:
+        # → Google OAuth: swaps the refresh token for an access token
         answer = httpx.post(config.GOOGLE_TOKEN_URL, timeout=TIMEOUT_SEC, data={
             "client_id": config.BLOGGER_CLIENT_ID, "client_secret": config.BLOGGER_CLIENT_SECRET,
             "refresh_token": config.BLOGGER_REFRESH_TOKEN, "grant_type": "refresh_token"}).json()
@@ -73,6 +75,7 @@ def blogger_publish(title: str, text: str, button_text: str = "", button_url: st
     if problem:
         return {"ok": False, "link": "", "error": problem}
 
+    # → Blogger API: creates the blog post (called by the MCP tool)
     answer = _call("POST", "/posts/", token, {"kind": "blogger#post", "title": title.strip(),
                                               "content": post_html(text, button_text, button_url)})
     if not answer.get("id"):

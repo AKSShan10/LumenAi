@@ -4,6 +4,7 @@ import { useState } from "react";
 export default function CheckButton({ label, check }) {
   const [result, setResult] = useState(null);
 
+  // On click: shows "Checking...", runs the given check API call and shows its answer
   async function run() {
     setResult({ ok: null, message: "Checking..." });
     try {

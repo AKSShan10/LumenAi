@@ -15,6 +15,7 @@ from app.core import config
 TICKET_HOURS = 4
 
 
+# Returns which LiveKit setting is empty in .env, or "" when video is set up
 def video_problem() -> str:
     for name in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"):
         if not getattr(config, name):
@@ -22,9 +23,12 @@ def video_problem() -> str:
     return ""
 
 
+# Signs a LiveKit JWT for one person in one room (4 hours); used by start_call and candidate_ticket
 def make_ticket(room: str, identity: str, name: str) -> str:
     from livekit import api                         # imported here: only needed when someone joins a call
+    # → LiveKit permission: join only this room, send and receive audio/video
     grant = api.VideoGrants(room_join=True, room=room, can_publish=True, can_subscribe=True)
+    # → signed with LIVEKIT_API_SECRET, so nobody can forge a ticket
     return (api.AccessToken(config.LIVEKIT_API_KEY, config.LIVEKIT_API_SECRET)
             .with_identity(identity).with_name(name or identity).with_grants(grant)
             .with_ttl(timedelta(hours=TICKET_HOURS)).to_jwt())

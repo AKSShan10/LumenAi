@@ -18,16 +18,19 @@ from app.features.jobs.services.job_service import get_job_or_404
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"], dependencies=[Depends(require_interviewer)])
 
 
+# GET /api/jobs: lists all jobs, newest first
 @router.get("", response_model=list[JobOut])
 def list_jobs(session: Session = Depends(get_session)):
     return session.exec(select(Job).order_by(Job.id.desc())).all()
 
 
+# GET /api/jobs/{job_id}: returns one job (get_job_or_404)
 @router.get("/{job_id}", response_model=JobOut)
 def get_job(job_id: int, session: Session = Depends(get_session)):
     return get_job_or_404(session, job_id)
 
 
+# DELETE /api/jobs/{job_id}: deletes one job
 @router.delete("/{job_id}", status_code=204)
 def remove_job(job_id: int, session: Session = Depends(get_session)):
     session.delete(get_job_or_404(session, job_id))   # an approved description stays in the company documents

@@ -29,6 +29,7 @@ PLACEHOLDER = "{join_link}"
 MAX_WORDS = 300                  # the AI is asked for 220 words at most; a little more is still fine
 
 
+# Builds the candidate's private link: APP_URL/join/<join_token>
 def join_link(interview: InterviewSession) -> str:
     return f"{config.APP_URL}/join/{interview.join_token}"
 
@@ -47,6 +48,7 @@ def when_text(interview: InterviewSession) -> tuple[str, str]:
     return local.strftime("%A, %d %B %Y").replace(" 0", " "), f"{clock} ({interview.time_zone}, {hours})"
 
 
+# Returns the interviewer's full name for an email, or 'The interviewer' (never the email address)
 def interviewer_name(session: Session, email: str) -> str:
     user = session.exec(select(User).where(User.email == email)).first()
     return (user.full_name if user else "") or "The interviewer"      # never an email address in the text
@@ -98,6 +100,7 @@ def standard_text(facts: dict) -> tuple[str, str]:
     return f"Interview invitation: {facts['job_title']}", body
 
 
+# Builds the .ics invite for this interview (calendar_invite); the invitation graph sends it with the email
 def calendar_for(session: Session, interview: InterviewSession, to: str) -> str:
     candidate = session.get(Candidate, interview.candidate_id)
     job = session.get(Job, interview.job_id)
@@ -113,8 +116,9 @@ def calendar_for(session: Session, interview: InterviewSession, to: str) -> str:
 def deliver(to: str, subject: str, body: str, calendar: str) -> dict:
     """Through the email MCP server (default), or directly with EMAIL_TRANSPORT=smtp. Returns {"ok", "error"}."""
     if config.EMAIL_TRANSPORT != "mcp":
-        return smtp_service.send_email(to, subject, body, calendar)
+        return smtp_service.send_email(to, subject, body, calendar)  # → direct SMTP, no MCP (only when EMAIL_TRANSPORT=smtp)
     try:
+        # → MCP: email_server's send_email tool, which calls smtp_service.send_email
         return json.loads(call_tool(EMAIL_SERVER, "send_email", {"to": to, "subject": subject, "body": body,
                                                                  "calendar": calendar}))
     except (McpError, ValueError) as problem:
@@ -126,6 +130,7 @@ def email_check() -> dict:
     if config.EMAIL_TRANSPORT != "mcp":
         return smtp_service.check_email_settings()
     try:
+        # → MCP: email_server's check_email_settings tool (sends nothing)
         return json.loads(call_tool(EMAIL_SERVER, "check_email_settings"))
     except (McpError, ValueError) as problem:
         return {"ok": False, "message": f"The email tool did not answer ({problem})"}

@@ -16,6 +16,7 @@ class _When(BaseModel):
     duration_minutes: int = Field(default=45, ge=15, le=180)
     time_zone: str = Field(default="UTC", max_length=60)
 
+    # Rejects a scheduled_at time that has no time zone offset
     @field_validator("scheduled_at")
     @classmethod
     def has_offset(cls, value: datetime) -> datetime:
@@ -23,6 +24,7 @@ class _When(BaseModel):
             raise ValueError("The time needs a time zone offset, for example 2026-10-20T09:00:00Z")
         return value
 
+    # Rejects a time zone name that Python's ZoneInfo does not know, like 'Mars/Base'
     @field_validator("time_zone")
     @classmethod
     def known_zone(cls, value: str) -> str:

@@ -13,6 +13,7 @@ const STATUS = {
   unmet: { label: "Unmet", badge: "failed" },
   unchecked: { label: "not checked", badge: "" },
 };
+// The Met / Partial / Unmet status of a requirement; old results only have met true or false
 const statusOf = (m) => m.status || (m.met === true ? "met" : m.met === false ? "unmet" : "unchecked");
 
 const SECTIONS = [["skills", "Skills"], ["experience", "Experience"], ["qualifications", "Qualifications"]];
@@ -47,6 +48,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   const [sessions, setSessions] = useState([]);     // the interviews of the job (one per shortlisted candidate)
   const [inviting, setInviting] = useState(null);   // the shortlisted candidate whose interview editor is open
 
+  // Loads the screening results, the shortlist and the interviews of the job together
   function load() {
     return Promise.all([screeningApi.results(jobId), screeningApi.shortlist(jobId), interviewsApi.list(jobId)])
       .then(([list, chosen, interviews]) => {
@@ -131,6 +133,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // On Screen again: screens one CV again with screeningApi.screenOne, then reloads
   async function screenOne(row) {
     setError(""); setBusy(`one-${row.candidate_id}`);
     setNote({ ok: true, message: `Screening ${row.full_name || "this candidate"}...` });
@@ -145,6 +148,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // On Remove: takes the candidate off the shortlist with screeningApi.removeFromShortlist
   async function removeFromShortlist(row) {
     setError(""); setNote(null); setBusy("shortlist");
     try {
@@ -154,13 +158,16 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
+  // After a person's decision: shows the answer and reloads the results and the candidate list
   function decided(answer) {
     setNote(answer);
     load().then(onScreened).catch((e) => setError(e.message));
   }
 
   if (!jobId) return null;
+  // Sorts rows by final score, highest first; rows without a score go last
   const byScore = (a, b) => (b.weighted_score ?? -1) - (a.weighted_score ?? -1);
+  // The rows of one group (included or excluded), sorted by final score
   const group = (name) => rows.filter((r) => r.final === name).sort(byScore);
   const included = group("included");
   const excluded = group("excluded");
@@ -169,6 +176,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
   // the candidates the filter shows that are not on the shortlist yet (the "Add these" button)
   const toAdd = filter.mode === "all" || picked.problem ? [] : picked.shown.filter((row) => !onShortlist.has(row.candidate_id));
 
+  // The Top K / minimum score filter bar shown above the Included list
   function filterBar() {
     return (
       <div className="filter-bar">
@@ -193,6 +201,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     );
   }
 
+  // Builds one results table (Included or Excluded) with scores and the row buttons
   function table(list, title, empty, info = null) {
     return (
       <>
@@ -211,10 +220,12 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
           ) },
           ...SECTIONS.map(([key, label]) => ({
             key, title: <>{label}{weights && <small className="muted"> {weights[key]}%</small>}</>,
+            // Section score of this row (skills, experience or qualifications), or "-"
             render: (row) => row.sections[key]?.score ?? "-",
           })),
           { key: "final", title: "Final score", render: (row) => <b>{row.weighted_score ?? "-"}</b> },
           { key: "ats", title: <span title="Share of the job's ATS keywords found in the CV">ATS match</span>,
+            // ATS match column: the share of job keywords found in the CV, or "-"
             render: (row) => (row.ats_score != null ? `${row.ats_score}%` : "-") },
           { key: "why", title: "Why", className: "small", render: (row) => (row.decision ? (
             <>
@@ -249,6 +260,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     setSessions((list) => [...list.filter((s) => s.id !== saved.id), saved]);
   }
 
+  // Builds the Shortlist table, with the interview status and the Schedule interview button
   function shortlistTable() {
     return (
       <>
@@ -270,6 +282,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
           { key: "final", title: "Final score", render: (row) => <b>{row.weighted_score ?? "-"}</b> },
           { key: "rule", title: "Chosen by", className: "small", render: (row) => row.rule },
           { key: "who", title: "Added by", className: "small",
+            // Added by column: the name of the interviewer who added the candidate
             render: (row) => <span title={row.added_by}>{row.added_by_name || row.added_by || "-"}</span> },
           { key: "when", title: "Added", className: "small", render: (row) => asUtc(row.added_at).toLocaleString() },
           { key: "interview", title: "Interview", className: "small", render: (row) => {
@@ -293,6 +306,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened }) {
     );
   }
 
+  // The details under a row: section scores, each requirement with its evidence, and the ATS match
   function details(row) {
     return (
       <>

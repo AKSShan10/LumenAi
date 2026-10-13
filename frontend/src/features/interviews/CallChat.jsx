@@ -15,6 +15,7 @@ const LOOK_AGAIN_MS = 2000;
 const POPUP_MS = 6000;
 const LINK = /(https?:\/\/[^\s<>"]+)/g;
 
+// Splits a message into plain text and web addresses; each address becomes a link opening a new tab
 function withLinks(text) {
   return text.split(LINK).map((part, index) => (
     index % 2 === 1
@@ -26,6 +27,7 @@ function withLinks(text) {
 // Your own messages say "You"; the other person's show their name (the backend saves it with each message).
 const whoIs = (m, me) => (m.sender === me ? "You" : m.sender_name);
 
+// The in-call chat panel for interviewer and candidate; used in InterviewRoomPage and CandidateJoinPage
 export default function CallChat({ me, load, send, open, onUnread = () => {}, onOpen, onClose, embedded = false }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -38,6 +40,7 @@ export default function CallChat({ me, load, send, open, onUnread = () => {}, on
   const input = useRef(null);
   const title = useRef(document.title);             // the tab title without the count
 
+  // Gets the messages newer than the last one we have (load) and adds each new one once
   function look() {
     return load(newest.current).then((more) => {
       if (more.length === 0) return;
@@ -86,6 +89,7 @@ export default function CallChat({ me, load, send, open, onUnread = () => {}, on
     return () => clearTimeout(timer);
   }, [popup]);
 
+  // On Send: sends the typed message with send(), clears the box and loads the new messages
   async function submit(event) {
     event.preventDefault();
     if (!text.trim()) return;

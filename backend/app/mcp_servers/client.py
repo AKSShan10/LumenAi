@@ -19,6 +19,7 @@ class McpError(Exception):
     """The MCP server could not be started, did not answer in time, or the tool failed."""
 
 
+# Starts an MCP server as a child process over stdio and calls its tools one by one (used by call_tools)
 async def _call(module: str, calls: list[tuple[str, dict]]) -> list[str]:
     # The child process gets the same settings (.env values) as the backend, and can import `app`.
     environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}
@@ -28,6 +29,7 @@ async def _call(module: str, calls: list[tuple[str, dict]]) -> list[str]:
         async with ClientSession(read, write) as session:
             await session.initialize()
             for tool, arguments in calls:
+                # → MCP: runs the tool inside the server process (e.g. publish_blog_post)
                 result = await session.call_tool(tool, arguments)
                 text = "".join(part.text for part in result.content if getattr(part, "type", "") == "text")
                 if result.isError:

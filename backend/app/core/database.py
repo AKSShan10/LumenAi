@@ -23,6 +23,7 @@ connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite")
 engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 
 
+# Builds the Alembic settings (alembic.ini, migrations folder, database URL) for run_migrations
 def alembic_config(url: str) -> Config:
     config = Config(str(BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
@@ -42,6 +43,7 @@ def run_migrations() -> None:
     command.upgrade(config, "head")
 
 
+# Runs at startup (main.lifespan): applies missing Alembic migrations, with a clear error if PostgreSQL is down
 def init_db() -> None:
     from app.core import all_models  # noqa: F401  (registers every table)
     try:

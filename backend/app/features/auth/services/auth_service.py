@@ -32,6 +32,7 @@ def hash_password(password: str) -> str:
     return f"pbkdf2_sha256${ROUNDS}${salt}${digest}"
 
 
+# Hashes the typed password with the saved salt and rounds and compares it to the saved hash
 def check_password(password: str, saved: str) -> bool:
     try:
         _, rounds, salt, digest = saved.split("$")
@@ -41,10 +42,12 @@ def check_password(password: str, saved: str) -> bool:
     return secrets.compare_digest(again, digest)
 
 
+# Returns True when at least one user exists in the database
 def has_account(session: Session) -> bool:
     return session.exec(select(User.id)).first() is not None
 
 
+# Creates the very first account (add_user); refuses with 409 if an account already exists
 def create_first_user(session: Session, full_name: str, email: str, password: str) -> User:
     if has_account(session):
         raise HTTPException(409, "An account already exists. Log in with it.")
@@ -63,6 +66,7 @@ def add_user(session: Session, full_name: str, email: str, password: str) -> Use
     return user
 
 
+# Deletes a user by id; refuses if it is not found or if it is the logged-in user's own account
 def remove_user(session: Session, user_id: int, my_email: str) -> None:
     user = session.get(User, user_id)
     if not user:
@@ -73,6 +77,7 @@ def remove_user(session: Session, user_id: int, my_email: str) -> None:
     session.commit()
 
 
+# Returns the user for this email and password, or None (wrong email takes the same time)
 def find_by_login(session: Session, email: str, password: str) -> User | None:
     user = session.exec(select(User).where(User.email == email.strip().lower())).first()
     if not user:
@@ -81,6 +86,7 @@ def find_by_login(session: Session, email: str, password: str) -> User | None:
     return user if check_password(password, user.password_hash) else None
 
 
+# Checks the current password (find_by_login), then saves a hash of the new one
 def change_password(session: Session, email: str, current_password: str, new_password: str) -> None:
     user = find_by_login(session, email, current_password)
     if not user:
