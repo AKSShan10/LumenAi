@@ -100,6 +100,31 @@ def draft_problems(subject: str, body: str, facts: dict) -> list[str]:
     return problems
 
 
+# The placeholders of a "Schedule all" template, and the fact each one is filled with (fill_template)
+TEMPLATE_FIELDS = {"{candidate_name}": "candidate_name", "{date}": "date", "{time}": "time",
+                   "{length_minutes}": "length_minutes", "{interviewer_name}": "interviewer_name"}
+
+
+def template_facts(job_title: str, minutes: int, interviewer: str) -> dict:
+    """The facts for writing ONE invitation for many candidates: the name, date and time stay placeholders."""
+    return {"candidate_name": "{candidate_name}", "job_title": job_title, "date": "{date}", "time": "{time}",
+            "length_minutes": minutes, "interviewer_name": interviewer}
+
+
+def fill_template(text: str, facts: dict) -> str:
+    """One candidate's text from the template: {candidate_name}, {date} ... replaced by their facts.
+    {join_link} stays: save_draft puts in the real private link."""
+    for placeholder, key in TEMPLATE_FIELDS.items():
+        text = text.replace(placeholder, str(facts[key]))
+    return text
+
+
+def template_problems(subject: str, body: str) -> list[str]:
+    """The same rules as draft_problems, for a template checked by the interviewer before it is used for everyone."""
+    problems = draft_problems(subject, body, {"date": "{date}"})
+    return [p.replace("the interview date is not written as given", "the {date} placeholder is missing") for p in problems]
+
+
 def standard_text(facts: dict) -> tuple[str, str]:
     """(subject, body): a plain invitation, used when the AI cannot write one that passes the check."""
     body = (f"Dear {facts['candidate_name']},\n\nThank you for applying for the {facts['job_title']} position. We would "

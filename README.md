@@ -185,7 +185,30 @@ cp .env.example .env      # then fill in your keys
 
 Gemini, Google Drive / Forms, Blogger and Gmail are online services; the containers call them over the internet.
 
-**A candidate on another device:** start with `--profile tunnel`, put the tunnel's `https://` address in `APP_URL` in `.env`, and restart (`docker compose up -d api`). For the video, use the `livekit` service when the candidate is on the same Wi-Fi (set `LIVEKIT_NODE_IP` to this computer's Wi-Fi address), or LiveKit Cloud (`LIVEKIT_URL=wss://...`) when the candidate is on another network.
+### A candidate on another device (https tunnel)
+
+The quick tunnel gives the app a public `https://....trycloudflare.com` address. It needs no key or account, but **the address changes every time the tunnel restarts** (a PC restart, a Docker restart or `docker compose down`). After each restart:
+
+1. Start the tunnel (or recreate it to get a fresh address):
+   ```
+   docker compose --profile tunnel up -d --force-recreate tunnel
+   ```
+2. Find the address. If several are listed, use the **last** one:
+   ```
+   docker compose logs tunnel | findstr trycloudflare.com
+   ```
+3. Put it in `.env`: `APP_URL=https://<the address>.trycloudflare.com`
+4. Recreate the api so it reads `.env` again (`restart` is not enough):
+   ```
+   docker compose up -d api
+   ```
+5. In the invitation, click **Write again** so the link uses the new address, then send it.
+
+`docker compose ps tunnel` shows when the tunnel last started ("Up 14 minutes"): if it restarted, the old address no longer works. Invitations already sent keep the old link, so send them on the day of the interview or keep the tunnel running. If the log shows `failed to request quick Tunnel`, the network may block it; add `--protocol http2` to the tunnel's command in `docker-compose.yml`.
+
+**Video:** use the `livekit` service when the candidate is on the same Wi-Fi (set `LIVEKIT_NODE_IP` to this computer's Wi-Fi address), or LiveKit Cloud (`LIVEKIT_URL=wss://...`) when the candidate is on another network: a tunnel cannot carry the UDP video.
+
+**A fixed address:** a named Cloudflare tunnel (free account + your own domain on Cloudflare) keeps the same address, so `APP_URL` is set once. Its token goes in `.env` only, never in git.
 
 ## Configuration
 

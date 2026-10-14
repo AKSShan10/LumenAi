@@ -2,6 +2,10 @@
 
   POST /api/sessions                      schedule an interview for a shortlisted candidate; the invitation workflow
                                           (graphs/invitation_graph.py) writes the draft and waits
+  POST /api/sessions/plan                 "Suggest times": a time for each shortlisted candidate (nothing is saved)
+  POST /api/sessions/template             "Write the invitation": the AI writes ONE invitation for the shortlist (to check)
+  POST /api/sessions/bulk                 "Schedule and save invitations": many candidates at once, drafts only
+  POST /api/sessions/send-all?job_id=3    "Send all invitations": sends every unsent draft of the job
   GET  /api/sessions?job_id=3             the interviews of a job
   GET  /api/sessions/{id}                 one interview with its invitation
   PUT  /api/sessions/{id}/time            a new time: a new draft (send it again so the candidate knows)
@@ -20,11 +24,13 @@ from app.core.database import get_session
 from app.core.security import current_email, require_interviewer
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.schemas import (
-    CallMessageOut, ChatIn, InvitationIn, ProfileOut, RescheduleIn, ScheduleIn, SessionOut, TicketOut)
+    BulkOut, CallMessageOut, ChatIn, InvitationIn, PlanIn, PlanRowOut, ProfileOut, RescheduleIn, ScheduleIn,
+    ScheduleManyIn, SessionOut, TemplateIn, TemplateText, TicketOut)
 from app.features.interviews.services import chat_service
 from app.features.interviews.services.profile_service import candidate_profile
 from app.features.interviews.services.interview_service import (
-    end_call, reschedule, rewrite, schedule, send_invitation, session_out, start_call)
+    end_call, plan_times, reschedule, rewrite, schedule, schedule_many, send_all, send_invitation, session_out,
+    start_call, write_template)
 
 router = APIRouter(prefix="/api/sessions", tags=["Interviews"], dependencies=[Depends(require_interviewer)])
 
@@ -41,6 +47,30 @@ def get_interview_or_404(session: Session, session_id: int) -> InterviewSession:
 @router.post("", response_model=SessionOut, status_code=201)
 def create(body: ScheduleIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
     return schedule(session, body.candidate_id, body.scheduled_at, body.duration_minutes, body.time_zone, email)
+
+
+# POST /api/sessions/plan: suggests a time for each shortlisted candidate inside working hours (plan_times)
+@router.post("/plan", response_model=list[PlanRowOut])
+def plan(body: PlanIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
+    return plan_times(session, body, email)
+
+
+# POST /api/sessions/template: the AI writes ONE invitation for the shortlist, for the interviewer to check (write_template)
+@router.post("/template", response_model=TemplateText)
+def template(body: TemplateIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
+    return write_template(session, body.job_id, body.duration_minutes, email)
+
+
+# POST /api/sessions/bulk: schedules many candidates at once with the checked invitation; nothing is sent (schedule_many)
+@router.post("/bulk", response_model=BulkOut)
+def create_many(body: ScheduleManyIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
+    return schedule_many(session, body.items, email, body.template)
+
+
+# POST /api/sessions/send-all?job_id=: sends every unsent invitation of the job, after the person's Yes (send_all)
+@router.post("/send-all", response_model=BulkOut)
+def send_all_invitations(job_id: int, session: Session = Depends(get_session), email: str = Depends(current_email)):
+    return send_all(session, job_id, email)
 
 
 # GET /api/sessions?job_id=: returns the interviews of one job, ordered by time (session_out)
