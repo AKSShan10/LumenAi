@@ -11,7 +11,7 @@ import re
 from app.utils.skill_names import find_skill
 
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
-from app.graphs.invitation_prompts import INVITATION_PROMPT
+from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 
 
@@ -27,7 +27,7 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_section_scores(data)
     if instructions == ATS_KEYWORDS_PROMPT:
         return _fake_ats_keywords(data)
-    if instructions == INVITATION_PROMPT:
+    if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT):
         return _fake_invitation(data)
     return {"ok": True}
 

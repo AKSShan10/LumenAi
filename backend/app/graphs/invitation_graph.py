@@ -5,7 +5,8 @@
                  '-- problems --'  (once; then the standard text)     v                  '--> write_draft
                                                                   send_email -> save_result -> ask_person (waits again)
 
-    write_draft   AI          Gemini writes the subject and the text (never sees the email address; writes {join_link})
+    write_draft   AI          Gemini writes the subject and the text (never sees the email address; writes {join_link}).
+                              "Schedule all" gives a template the interviewer already checked: it is filled in, no AI call
     check_draft   PYTHON      the placeholder is there, no web or email address of its own, the date as given, not too long
     save_draft    PYTHON+DB   the real link goes in; the draft is saved on the interview (status "" = draft)
     ask_person    PERSON      the run pauses (LangGraph interrupt) until the interviewer clicks Send or Write again.
@@ -30,8 +31,8 @@ from app.core.database import engine
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.services import smtp_service
 from app.features.interviews.services.invitation_service import (
-    as_utc, calendar_for, deliver, draft_problems, email_facts, join_link, standard_text, subject_with_time,
-    with_link)
+    as_utc, calendar_for, deliver, draft_problems, email_facts, fill_template, join_link, standard_text,
+    subject_with_time, with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
 from app.graphs.invitation_prompts import INVITATION_PROMPT
@@ -50,6 +51,7 @@ class InvitationState(TypedDict, total=False):
     writes: int            # how often the AI wrote in this round
     answer: dict           # what the interviewer did in ask_person: {action: send | write_again, to, subject, body}
     message: str           # one sentence for the page
+    template: dict         # "Schedule all": {subject, body} with {candidate_name}, {date} ... (used once, then cleared)
 
 
 # ---------- steps ----------
@@ -58,6 +60,10 @@ class InvitationState(TypedDict, total=False):
 def write_draft(state: InvitationState) -> dict:
     with Session(engine) as session:
         facts = email_facts(session, session.get(InterviewSession, state["session_id"]), state["interviewer"])
+    template = state.get("template")
+    if template:                                     # "Schedule all": the checked template, filled in by code
+        return {"subject": fill_template(template["subject"], facts), "body": fill_template(template["body"], facts),
+                "writes": 1, "template": {}}         # cleared: "Write again" later asks the AI for this candidate
     if state.get("problems"):
         facts["fix_these"] = state["problems"]                          # the second try: say what to fix
     answer = llm_json(INVITATION_PROMPT, facts)
@@ -199,11 +205,11 @@ def _config(interview: InterviewSession) -> dict:
     return {"configurable": {"thread_id": thread_of(interview)}}
 
 
-def start_invitation(interview: InterviewSession, interviewer: str) -> str:
+def start_invitation(interview: InterviewSession, interviewer: str, template: dict | None = None) -> str:
     """Starts the run for a new interview: it writes and checks the draft, then pauses in ask_person.
-    Returns the message for the page."""
-    result = runner().invoke({"session_id": interview.id, "interviewer": interviewer, "writes": 0, "problems": []},
-                             _config(interview))
+    template = {subject, body} from "Schedule all" (filled in instead of an AI draft). Returns the message for the page."""
+    result = runner().invoke({"session_id": interview.id, "interviewer": interviewer, "writes": 0, "problems": [],
+                              "template": template or {}}, _config(interview))
     return result.get("message", "")
 
 

@@ -1,5 +1,5 @@
 """Request and response bodies for interviews."""
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Optional
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -41,6 +41,56 @@ class ScheduleIn(_When):
 
 class RescheduleIn(_When):
     pass
+
+
+class PlanIn(BaseModel):
+    """Settings for "Suggest times": the shortlist of the job gets times one after another inside working hours."""
+    job_id: int
+    first_day: date                                  # e.g. 2026-10-19
+    duration_minutes: int = Field(default=45, ge=15, le=180)
+    time_zone: str = Field(default="UTC", max_length=60)
+    day_start: time = time(8, 0)
+    day_end: time = time(17, 0)
+    lunch_start: time = time(12, 30)
+    lunch_end: time = time(13, 30)
+    start_at: Optional[time] = None                  # the first day starts here; None = after your last interview
+    skip_lunch: bool = False                         # True = no lunch break: interviews may run through lunch time
+
+    # Rejects a time zone name that Python's ZoneInfo does not know
+    @field_validator("time_zone")
+    @classmethod
+    def known_zone(cls, value: str) -> str:
+        return _When.known_zone(value)
+
+
+class PlanRowOut(BaseModel):
+    """One shortlisted candidate with a suggested time, or the time of the interview they already have."""
+    candidate_id: int
+    full_name: str
+    weighted_score: Optional[float] = None
+    scheduled_at: Optional[datetime] = None          # None = no free time found
+    session_id: Optional[int] = None                 # set when the candidate already has an interview (kept as it is)
+
+
+class TemplateIn(BaseModel):
+    """ "Write the invitation": the AI writes ONE invitation for the shortlist of this job."""
+    job_id: int
+    duration_minutes: int = Field(default=45, ge=15, le=180)
+
+
+class TemplateText(BaseModel):
+    """One invitation for many candidates: {candidate_name}, {date}, {time}, {length_minutes}, {interviewer_name} and
+    {join_link} are filled in for each candidate by code."""
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=8000)
+    message: str = ""
+
+
+class ScheduleManyIn(BaseModel):
+    """ "Schedule and save invitations": one time per candidate, the same length and time zone for all.
+    template = the invitation the interviewer checked (no AI call per candidate); None = the AI writes each one."""
+    items: list[ScheduleIn] = Field(min_length=1, max_length=50)
+    template: Optional[TemplateText] = None
 
 
 class InvitationIn(BaseModel):
@@ -118,3 +168,16 @@ class ProfileOut(BaseModel):
     screening: Optional[ScreeningRowOut] = None   # None = the CV was not screened
     jobs: list[dict] = []            # from the CV, as the AI read it: [{"title", "company", "years"}], latest first
     degrees: list[dict] = []         # from the CV: [{"degree", "institute"}]
+
+
+class BulkProblem(BaseModel):
+    candidate_id: int
+    full_name: str
+    reason: str
+
+
+class BulkOut(BaseModel):
+    """The answer of "Schedule all" and "Send all": what worked, and what did not, in plain words."""
+    sessions: list[SessionOut] = []
+    problems: list[BulkProblem] = []
+    message: str = ""

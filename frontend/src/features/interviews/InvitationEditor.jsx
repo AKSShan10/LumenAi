@@ -5,10 +5,10 @@ import { interviewsApi, invitationStatus } from "./interviewsApi.js";
 // Draft first: the AI writes the email, code puts in the private join link and the calendar invite, and nothing
 // is sent until the interviewer clicks "Send email".
 const LENGTHS = [30, 45, 60, 90];
-const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";     // the interviewer's time zone
+export const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";     // the interviewer's time zone
 
 // "2026-10-20T10:00" (the browser's datetime-local box) for a Date
-function forInput(date) {
+export function forInput(date) {
   // Writes a number with two digits, e.g. 7 -> "07"
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;

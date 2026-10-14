@@ -6,6 +6,8 @@ import { filterIncluded } from "./includedFilter.js";
 import InvitationEditor from "../interviews/InvitationEditor.jsx";
 import { interviewsApi, invitationStatus } from "../interviews/interviewsApi.js";
 import { SectionHead } from "../candidates/StepTabs.jsx";
+import ScheduleAllForm from "../interviews/ScheduleAllForm.jsx";
+import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
 
 // Met / Partially met / Unmet of one requirement (old results only have met: true / false)
 const STATUS = {
@@ -51,6 +53,8 @@ export default function ScreeningCard({ jobId, candidates, onScreened, view = "i
   const [shortlist, setShortlist] = useState([]);   // the saved shortlist of the job
   const [sessions, setSessions] = useState([]);     // the interviews of the job (one per shortlisted candidate)
   const [inviting, setInviting] = useState(null);   // the shortlisted candidate whose interview editor is open
+  const [schedulingAll, setSchedulingAll] = useState(false);   // the "Schedule all" table is open
+  const [askSendAll, setAskSendAll] = useState(false);         // the yes / no question before "Send all"
 
   // Loads the screening results, the shortlist and the interviews of the job together
   function load() {
@@ -102,7 +106,7 @@ export default function ScreeningCard({ jobId, candidates, onScreened, view = "i
   useEffect(() => {
     wasRunning.current = false; setProgress(null); setNote(null);
     setFilter(SHOW_ALL); setTopK(""); setMinScore("");      // another job: show its whole Included list
-    setRows([]); setShortlist([]); setSessions([]); setInviting(null);
+    setRows([]); setShortlist([]); setSessions([]); setInviting(null); setSchedulingAll(false);
   }, [jobId]);
 
   useEffect(() => {                                  // new CVs (fetch, upload) start a run by itself: notice it
@@ -270,6 +274,26 @@ export default function ScreeningCard({ jobId, candidates, onScreened, view = "i
 
   // the open interview of a candidate (an ended one does not count), or undefined
   const sessionOf = (candidateId) => sessions.find((s) => s.candidate_id === candidateId && s.status !== "ended");
+
+  // The answer of "Schedule all" or "Send all": the message, plus who could not be done and why
+  function bulkNote(answer) {
+    const problems = answer.problems.map((p) => `${p.full_name || "Candidate " + p.candidate_id}: ${p.reason}`).join(" ");
+    setNote({ ok: answer.problems.length === 0, message: answer.message + (problems ? ` ${problems}` : "") });
+  }
+
+  // After "Schedule and write invitations": close the table and show the new interviews
+  function scheduledAll(answer) {
+    setSchedulingAll(false);
+    bulkNote(answer);
+    load().catch((e) => setError(e.message));
+  }
+
+  // After Yes in the pop-up: sends every unsent invitation of the job (interviewsApi.sendAll)
+  async function sendAll() {
+    setAskSendAll(false); setError(""); setNote(null); setBusy("send-all");
+    try { bulkNote(await interviewsApi.sendAll(jobId)); await load(); }
+    catch (e) { setError(e.message); } finally { setBusy(""); }
+  }
 
   function savedSession(saved) {                     // the editor scheduled, rewrote or sent: keep the list in step
     setSessions((list) => [...list.filter((s) => s.id !== saved.id), saved]);
@@ -440,12 +464,28 @@ export default function ScreeningCard({ jobId, candidates, onScreened, view = "i
   }
 
   if (view === "shortlist") {
+    // the interviews whose invitation is not sent yet (what "Send all" would send)
+    const unsent = sessions.filter((s) => s.status === "scheduled" && s.invitation_status !== "sent");
+    const unscheduled = shortlist.filter((row) => !sessionOf(row.candidate_id)).length;
     return (
       <div className="card section tone-blue">
         <SectionHead step="shortlist" count={shortlist.length}
-                     text="Included candidates chosen for the interview, highest final score first. Schedule the interview from here. A candidate who is excluded later is taken off it." />
+                     text="Included candidates chosen for the interview, highest final score first. Schedule everyone at once, check the drafts, then send all. A candidate who is excluded later is taken off it.">
+          <button type="button" className="secondary" onClick={() => setSchedulingAll(!schedulingAll)}
+                  disabled={busy !== "" || unscheduled === 0}>Schedule all ({unscheduled})</button>
+          <button type="button" onClick={() => setAskSendAll(true)} disabled={busy !== "" || unsent.length === 0}>
+            {busy === "send-all" ? "Sending..." : `Send all invitations (${unsent.length})`}</button>
+        </SectionHead>
+        {schedulingAll && <ScheduleAllForm jobId={jobId} onDone={scheduledAll} onClose={() => setSchedulingAll(false)} />}
         {messages}
         {shortlistTable()}
+        {askSendAll && (
+          <ConfirmDialog question={`Send ${unsent.length} invitation email(s) now?`}
+                         detail={unsent.map((s) => `${s.candidate_name} (${new Date(s.scheduled_at).toLocaleString([], {
+                           weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })})`).join(", ")
+                           + ". Each email has the candidate's own time, private link and calendar invite."}
+                         onYes={sendAll} onNo={() => setAskSendAll(false)} />
+        )}
       </div>
     );
   }

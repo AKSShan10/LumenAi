@@ -17,3 +17,10 @@ INVITATION_PROMPT = (
     "If the data has \"fix_these\", your earlier draft had these problems: write it again without them. "
     "Return JSON: {\"subject\": \"...\", \"body\": \"...\"}"
 )
+
+# "Schedule all": the AI writes ONE invitation for the whole shortlist. The name, date and time are placeholders
+# such as {candidate_name}; code fills them in for each candidate (invitation_service.fill_template).
+INVITATION_TEMPLATE_PROMPT = INVITATION_PROMPT + (
+    " The candidate's name, the date and the time are placeholders in curly brackets, like {candidate_name}, {date} "
+    "and {time}: copy each placeholder exactly as written, because code fills them in for every candidate."
+)

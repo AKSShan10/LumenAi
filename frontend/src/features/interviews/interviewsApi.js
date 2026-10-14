@@ -6,6 +6,14 @@ export const interviewsApi = {
   list: (jobId) => request(`/api/sessions?job_id=${jobId}`),
   // when: {scheduled_at (ISO, UTC), duration_minutes, time_zone}; the backend writes the invitation draft
   schedule: (candidateId, when) => request("/api/sessions", json({ candidate_id: candidateId, ...when })),
+  // POST /api/sessions/plan: suggested times for the whole shortlist (nothing is saved)
+  plan: (settings) => request("/api/sessions/plan", json(settings)),
+  // POST /api/sessions/template: the AI writes ONE invitation for the shortlist, to check ({subject, body, message})
+  template: (settings) => request("/api/sessions/template", json(settings)),
+  // POST /api/sessions/bulk: schedules many candidates at once with the checked invitation; nothing is sent
+  scheduleMany: (items, template) => request("/api/sessions/bulk", json({ items, template })),
+  // POST /api/sessions/send-all?job_id=...: sends every unsent invitation of the job
+  sendAll: (jobId) => request(`/api/sessions/send-all?job_id=${jobId}`, { method: "POST" }),
   // PUT /api/sessions/{id}/time: changes the interview time (the backend writes the email again)
   changeTime: (sessionId, when) => request(`/api/sessions/${sessionId}/time`, put(when)),
   // POST /api/sessions/{id}/invitation: asks the AI to write the invitation email again
