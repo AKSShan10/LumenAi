@@ -22,7 +22,7 @@ from app.graphs.checkpointer import checkpointer
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
-from app.features.interviews.routers import interview_router, join_router
+from app.features.interviews.routers import interview_router, join_router, stt_router
 from app.features.job_library.routers import company_document_router
 from app.features.jobs.routers import job_posting_router, job_router
 from app.features.screening.routers import screening_router
@@ -96,6 +96,7 @@ for module in (auth_router,                      # login
                screening_router,                 # CV screening: the AI reads each CV, code checks the requirements
                interview_router,                 # interviews: schedule a shortlisted candidate, invitation email + calendar
                join_router,                      # the candidate's page (public, only with the private link)
+               stt_router,                       # the live transcript: each browser sends its own microphone
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

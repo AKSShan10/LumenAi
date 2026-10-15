@@ -15,6 +15,7 @@ os.environ.update({
     "LLM_PROVIDER": "fake",
     "BLOGGER_PROVIDER": "fake",
     "DRIVE_PROVIDER": "fake",
+    "STT_PROVIDER": "fake",               # test sentences instead of Deepgram
     "SCREENING_MODE": "manual",           # nothing screens by itself in the background during tests
     "STORAGE_DIR": tempfile.mkdtemp(prefix="lumenai-test-cvs-"),      # CV files of the tests; never the real folder
     "LOG_FILE": "",                       # tests write no log file

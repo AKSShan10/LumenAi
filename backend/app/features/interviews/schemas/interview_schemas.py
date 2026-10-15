@@ -160,6 +160,15 @@ class CallMessageOut(BaseModel):
     sent_at: datetime
 
 
+class TranscriptTurnOut(BaseModel):
+    """One finished sentence of the live transcript (interviewer only)."""
+    id: int
+    speaker: str                     # interviewer | candidate (from the microphone it came from)
+    start_sec: float                 # seconds from the interview start
+    end_sec: float
+    text: str
+
+
 class ProfileOut(BaseModel):
     """The candidate's profile for the interviewer during the call. Never sent to the candidate."""
     candidate: CandidateOut          # name, email, phone, where they applied from, CV file

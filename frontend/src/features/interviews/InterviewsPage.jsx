@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import { interviewsApi, invitationStatus } from "./interviewsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
+import TranscriptView from "./TranscriptView.jsx";
 
 // The interviews of a job: start the video call, join it again, or end it. Interviews are scheduled from the
 // Shortlist on the Candidates page. The call opens in its own tab (InterviewRoomPage.jsx, /interview-room/<id>).
@@ -23,6 +24,7 @@ export default function InterviewsPage() {
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState(null);
   const [error, setError] = useState("");
+  const [shownId, setShownId] = useState(null);     // the interview whose transcript is open
 
   useEffect(() => {
     jobsApi.list().then((list) => {
@@ -70,6 +72,8 @@ export default function InterviewsPage() {
       .catch(() => setNote({ ok: true, message: row.join_link }));
   }
 
+  const shown = sessions.find((s) => s.id === shownId);
+
   if (!jobs) return <div className="card"><p className="muted">Loading...</p></div>;
   if (jobs.length === 0) return <div className="card"><p className="muted">No approved job yet.</p></div>;
 
@@ -114,10 +118,12 @@ export default function InterviewsPage() {
                 <button className="link" onClick={() => end(row)} disabled={busy !== ""}>End interview</button>
               )}
               {row.status !== "ended" && <button className="link" onClick={() => copyLink(row)}>Copy candidate link</button>}
+              {row.started_at && <button className="link" onClick={() => setShownId(row.id)}>Transcript</button>}
             </>
           ) },
         ]} />
       </div>
+      {shown && <TranscriptView key={shown.id} row={shown} onClose={() => setShownId(null)} />}
     </>
   );
 }

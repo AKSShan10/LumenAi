@@ -223,6 +223,16 @@ All keys and passwords are read from environment variables. Copy `.env.example` 
 | Speech-to-text | Live transcript |
 | Email | Interview invitations |
 
+### Live transcript (speech-to-text)
+
+Each browser in the call sends its own microphone to the backend (WebSocket), so the speaker comes from the microphone, not a guess. Finished sentences are saved with the time from the interview start; the sound itself is never stored.
+
+1. Create a key at [console.deepgram.com](https://console.deepgram.com) → API Keys.
+2. In `.env`: `STT_PROVIDER=deepgram` and `DEEPGRAM_API_KEY=<the key>`.
+3. Recreate the api: `docker compose up -d --force-recreate api`, then click **Test speech-to-text** on the Settings page.
+
+`STT_PROVIDER=fake` writes test sentences instead (no key; for demos only). The interviewer sees the sentences in the **Live Transcript** tab of the call; after the call, **Transcript** on the Interviews page shows them with the chat and a **Download .txt** button.
+
 ## Usage walkthrough
 
 1. Write a short prompt about the job. The AI writes the job description.

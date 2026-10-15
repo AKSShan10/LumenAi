@@ -103,3 +103,13 @@ MCP_RECRUITMENT_URL = os.getenv("MCP_RECRUITMENT_URL", "")        # http://recru
 LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud, or /
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
+
+# ---------------- Live transcript (speech-to-text) ----------------
+# STT_PROVIDER:
+#   deepgram = Deepgram live (https://console.deepgram.com > API Keys); the key stays in .env
+#   fake     = no service: test sentences (tests and demos without a key). Never use it for a real interview.
+STT_PROVIDER = os.getenv("STT_PROVIDER", "deepgram")
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "nova-3")
+DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "en")
+DEEPGRAM_URL = os.getenv("DEEPGRAM_URL", "wss://api.deepgram.com/v1/listen")
