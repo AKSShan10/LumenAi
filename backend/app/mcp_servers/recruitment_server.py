@@ -7,9 +7,10 @@
     write_job_draft(prompt, ...)                   run the job description workflow (nothing is saved)
     save_job(...)                                  save a job as a draft, or change a saved job
     list_jobs() / get_job(job_id)                  the saved jobs
-    prepare_job_post(job_id)                  the post made from an approved job
+    prepare_job_post(job_id)                       the post made from an approved job
 
-Started by the assistant:   python -m app.mcp_servers.recruitment_server      (stdio transport)
+Started by the assistant (app/mcp_servers/client.py: stdio child process, or the recruitment-mcp Docker service).
+@server.tool() makes a function an MCP tool: its name, arguments and docstring are what the AI sees.
 Every tool answers with JSON. A problem is returned as {"error": "..."} in plain words.
 
 There is NO tool here that approves a job or posts it. Those two need a person's Yes
@@ -39,7 +40,7 @@ server = FastMCP("lumenai-recruitment")
 KINDS = ("job_description", "policy")
 
 
-# Turns a tool's result into a JSON string (every MCP tool here answers with JSON)
+# Every tool answers with compact JSON text (no spaces or new lines, so the AI reads fewer tokens)
 def _answer(data) -> str:
     return json.dumps(data, default=str)
 

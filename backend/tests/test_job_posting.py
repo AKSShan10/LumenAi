@@ -61,7 +61,7 @@ def test_the_blog_post_gets_the_job_title_and_the_link(approved_job, monkeypatch
         return json.dumps({"ok": True, "link": "https://made-up.blogspot.com/2026/10/backend-developer.html", "error": ""})
     monkeypatch.setattr(job_posting_service, "call_tool", tool)
     posting = post(approved_job["id"])
-    assert sent["server"].endswith("blogger_server") and sent["tool"] == "publish_blog_post"
+    assert sent["server"] == "blogger" and sent["tool"] == "publish_blog_post"
     assert sent["title"] == approved_job["title"] and sent["text"] == GOOD_POST and sent["button_url"] == FORM
     assert posting["message_link"].startswith("https://made-up.blogspot.com/")
 
@@ -156,7 +156,7 @@ def pretend_google(monkeypatch):
     server.shutdown()
 
 
-BLOGGER = "app.mcp_servers.blogger_server"
+BLOGGER = "blogger"
 
 
 def test_mcp_server_publishes_on_blogger(pretend_google):

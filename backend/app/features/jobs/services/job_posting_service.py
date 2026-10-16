@@ -18,7 +18,7 @@ from app.mcp_servers.client import McpError, call_tool
 
 log = logging.getLogger("job_posting")
 
-BLOGGER_SERVER = "app.mcp_servers.blogger_server"
+BLOGGER_SERVER = "blogger"                           # the MCP server name (app/mcp_servers/client.py)
 CHANNEL = "blogger"                                  # saved with every post
 BUTTON_TEXT = "Apply now"
 

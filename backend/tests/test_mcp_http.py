@@ -13,7 +13,7 @@ import pytest
 from app.core import config
 from app.mcp_servers.client import BACKEND_DIR, McpError, call_tool
 
-SERVER = "app.mcp_servers.blogger_server"
+SERVER = "blogger"
 
 
 def free_port() -> int:
@@ -25,7 +25,7 @@ def free_port() -> int:
 @pytest.fixture
 def blogger_service(monkeypatch):
     """The Blogger MCP server started like its Docker service (MCP_HTTP_PORT set); stopped after the test."""
-    process, url = start_service(SERVER, "blogger-mcp")
+    process, url = start_service("app.mcp_servers.blogger_server", "blogger-mcp")
     monkeypatch.setattr(config, "MCP_BLOGGER_URL", url)
     yield {"url": url, "port": int(url.split(":")[2].split("/")[0])}
     process.terminate()
