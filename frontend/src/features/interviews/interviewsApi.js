@@ -33,8 +33,6 @@ export const interviewsApi = {
   joinChat: (token, after = 0) => request(`/api/join/${token}/chat?after=${after}`),          // public: the candidate
   // POST /api/join/{token}/chat: the candidate sends a chat message in the call (no login)
   joinSendChat: (token, text) => request(`/api/join/${token}/chat`, json({ text })),
-  // GET /api/sessions/{id}/transcript?after=...: the live transcript sentences after that id (interviewer only)
-  transcript: (sessionId, after = 0) => request(`/api/sessions/${sessionId}/transcript?after=${after}`),
 };
 
 // How the invitation status is shown: "" = draft, sent, not_sent, no_email, or "failed: <reason>"

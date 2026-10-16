@@ -20,8 +20,8 @@ from app.core.database import engine
 from app.core.security import is_valid_token
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.routers.join_router import interview_of
-from app.features.interviews.services import stt_service, transcript_service
-from app.features.interviews.services.stt_service import SttError
+from app.features.transcripts.services import stt_service, transcript_service
+from app.features.transcripts.services.stt_service import SttError
 
 router = APIRouter(tags=["Live transcript"])
 LOGIN_WAIT_SEC = 10

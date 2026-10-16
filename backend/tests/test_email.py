@@ -1,18 +1,15 @@
-"""The email MCP server (app/mcp_servers/email_server.py): the backend starts it over stdio and calls its tools.
-A pretend SMTP server on this computer receives the email, so nothing is really sent."""
+"""Sending the invitation email over SMTP (features/interviews/services/smtp_service.py). The Send button calls it
+directly: no AI and no MCP server. A pretend SMTP server on this computer receives the email, so nothing is really sent."""
 import email
 import json
 
 from app.core import config
-from app.mcp_servers.client import call_tool
-
-SERVER = "app.mcp_servers.email_server"
+from app.features.interviews.services import smtp_service
 
 
-def test_send_email_through_mcp_with_a_calendar(fake_smtp):
+def test_send_email_with_a_calendar(fake_smtp):
     calendar = "BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:t-1@lumenai\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
-    answer = json.loads(call_tool(SERVER, "send_email", {"to": "asha@example.com", "subject": "Interview",
-                                                         "body": "Hello Asha", "calendar": calendar}))
+    answer = smtp_service.send_email("asha@example.com", "Interview", "Hello Asha", calendar)
     assert answer == {"ok": True, "error": ""}
     message = email.message_from_string(fake_smtp.messages[-1])
     assert message["To"] == "asha@example.com" and message["From"] == "hr@example.com"
@@ -20,32 +17,30 @@ def test_send_email_through_mcp_with_a_calendar(fake_smtp):
 
 
 def test_problems_come_back_in_plain_words(fake_smtp, monkeypatch):
-    bad = json.loads(call_tool(SERVER, "send_email", {"to": "not-an-address", "subject": "x", "body": "y"}))
+    bad = smtp_service.send_email("not-an-address", "x", "y")
     assert bad["ok"] is False and "does not look right" in bad["error"]
 
-    monkeypatch.setenv("SMTP_PORT", "1")                               # nothing listens there
-    closed = json.loads(call_tool(SERVER, "send_email", {"to": "asha@example.com", "subject": "x", "body": "y"}))
+    monkeypatch.setattr(config, "SMTP_PORT", 1)                        # nothing listens there
+    closed = smtp_service.send_email("asha@example.com", "x", "y")
     assert closed["ok"] is False and "cannot reach the email server" in closed["error"]
     assert "made-up-password" not in json.dumps(closed)               # never the password
 
 
 def test_check_email_settings(fake_smtp, monkeypatch):
-    ok = json.loads(call_tool(SERVER, "check_email_settings"))
+    ok = smtp_service.check_email_settings()
     assert ok["ok"] is True and "Nothing was sent" in ok["message"] and fake_smtp.messages == []
-    monkeypatch.setenv("SMTP_HOST", "")
-    empty = json.loads(call_tool(SERVER, "check_email_settings"))
+    monkeypatch.setattr(config, "SMTP_HOST", "")
+    empty = smtp_service.check_email_settings()
     assert empty["ok"] is False and "SMTP_HOST is empty" in empty["message"]
 
 
-def test_the_settings_button_uses_the_mcp_server(client, fake_smtp, monkeypatch):
-    monkeypatch.setattr(config, "EMAIL_TRANSPORT", "mcp")
+def test_the_settings_button(client, fake_smtp):
     assert client.get("/api/email-check").json()["ok"] is True
 
 
-def test_the_invitation_goes_through_mcp(client, make_job, fake_smtp, monkeypatch):
-    """The whole way: schedule a shortlisted candidate, send, and the MCP server delivers the email + calendar."""
+def test_the_invitation_is_sent_with_the_link(client, make_job, fake_smtp):
+    """The whole way: schedule a shortlisted candidate, click Send, and the email + calendar arrive."""
     from tests.test_interviews import cv, later
-    monkeypatch.setattr(config, "EMAIL_TRANSPORT", "mcp")
     job = make_job(approve=True, title="QA Engineer", description="A made-up job.", required_skills=["Python"])
     candidate = client.post(f"/api/jobs/{job['id']}/candidates/upload", files={"file": ("n.txt", cv("Nadia Islam", 4))},
                             data={"full_name": "Nadia Islam", "email": "nadia@example.com"}).json()["candidate_id"]

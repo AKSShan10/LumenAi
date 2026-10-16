@@ -148,7 +148,6 @@ def test_new_suggestions_come_after_the_last_interview_unless_start_at_is_given(
 
 
 def test_send_all_sends_only_the_unsent_drafts(client, shortlist, fake_smtp, monkeypatch):
-    monkeypatch.setattr(config, "EMAIL_TRANSPORT", "smtp")
     rows = plan(client, shortlist["job"]["id"]).json()
     items = [{"candidate_id": r["candidate_id"], "scheduled_at": r["scheduled_at"], "duration_minutes": 45,
               "time_zone": "Asia/Dhaka"} for r in rows]

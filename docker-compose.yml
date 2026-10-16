@@ -8,12 +8,11 @@
 #   api              the FastAPI backend (+ database migrations at start, + the CV screening worker)
 #   web              the React app, served by nginx; nginx passes /api to the backend and /rtc to LiveKit
 #   livekit          the video call server (LiveKit). LIVEKIT_URL=/ in .env uses it; a wss://... address uses LiveKit Cloud
-#   email-mcp        MCP server: send_email, check_email_settings
 #   blogger-mcp      MCP server: publish_blog_post, check_blogger_settings
 #   recruitment-mcp  MCP server: the assistant's tools (documents, jobs, job drafts, post text)
 #   tunnel           (optional) a public https:// address for the app:  docker compose --profile tunnel up
 #
-# The three MCP servers use the backend's image and code; only the start command differs. They have no ports on
+# The two MCP servers use the backend's image and code; only the start command differs. They have no ports on
 # your computer: only the other containers can reach them.
 
 x-backend: &backend                     # shared by api and the MCP servers
@@ -41,7 +40,6 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-recruit}:${POSTGRES_PASSWORD:-recruit}@db:5432/${POSTGRES_DB:-recruit}
       # the MCP servers are their own services (empty = start them as child processes instead)
-      MCP_EMAIL_URL: http://email-mcp:8001/mcp
       MCP_BLOGGER_URL: http://blogger-mcp:8002/mcp
       MCP_RECRUITMENT_URL: http://recruitment-mcp:8003/mcp
       # the video call: "/" = the livekit service below, through the app's own address
@@ -51,8 +49,6 @@ services:
     depends_on:
       db:
         condition: service_healthy          # the API starts only when PostgreSQL is ready
-      email-mcp:
-        condition: service_started
       blogger-mcp:
         condition: service_started
       recruitment-mcp:
@@ -92,19 +88,12 @@ services:
       - "7881:7881"                         # video over TCP (when UDP is blocked)
       - "7882:7882/udp"                     # video over UDP
 
-  email-mcp:
-    <<: *backend
-    command: python -m app.mcp_servers.email_server
-    environment:
-      MCP_HTTP_PORT: "8001"
-      MCP_ALLOWED_HOSTS: email-mcp:*        # the only host name it answers to (besides localhost)
-
   blogger-mcp:
     <<: *backend
     command: python -m app.mcp_servers.blogger_server
     environment:
       MCP_HTTP_PORT: "8002"
-      MCP_ALLOWED_HOSTS: blogger-mcp:*
+      MCP_ALLOWED_HOSTS: blogger-mcp:*      # the only host name it answers to (besides localhost)
     volumes:
       - ./backend/logs:/app/logs
 

@@ -14,7 +14,6 @@ app/graphs/invitation_graph.py; this file starts it and passes the interviewer's
     end_call(...)            the interviewer ends the call for both: status ended
     candidate_ticket(...)    the candidate's ticket, only while the call is live
     session_out(...)         one interview for the page
-    email_check()            the Settings button "Test email"
 
 Draft first: nothing is sent by itself. The AI writes, code checks and puts in the link, a person sends.
 """
@@ -33,7 +32,7 @@ from app.ai.llm_client import llm_json
 from app.features.interviews.schemas import (BulkOut, BulkProblem, PlanIn, PlanRowOut, ScheduleIn, SessionOut,
                                              TemplateText, TicketOut)
 from app.features.interviews.services.invitation_service import (
-    as_utc, email_check, interviewer_name, join_link, standard_text, template_facts, template_problems)
+    as_utc, interviewer_name, join_link, standard_text, template_facts, template_problems)
 from app.graphs.invitation_prompts import INVITATION_TEMPLATE_PROMPT
 from app.features.interviews.services.slot_service import WorkingHours, hours_problem, plan_slots
 from app.features.interviews.services.video_service import make_ticket, video_problem
@@ -46,7 +45,7 @@ from app.graphs.invitation_graph import answer, start_invitation
 log = logging.getLogger("interviews")
 
 MAX_DAYS_AHEAD = 365
-__all__ = ["candidate_ticket", "email_check", "end_call", "plan_times", "reschedule", "rewrite", "schedule",
+__all__ = ["candidate_ticket", "end_call", "plan_times", "reschedule", "rewrite", "schedule",
            "schedule_many", "send_all", "send_invitation", "session_out", "start_call"]
 
 
@@ -218,7 +217,7 @@ def schedule_many(session: Session, items: list[ScheduleIn], by: str, template: 
 
 def send_all(session: Session, job_id: int, by: str) -> BulkOut:
     """Only after the interviewer clicked "Send all" and said Yes: every scheduled interview of the job whose invitation
-    is not sent yet is sent as it is now (the same path as the Send button: the workflow and the email MCP server)."""
+    is not sent yet is sent as it is now (the same path as the Send button: the workflow, then SMTP)."""
     rows = session.exec(select(InterviewSession).where(InterviewSession.job_id == job_id,
                                                        InterviewSession.status == "scheduled",
                                                        InterviewSession.invitation_status != "sent")

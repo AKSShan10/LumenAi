@@ -16,12 +16,9 @@
   GET  /api/sessions/{id}/chat?after=12   the call chat: the messages after message 12 (0 = all)
   POST /api/sessions/{id}/chat            send a chat message as the interviewer
   GET  /api/sessions/{id}/profile         the candidate's profile and screening result (interviewer only)
-  GET  /api/sessions/{id}/transcript?after=12   the live transcript: the sentences after sentence 12 (0 = all)
-  GET  /api/sessions/{id}/transcript.txt  the transcript as a text file (download)
-  (The microphones themselves use the WebSockets in stt_router.py.)
+  (The transcript routes are in features/transcripts.)
 """
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
 from sqlmodel import Session, select
 
 from app.core.database import get_session
@@ -29,8 +26,8 @@ from app.core.security import current_email, require_interviewer
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.schemas import (
     BulkOut, CallMessageOut, ChatIn, InvitationIn, PlanIn, PlanRowOut, ProfileOut, RescheduleIn, ScheduleIn,
-    ScheduleManyIn, SessionOut, TemplateIn, TemplateText, TicketOut, TranscriptTurnOut)
-from app.features.interviews.services import chat_service, transcript_service
+    ScheduleManyIn, SessionOut, TemplateIn, TemplateText, TicketOut)
+from app.features.interviews.services import chat_service
 from app.features.interviews.services.profile_service import candidate_profile
 from app.features.interviews.services.interview_service import (
     end_call, plan_times, reschedule, rewrite, schedule, schedule_many, send_all, send_invitation, session_out,
@@ -140,17 +137,3 @@ def chat_send(session_id: int, body: ChatIn, session: Session = Depends(get_sess
 @router.get("/{session_id}/profile", response_model=ProfileOut)
 def profile(session_id: int, session: Session = Depends(get_session)):
     return candidate_profile(session, get_interview_or_404(session, session_id))
-
-
-# GET /api/sessions/{session_id}/transcript: the transcript sentences after the given id (transcript_service.turns)
-@router.get("/{session_id}/transcript", response_model=list[TranscriptTurnOut])
-def transcript(session_id: int, after: int = 0, session: Session = Depends(get_session)):
-    return transcript_service.turns(session, get_interview_or_404(session, session_id), after)
-
-
-# GET /api/sessions/{session_id}/transcript.txt: the transcript as a downloadable text file
-@router.get("/{session_id}/transcript.txt", response_class=PlainTextResponse)
-def transcript_file(session_id: int, session: Session = Depends(get_session)):
-    interview = get_interview_or_404(session, session_id)
-    return PlainTextResponse(transcript_service.as_text(session, interview),
-                             headers={"Content-Disposition": f'attachment; filename="interview-{interview.id}-transcript.txt"'})

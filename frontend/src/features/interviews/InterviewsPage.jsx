@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import { interviewsApi, invitationStatus } from "./interviewsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
-import TranscriptView from "./TranscriptView.jsx";
+import TranscriptView from "../transcripts/TranscriptView.jsx";
 
 // The interviews of a job: start the video call, join it again, or end it. Interviews are scheduled from the
 // Shortlist on the Candidates page. The call opens in its own tab (InterviewRoomPage.jsx, /interview-room/<id>).

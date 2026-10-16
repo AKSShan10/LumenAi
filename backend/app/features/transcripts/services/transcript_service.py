@@ -13,8 +13,9 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 
 from app.features.candidates.models import Candidate
-from app.features.interviews.models import InterviewSession, TranscriptTurn
-from app.features.interviews.schemas import TranscriptTurnOut
+from app.features.interviews.models import InterviewSession
+from app.features.transcripts.models import TranscriptTurn
+from app.features.transcripts.schemas import TranscriptTurnOut
 from app.features.jobs.models import Job
 
 SPEAKERS = ("interviewer", "candidate")

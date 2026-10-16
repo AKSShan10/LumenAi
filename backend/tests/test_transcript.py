@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from app.core import config
-from app.features.interviews.services import stt_service
+from app.features.transcripts.services import stt_service
 from tests.test_video_call import interview, livekit  # noqa: F401  (a scheduled interview and LiveKit settings)
 
 SECOND_OF_SOUND = b"\x00\x00" * 16000          # one second of silence: 16 kHz, 16-bit mono

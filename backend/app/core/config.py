@@ -84,15 +84,10 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")                    # keep it only in .env
 SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER               # the sender address the candidate sees
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() != "false"
-# EMAIL_TRANSPORT:
-#   mcp  - the backend calls the email MCP server (app/mcp_servers/email_server.py), which sends it (default)
-#   smtp - the backend sends it itself (same SMTP code, no MCP server)
-EMAIL_TRANSPORT = os.getenv("EMAIL_TRANSPORT", "mcp")
 
 # ---------------- MCP servers ----------------
 # Empty (default): the backend starts each MCP server itself as a short-lived child process (stdio).
 # Docker: each server is its own service and these are their addresses (docker-compose.yml sets them).
-MCP_EMAIL_URL = os.getenv("MCP_EMAIL_URL", "")                    # http://email-mcp:8001/mcp
 MCP_BLOGGER_URL = os.getenv("MCP_BLOGGER_URL", "")                # http://blogger-mcp:8002/mcp
 MCP_RECRUITMENT_URL = os.getenv("MCP_RECRUITMENT_URL", "")        # http://recruitment-mcp:8003/mcp
 

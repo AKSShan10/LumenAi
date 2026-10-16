@@ -5,7 +5,7 @@
 Two ways to reach a server:
     stdio  (default)  the server runs as a short-lived child process, spoken to over standard input / output
     HTTP   (Docker)   the server is its own Docker service; its address comes from .env / docker-compose.yml
-                      (MCP_EMAIL_URL, MCP_BLOGGER_URL, MCP_RECRUITMENT_URL)
+                      (MCP_BLOGGER_URL, MCP_RECRUITMENT_URL)
 """
 import asyncio
 import os
@@ -28,8 +28,7 @@ class McpError(Exception):
 
 # The HTTP address of a server when it runs as a Docker service, or "" to start it as a child process
 def server_url(module: str) -> str:
-    return {"app.mcp_servers.email_server": config.MCP_EMAIL_URL,
-            "app.mcp_servers.blogger_server": config.MCP_BLOGGER_URL,
+    return {"app.mcp_servers.blogger_server": config.MCP_BLOGGER_URL,
             "app.mcp_servers.recruitment_server": config.MCP_RECRUITMENT_URL}.get(module, "")
 
 

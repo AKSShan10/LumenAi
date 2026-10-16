@@ -11,7 +11,7 @@
     save_draft    PYTHON+DB   the real link goes in; the draft is saved on the interview (status "" = draft)
     ask_person    PERSON      the run pauses (LangGraph interrupt) until the interviewer clicks Send or Write again.
                               The paused run is kept by the checkpointer (PostgreSQL), so it survives a restart
-    send_email    PYTHON+MCP  the edited text + the calendar invite, through the email MCP server (send_email)
+    send_email    PYTHON      the edited text + the calendar invite, sent over SMTP (smtp_service.send_email)
     save_result   PYTHON+DB   sent | not_sent | no_email | failed: <reason>; then it waits in ask_person again,
                               so the invitation can be sent again or rewritten after a new time
 
@@ -27,11 +27,12 @@ from langgraph.types import Command, interrupt
 from sqlmodel import Session
 
 from app.ai.llm_client import last_error, llm_json
+from app.core import config
 from app.core.database import engine
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.services import smtp_service
 from app.features.interviews.services.invitation_service import (
-    as_utc, calendar_for, deliver, draft_problems, email_facts, fill_template, join_link, standard_text,
+    as_utc, calendar_for, draft_problems, email_facts, fill_template, join_link, standard_text,
     subject_with_time, with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
@@ -56,8 +57,8 @@ class InvitationState(TypedDict, total=False):
 
 # ---------- steps ----------
 
-# Workflow step "write_draft": Gemini (llm_json) writes the invitation subject and text from the facts
 def write_draft(state: InvitationState) -> dict:
+    """Workflow step "write_draft": Gemini (llm_json) writes the invitation subject and text from the facts"""
     with Session(engine) as session:
         facts = email_facts(session, session.get(InterviewSession, state["session_id"]), state["interviewer"])
     template = state.get("template")
@@ -74,8 +75,8 @@ def write_draft(state: InvitationState) -> dict:
             "writes": writes}
 
 
-# Workflow step "check_draft": checks the AI's email with draft_problems (link placeholder, date, length)
 def check_draft(state: InvitationState) -> dict:
+    """Workflow step "check_draft": checks the AI's email with draft_problems (link placeholder, date, length)"""
     with Session(engine) as session:
         facts = email_facts(session, session.get(InterviewSession, state["session_id"]), state["interviewer"])
     if not state["subject"] and not state["body"] and state.get("problems"):
@@ -83,8 +84,8 @@ def check_draft(state: InvitationState) -> dict:
     return {"problems": draft_problems(state["subject"], state["body"], facts)}
 
 
-# Workflow step "save_draft": puts the real join link in and saves the draft (or the standard text if it failed)
 def save_draft(state: InvitationState) -> dict:
+    """Workflow step "save_draft": puts the real join link in and saves the draft (or the standard text if it failed)"""
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
         subject, body, message = state["subject"], state["body"], ""
@@ -109,8 +110,8 @@ def ask_person(state: InvitationState) -> dict:
     return {"answer": answer, "interviewer": answer.get("interviewer") or state["interviewer"]}
 
 
-# Workflow step "send_email": saves the edited email and sends it with the calendar invite (deliver)
 def send_email(state: InvitationState) -> dict:
+    """Workflow step "send_email": saves the edited email and sends it with the calendar invite (smtp_service.send_email)"""
     answer = state["answer"]
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
@@ -120,14 +121,14 @@ def send_email(state: InvitationState) -> dict:
         if not to:
             interview.invitation_status = "no_email"
             message = "No email address, so nothing was sent. Add the address and send again."
-        elif smtp_service.check_settings_quickly():
+        elif not config.SMTP_HOST or not config.SMTP_FROM:                # email sending is not set up in .env
             interview.invitation_status = "not_sent"
             message = ("Saved, but not sent: email sending is not set up (SMTP_HOST in .env). "
                        "Copy the text and the link, or set up SMTP and send again.")
         else:
-            # → email MCP server tool send_email (or SMTP directly), in invitation_service
-            result = deliver(to, interview.invitation_subject, interview.invitation_body,
-                             calendar_for(session, interview, to))
+            # → sends the email over SMTP (Gmail etc.) with the calendar invite; a button click, so no AI and no MCP
+            result = smtp_service.send_email(to, interview.invitation_subject, interview.invitation_body,
+                                             calendar_for(session, interview, to))
             if result.get("ok"):
                 interview.invitation_status, interview.sent_at = "sent", datetime.now(timezone.utc)
                 message = f"Invitation sent to {to}, with the calendar invite."
@@ -139,8 +140,8 @@ def send_email(state: InvitationState) -> dict:
     return {"message": message}
 
 
-# Workflow step "save_result": writes one workflow_run row with the send outcome (sent, failed ...)
 def save_result(state: InvitationState) -> dict:
+    """Workflow step "save_result": writes one workflow_run row with the send outcome (sent, failed ...)"""
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
         outcome = interview.invitation_status.split(":")[0]
@@ -153,15 +154,15 @@ def save_result(state: InvitationState) -> dict:
 
 # ---------- routing (Python decides which step comes next) ----------
 
-# Routing after check_draft: back to write_draft if problems and tries remain, otherwise save_draft
 def after_check(state: InvitationState) -> str:
+    """Routing after check_draft: back to write_draft if problems and tries remain, otherwise save_draft"""
     if state.get("problems") and state.get("writes", 0) < MAX_WRITES:
         return "write_draft"
     return "save_draft"
 
 
-# Routing after ask_person: send_email if the interviewer clicked Send, otherwise write_draft again
 def after_answer(state: InvitationState) -> str:
+    """Routing after ask_person: send_email if the interviewer clicked Send, otherwise write_draft again"""
     return "send_email" if state["answer"].get("action") == "send" else "write_draft"
 
 
@@ -200,8 +201,8 @@ def thread_of(interview: InterviewSession) -> str:
     return f"invitation-{interview.id}-{int(as_utc(interview.created_at).timestamp() * 1_000_000)}"
 
 
-# Returns the LangGraph config with this interview's thread_id (thread_of)
 def _config(interview: InterviewSession) -> dict:
+    """Returns the LangGraph config with this interview's thread_id (thread_of)"""
     return {"configurable": {"thread_id": thread_of(interview)}}
 
 

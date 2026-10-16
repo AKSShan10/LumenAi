@@ -120,18 +120,22 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
 
 
 def forget_screening(session: Session, candidate: Candidate) -> None:
-    """Removes the screening result, the shortlist entry and the interview (chat, transcript) of a deleted candidate."""
+    """Removes the screening result, the shortlist entry and the interview (chat, transcript, helper) of a deleted candidate."""
     from app.features.screening.models import ScreeningResult, ShortlistEntry   # the screening feature uses the candidates
     for result in session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate.id)).all():
         session.delete(result)
     for entry in session.exec(select(ShortlistEntry).where(ShortlistEntry.candidate_id == candidate.id)).all():
         session.delete(entry)
-    from app.features.interviews.models import CallMessage, InterviewSession, TranscriptTurn  # interview, chat, transcript
+    from app.features.interviews.models import CallMessage, InterviewSession     # interview, chat ...
+    from app.features.transcripts.models import TranscriptTurn                  # ... transcript ...
+    from app.features.interview_helper.models import HelperMessage              # ... and AI helper messages
     for interview in session.exec(select(InterviewSession).where(InterviewSession.candidate_id == candidate.id)).all():
         for message in session.exec(select(CallMessage).where(CallMessage.session_id == interview.id)).all():
             session.delete(message)
         for turn in session.exec(select(TranscriptTurn).where(TranscriptTurn.session_id == interview.id)).all():
             session.delete(turn)
+        for message in session.exec(select(HelperMessage).where(HelperMessage.session_id == interview.id)).all():
+            session.delete(message)
         session.delete(interview)
 
 

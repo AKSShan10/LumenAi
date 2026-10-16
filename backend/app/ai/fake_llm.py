@@ -10,6 +10,7 @@ import re
 
 from app.utils.skill_names import find_skill
 
+from app.features.interview_helper.services.helper_service import CHAT_PROMPT, QUESTIONS_PROMPT
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
 from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
@@ -29,6 +30,10 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_ats_keywords(data)
     if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT):
         return _fake_invitation(data)
+    if instructions == QUESTIONS_PROMPT:
+        return _fake_questions(data)
+    if instructions == CHAT_PROMPT:
+        return _fake_helper_chat(data)
     return {"ok": True}
 
 
@@ -204,3 +209,35 @@ def _fake_invitation(data: dict) -> dict:
             "A calendar invite is attached. Please reply if the time does not suit you.\n\n"
             f"Kind regards,\n{data['interviewer_name']}\nHiring team\n(Fake AI text for offline tests.)")
     return {"subject": f"Interview invitation: {data['job_title']}", "body": body}
+
+
+def _fake_questions(data: dict) -> dict:
+    """One question per requirement: first the topic, then what the CV did not show, then the required skills.
+    Already suggested questions are skipped."""
+    wanted = ([data["topic"]] if data.get("topic") else []) + data.get("not_shown_in_cv", []) + \
+        data["job"].get("required_skills", []) + ["teamwork", "problem solving"]
+    questions, seen = [], set(data.get("already_suggested", []))
+    note = (data.get("company_notes") or [{}])[0]               # the first company note found (RAG), if any
+    asks = ["Can you describe a project where you used {}?", "What was the hardest problem you solved with {}?",
+            "How would you explain {} to a new team member?"]
+    for ask in asks:
+        for requirement in wanted:
+            question = ask.format(requirement)
+            if question in seen:
+                continue
+            seen.add(question)
+            questions.append({"question": question, "requirement": requirement,
+                              "why": f"The job asks for {requirement}. (Fake AI text for offline tests.)",
+                              "model_answer": f"A strong answer names a real project, what the candidate did with "
+                                              f"{requirement} and what the result was.",
+                              "source": note.get("title", "") if not questions else ""})   # the first uses the note
+    return {"questions": questions[:8]}
+
+
+def _fake_helper_chat(data: dict) -> dict:
+    """Repeats the interviewer's last message and lists two required skills to ask about."""
+    last = data["conversation"][-1]["text"] if data.get("conversation") else ""
+    skills = (data["job"].get("required_skills") or ["the main skills"])[:2]
+    lines = "\n".join(f"{i}. Ask about {skill}." for i, skill in enumerate(skills, 1))
+    notes = [n["title"] for n in data.get("company_notes", [])][:1]
+    return {"answer": f"You asked: {last}\n{lines}\n(Fake AI text for offline tests.)", "sources": notes}

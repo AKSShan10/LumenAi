@@ -111,7 +111,6 @@ def test_send_without_smtp_is_saved_as_not_sent(client, job, people, monkeypatch
 
 
 def test_send_with_the_calendar_invite(client, job, people, fake_smtp, monkeypatch):
-    monkeypatch.setattr(config, "EMAIL_TRANSPORT", "smtp")              # this process sends (MCP: test_mcp_email.py)
     session = schedule(client, people["Karima Akter"], later(days=5, hour=9)).json()
     edited = session["invitation_body"] + "\n\nP.S. Edited by the interviewer."
     sent = client.put(f"/api/sessions/{session['id']}/invitation",
@@ -132,7 +131,6 @@ def test_send_with_the_calendar_invite(client, job, people, fake_smtp, monkeypat
 
 
 def test_a_new_time_updates_the_same_calendar_event(client, job, people, fake_smtp, monkeypatch):
-    monkeypatch.setattr(config, "EMAIL_TRANSPORT", "smtp")
     session = schedule(client, people["Karima Akter"]).json()
     first = client.put(f"/api/sessions/{session['id']}/invitation",
                        json={"to": "karima@example.com", "subject": "Interview", "body": session["invitation_body"]}).json()

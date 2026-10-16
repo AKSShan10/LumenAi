@@ -1,6 +1,5 @@
 """MCP servers as their own services (the Docker way): the server answers over HTTP at /mcp and the backend
-calls it by its address (MCP_EMAIL_URL). A pretend SMTP server receives the email, so nothing is really sent."""
-import email
+calls it by its address (MCP_BLOGGER_URL). Fake Blogger (BLOGGER_PROVIDER=fake), so nothing is really published."""
 import json
 import os
 import socket
@@ -14,7 +13,7 @@ import pytest
 from app.core import config
 from app.mcp_servers.client import BACKEND_DIR, McpError, call_tool
 
-SERVER = "app.mcp_servers.email_server"
+SERVER = "app.mcp_servers.blogger_server"
 
 
 def free_port() -> int:
@@ -24,50 +23,37 @@ def free_port() -> int:
 
 
 @pytest.fixture
-def email_service(fake_smtp, monkeypatch):
-    """The email MCP server started like its Docker service (MCP_HTTP_PORT set); stopped after the test."""
-    port = free_port()
-    env = {**os.environ, "PYTHONPATH": BACKEND_DIR, "MCP_HTTP_PORT": str(port), "MCP_ALLOWED_HOSTS": "email-mcp:*"}
-    process = subprocess.Popen([sys.executable, "-m", SERVER], env=env, stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL)
-    url = f"http://127.0.0.1:{port}/mcp"
-    for _ in range(100):                                     # wait until it listens (at most ~10 s)
-        try:
-            socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
-            break
-        except OSError:
-            time.sleep(0.1)
-    monkeypatch.setattr(config, "MCP_EMAIL_URL", url)
-    yield {"url": url, "port": port, "smtp": fake_smtp}
+def blogger_service(monkeypatch):
+    """The Blogger MCP server started like its Docker service (MCP_HTTP_PORT set); stopped after the test."""
+    process, url = start_service(SERVER, "blogger-mcp")
+    monkeypatch.setattr(config, "MCP_BLOGGER_URL", url)
+    yield {"url": url, "port": int(url.split(":")[2].split("/")[0])}
     process.terminate()
     process.wait(timeout=10)
 
 
-def test_send_email_through_the_http_service(email_service):
-    answer = json.loads(call_tool(SERVER, "send_email", {"to": "asha@example.com", "subject": "Interview",
-                                                         "body": "Hello Asha", "calendar": ""}))
-    assert answer == {"ok": True, "error": ""}
-    message = email.message_from_string(email_service["smtp"].messages[-1])
-    assert message["To"] == "asha@example.com"
+def test_publish_through_the_http_service(blogger_service):
+    answer = json.loads(call_tool(SERVER, "publish_blog_post", {"title": "Backend Developer", "text": "We are hiring."}))
+    assert answer == {"ok": True, "link": "", "error": ""}
 
 
-def test_the_settings_check_through_the_http_service(email_service):
-    answer = json.loads(call_tool(SERVER, "check_email_settings"))
+def test_the_settings_check_through_the_http_service(blogger_service):
+    answer = json.loads(call_tool(SERVER, "check_blogger_settings"))
     assert answer["ok"] is True
 
 
-def test_an_unknown_host_name_is_refused(email_service):
+def test_an_unknown_host_name_is_refused(blogger_service):
     """DNS rebinding protection: only the service's own name (and localhost) is accepted."""
-    asked = httpx.post(email_service["url"], headers={"Host": f"evil.example:{email_service['port']}",
-                                                      "Accept": "application/json, text/event-stream"},
+    asked = httpx.post(blogger_service["url"], headers={"Host": f"evil.example:{blogger_service['port']}",
+                                                        "Accept": "application/json, text/event-stream"},
                        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert asked.status_code == 421
 
 
 def test_a_stopped_service_gives_a_plain_error(monkeypatch):
-    monkeypatch.setattr(config, "MCP_EMAIL_URL", f"http://127.0.0.1:{free_port()}/mcp")   # nothing listens
+    monkeypatch.setattr(config, "MCP_BLOGGER_URL", f"http://127.0.0.1:{free_port()}/mcp")   # nothing listens
     with pytest.raises(McpError):
-        call_tool(SERVER, "check_email_settings")
+        call_tool(SERVER, "check_blogger_settings")
 
 
 def start_service(module: str, name: str):

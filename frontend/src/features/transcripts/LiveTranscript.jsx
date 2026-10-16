@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { interviewsApi } from "./interviewsApi.js";
+import { transcriptsApi } from "./transcriptsApi.js";
 
 // The interviewer's "Live Transcript" tab in the call. Each browser sends its own microphone (MicToText.jsx), the
 // backend saves every finished sentence, and this tab asks for the new ones every 2 seconds (like the chat).
@@ -43,7 +43,7 @@ export default function LiveTranscript({ sessionId, status, names, hidden }) {
 
   useEffect(() => {
     // → GET /api/sessions/{id}/transcript?after=...: only the sentences we do not have yet
-    const look = () => interviewsApi.transcript(sessionId, newest.current).then((more) => {
+    const look = () => transcriptsApi.transcript(sessionId, newest.current).then((more) => {
       if (!more.length) return;
       newest.current = Math.max(newest.current, ...more.map((t) => t.id));
       setTurns((old) => addTurns(old, more));

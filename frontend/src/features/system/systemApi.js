@@ -11,7 +11,7 @@ export const systemApi = {
   // GET /api/email-check: checks that invitation emails can be sent
   emailCheck: () => request("/api/email-check"),
   sttCheck: () => request("/api/stt-check"),              // is speech-to-text (Deepgram) set up? (sends no sound)
-  videoCheck: () => request("/api/video-check"),          // are the LiveKit keys there? (connects to nothing)          // can invitations be sent? (SMTP, through the email MCP server)
+  videoCheck: () => request("/api/video-check"),          // are the LiveKit keys there? (connects to nothing)
   // GET /api/workflow-runs?limit=15: the 15 latest workflow runs for the log
   workflowRuns: () => request("/api/workflow-runs?limit=15"),
 };

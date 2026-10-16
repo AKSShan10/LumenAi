@@ -180,7 +180,7 @@ cp .env.example .env      # then fill in your keys
 | `api` | the FastAPI backend (database migrations at start, CV screening worker) |
 | `web` | the React app on nginx; passes `/api` to the backend and `/rtc` to LiveKit |
 | `livekit` | the video call server (used when `LIVEKIT_URL=/`) |
-| `email-mcp`, `blogger-mcp`, `recruitment-mcp` | the MCP servers, each as its own service (HTTP, only reachable by the other containers) |
+| `blogger-mcp`, `recruitment-mcp` | the MCP servers (used by the Assistant chat), each as its own service (HTTP, only reachable by the other containers) |
 | `tunnel` | optional public `https://` address (Cloudflare quick tunnel), started with `--profile tunnel` |
 
 Gemini, Google Drive / Forms, Blogger and Gmail are online services; the containers call them over the internet.

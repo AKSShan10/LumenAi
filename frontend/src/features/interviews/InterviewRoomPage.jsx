@@ -2,7 +2,8 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { auth } from "../../shared/api/authToken.js";
 import { interviewsApi } from "./interviewsApi.js";
 import CallChat from "./CallChat.jsx";
-import LiveTranscript from "./LiveTranscript.jsx";
+import AiHelper from "../interview_helper/AiHelper.jsx";
+import LiveTranscript from "../transcripts/LiveTranscript.jsx";
 import ProfilePanel from "./ProfilePanel.jsx";
 
 // LiveKit is big, so the call code is loaded only when the call opens
@@ -11,7 +12,8 @@ const VideoRoom = lazy(() => import("./VideoRoom.jsx"));
 // The interviewer's call, in its own browser tab (/interview-room/<id>), opened from the Interviews page.
 // It starts the call (or joins it again) and shows, like the HireAI design:
 //   top:   who the interview is with, the time since the start, "End interview for both"
-//   left:   two tabs: Live Transcript (both microphones, speaker and time) and Chat (text and links)
+//   left:   three tabs: Live Transcript (both microphones, speaker and time), AI Helper (suggested questions with
+//           model answers, and a chat with the AI; interviewer only) and Chat (text and links with the candidate)
 //   center: the candidate big and yourself small, in the shape of a camera picture (16:9), buttons on top of it
 //   right:  the candidate's card (Candidate Info / Evaluation) - only the interviewer sees it
 // The tab gets a copy of the login from the tab that opened it.
@@ -22,7 +24,7 @@ export default function InterviewRoomPage({ sessionId }) {
   const [busy, setBusy] = useState(false);
   const [profile, setProfile] = useState(null);     // the candidate's profile (only the interviewer gets it)
   const [profileError, setProfileError] = useState("");
-  const [tab, setTab] = useState("transcript");    // transcript | chat
+  const [tab, setTab] = useState("transcript");    // transcript | helper | chat
   const [sttStatus, setSttStatus] = useState("");   // listening | connecting | an error in plain words
   const [unread, setUnread] = useState(0);         // new chat messages while the Transcript tab is open
 
@@ -79,11 +81,14 @@ export default function InterviewRoomPage({ sessionId }) {
             <div className="profile-tabs">
               <button type="button" className={tab === "transcript" ? "active" : ""} onClick={() => setTab("transcript")}>
                 Live Transcript</button>
+              <button type="button" className={tab === "helper" ? "active" : ""} onClick={() => setTab("helper")}>
+                AI Helper</button>
               <button type="button" className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>
                 Chat{unread > 0 && tab !== "chat" && <span className="tab-count">{unread}</span>}</button>
             </div>
             <LiveTranscript sessionId={sessionId} status={sttStatus} hidden={tab !== "transcript"}
                             names={{ candidate: who?.candidate_name }} />
+            <AiHelper sessionId={sessionId} hidden={tab !== "helper"} />
             <CallChat me="interviewer" open={tab === "chat"} embedded onUnread={setUnread} onOpen={() => setTab("chat")}
                       load={(after) => interviewsApi.chat(sessionId, after)}
                       send={(text) => interviewsApi.sendChat(sessionId, text)} />

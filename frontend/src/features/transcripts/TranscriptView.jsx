@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { download } from "../../shared/api/httpClient.js";
-import { interviewsApi } from "./interviewsApi.js";
+import { transcriptsApi } from "./transcriptsApi.js";
 import { TurnList, addTurns } from "./LiveTranscript.jsx";
 
 // The transcript of one interview on the Interviews page, with a .txt download. Only what was said: the chat
@@ -14,7 +14,7 @@ export default function TranscriptView({ row, onClose }) {
 
   useEffect(() => {
     // → GET /api/sessions/{id}/transcript: everything said in the call
-    const look = () => interviewsApi.transcript(row.id)
+    const look = () => transcriptsApi.transcript(row.id)
       .then((said) => setTurns((old) => addTurns(old, said)))
       .catch((e) => setError(e.message));
     look();

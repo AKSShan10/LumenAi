@@ -5,7 +5,7 @@
     HTTP (Docker)     MCP_HTTP_PORT is set: the server runs as its own Docker service and answers at
                       http://<service>:<port>/mcp ("streamable HTTP"). The backend calls it by that address.
 
-MCP_ALLOWED_HOSTS lists the host names the HTTP server answers to (for example "email-mcp:*"). Any other
+MCP_ALLOWED_HOSTS lists the host names the HTTP server answers to (for example "blogger-mcp:*"). Any other
 host name is refused, so a web page cannot trick a browser into calling the server (DNS rebinding protection).
 """
 import os

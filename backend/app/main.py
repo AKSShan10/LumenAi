@@ -22,12 +22,14 @@ from app.graphs.checkpointer import checkpointer
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
-from app.features.interviews.routers import interview_router, join_router, stt_router
+from app.features.interview_helper.routers import helper_router
+from app.features.interviews.routers import interview_router, join_router
 from app.features.job_library.routers import company_document_router
 from app.features.jobs.routers import job_posting_router, job_router
 from app.features.screening.routers import screening_router
 from app.features.screening.services.screening_worker import resume_waiting_screening
 from app.features.system.routers import system_router
+from app.features.transcripts.routers import stt_router, transcript_router
 
 # Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
 setup_logging(config.LOG_FILE)
@@ -97,6 +99,8 @@ for module in (auth_router,                      # login
                interview_router,                 # interviews: schedule a shortlisted candidate, invitation email + calendar
                join_router,                      # the candidate's page (public, only with the private link)
                stt_router,                       # the live transcript: each browser sends its own microphone
+               transcript_router,                # reading the transcript and the .txt download
+               helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

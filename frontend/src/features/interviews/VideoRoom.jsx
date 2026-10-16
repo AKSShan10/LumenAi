@@ -2,7 +2,7 @@ import "@livekit/components-styles";
 import { ChatIcon, ConnectionStateToast, DisconnectButton, LeaveIcon, LiveKitRoom, MediaDeviceMenu, ParticipantTile,
   RoomAudioRenderer, StartMediaButton, TrackToggle, useLocalParticipant, useTracks } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import MicToText from "./MicToText.jsx";
+import MicToText from "../transcripts/MicToText.jsx";
 
 // The video call itself, the same for the interviewer and the candidate.
 // The browser connects straight to the LiveKit server with the ticket our backend signed (one person, one room).
@@ -13,7 +13,7 @@ import MicToText from "./MicToText.jsx";
 // cameras move to a strip at the side. Only the buttons differ:
 //   layout="speaker" (the candidate): a bar with a Chat button (chat = {open, unread, onToggle} opens CallChat.jsx)
 //   layout="pair"    (the interviewer's room): round buttons on top of the video, at the bottom
-// transcribe = {path, login, onStatus}: also sends this browser's microphone for the live transcript (MicToText.jsx)
+// transcribe = {path, login, onStatus}: also sends this browser's microphone for the live transcript (transcripts/MicToText.jsx)
 export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "the other person", chat, layout = "speaker",
                                     transcribe }) {
   const pair = layout === "pair";
