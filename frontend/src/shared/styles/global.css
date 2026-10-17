@@ -219,7 +219,6 @@ td.actions button.link { display: block; margin: 2px 0; text-align: left; paddin
 .transcript-time { grid-row: span 2; color: #888; font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 2px; }
 .transcript-turn.interviewer b { color: var(--blue); }
 .transcript-turn.candidate b { color: #2e7d32; }
-.transcript-view .transcript-list { max-height: 60vh; overflow-y: auto; }
 /* the AI helper tab in the interviewer's call: suggested questions with model answers, and a chat */
 .ai-helper { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 12px 10px; gap: 6px; }
 .ai-helper[hidden] { display: none; }
@@ -381,3 +380,43 @@ button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
 .placeholder { display: inline-block; font-family: ui-monospace, monospace; font-size: 12px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; padding: 1px 6px; margin: 2px 4px 2px 0; }
 .template-preview summary { cursor: pointer; color: var(--blue); font-size: 13px; }
 .template-preview pre { white-space: pre-wrap; font: inherit; font-size: 13px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+
+/* ---------- Q&A analysis page (features/qa_analysis/InterviewAnalysisPage.jsx, its own tab) ---------- */
+.analysis-page { min-height: 100vh; background: var(--bg); }
+.analysis-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 24px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+.analysis-bar b { font-size: 18px; }
+.analysis-body { padding: 16px 24px; max-width: 1500px; margin: 0 auto; }
+.analysis-running { background: #fff7e0; border: 1px solid #f3d98b; border-radius: 8px; padding: 10px 12px; }
+.analysis-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.summary-tile { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; min-width: 150px; }
+.summary-number { font-size: 28px; }
+.summary-number.good { color: var(--green); }
+.summary-number.fair { color: #8a5a00; }
+.summary-number.weak { color: #b3261e; }
+.summary-tags { flex: 1; min-width: 260px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
+.summary-tags .badge, .analysis-detail .badge { margin: 0 4px 2px 0; }
+.analysis-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+.analysis-detail { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; }
+.analysis-page label.inline input { width: auto; margin: 0; }
+.table-scroll { overflow-x: auto; }
+.marks-table tbody tr { cursor: pointer; }
+.marks-table tbody tr:hover { background: #f5f8ff; }
+.marks-table tbody tr.chosen { background: #e8efff; }
+.marks-table td, .marks-table th { text-align: center; }
+.marks-table td:nth-child(2), .marks-table th:nth-child(2) { text-align: left; }
+.marks-question { max-width: 360px; }
+.mark { display: inline-block; min-width: 34px; padding: 2px 6px; border-radius: 6px; text-align: center; background: #eef0f4; font-variant-numeric: tabular-nums; }
+.mark.good { background: #d8f0df; color: var(--green); }
+.mark.fair { background: #fff1cc; color: #8a5a00; }
+.mark.weak { background: #fbdcd9; color: #b3261e; }
+.detail-grades { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+.detail-grades .small { margin: 4px 0 0 42px; }
+.qa-answer { white-space: pre-wrap; background: #f8f9fc; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+.qa-quote { font-style: italic; }
+.req-question { margin-right: 8px; }
+.transcript-turn.marked { background: #fff1cc; border-radius: 6px; }
+@media (max-width: 900px) {
+  .analysis-grid { grid-template-columns: minmax(0, 1fr); }
+  .analysis-detail { position: static; max-height: none; }
+  .analysis-bar, .analysis-body { padding-left: 16px; padding-right: 16px; }
+}

@@ -121,6 +121,9 @@ class SessionOut(BaseModel):
     started_at: Optional[datetime] = None
     candidate_joined_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
+    analysis_status: str = "not_started"   # the Q&A analysis: not_started | running | done | failed
+    analysis_error: str = ""               # why the analysis failed, in plain words
+    interview_score: Optional[float] = None  # from the Q&A analysis (0-100), shown in the Interviews list
     message: str = ""                # what just happened, in plain words (after scheduling, writing or sending)
 
 

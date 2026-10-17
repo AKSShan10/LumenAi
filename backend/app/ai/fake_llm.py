@@ -14,6 +14,7 @@ from app.features.interview_helper.services.helper_service import CHAT_PROMPT, Q
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
 from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
+from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
 
 
 # Returns a word-rule answer instead of Gemini, chosen by which prompt was sent (used by llm_json)
@@ -34,6 +35,12 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_questions(data)
     if instructions == CHAT_PROMPT:
         return _fake_helper_chat(data)
+    if instructions == SEGMENT_PROMPT:
+        return _fake_qa_pairs(data)
+    if instructions == REQUIREMENTS_PROMPT:
+        return _fake_qa_requirements(data)
+    if instructions in GRADE_PROMPTS.values():
+        return _fake_grades(data)
     return {"ok": True}
 
 
@@ -241,3 +248,52 @@ def _fake_helper_chat(data: dict) -> dict:
     lines = "\n".join(f"{i}. Ask about {skill}." for i, skill in enumerate(skills, 1))
     notes = [n["title"] for n in data.get("company_notes", [])][:1]
     return {"answer": f"You asked: {last}\n{lines}\n(Fake AI text for offline tests.)", "sources": notes}
+
+
+# ---------- Q&A analysis (qa_analysis_graph.py) ----------
+
+SMALL_TALK = ("hear me", "how are you", "ready to start", "any questions for us")
+
+
+def _fake_qa_pairs(data: dict) -> dict:
+    """An interviewer line with "?" is a question; the candidate lines after it are the answer.
+    "... and how ...?" is split into two parts. Greetings are small talk."""
+    pairs, current = [], None
+    for line in data["lines"]:
+        if line["speaker"] == "Interviewer":
+            current = None
+            if line["text"].strip().endswith("?"):
+                current = {"question": line["text"].strip(), "question_lines": [line["n"]], "answer_lines": [],
+                           "job_related": not any(words in line["text"].lower() for words in SMALL_TALK)}
+                pairs.append(current)
+        elif current is not None:
+            current["answer_lines"].append(line["n"])
+    result = []
+    for pair in pairs:
+        first, joint, second = pair["question"].partition(" and how ")
+        if joint:                                      # one question that asks two things
+            result.append({**pair, "question": first + "?", "split": True})
+            result.append({**pair, "question": "How " + second, "split": True})
+        else:
+            result.append({**pair, "split": False})
+    return {"pairs": result}
+
+
+def _fake_qa_requirements(data: dict) -> dict:
+    """A requirement is linked when its name appears in the question or the answer."""
+    return {"pairs": [{"n": p["n"], "requirements": [r for r in data["requirements"]
+                                                     if r.lower() in (p["question"] + " " + p["answer"]).lower()]}
+                      for p in data["pairs"]]}
+
+
+def _fake_grades(data: dict) -> dict:
+    """Longer answers get better grades. The quote is the first four words of the answer."""
+    notes = [n["title"] for n in data.get("company_notes", [])][:1]
+    grades = []
+    for pair in data["pairs"]:
+        words = pair["answer"].split()
+        grade = 75 if len(words) >= 12 else 50 if len(words) >= 6 else 25
+        grades.append({"n": pair["n"], "grade": grade, "quote": " ".join(words[:4]),
+                       "reason": f"The answer has {len(words)} words. (Fake AI text for offline tests.)",
+                       "sources": notes})
+    return {"grades": grades}

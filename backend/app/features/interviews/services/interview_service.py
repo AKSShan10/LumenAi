@@ -37,6 +37,7 @@ from app.graphs.invitation_prompts import INVITATION_TEMPLATE_PROMPT
 from app.features.interviews.services.slot_service import WorkingHours, hours_problem, plan_slots
 from app.features.interviews.services.video_service import make_ticket, video_problem
 from app.features.jobs.models import Job
+from app.features.qa_analysis.models import QaAnalysis
 from app.features.screening.models import ShortlistEntry
 from app.features.screening.services.shortlist_service import shortlist_rows
 from app.features.system.models import WorkflowRun
@@ -248,6 +249,7 @@ def _not_sent_reason(status: str) -> str:
 def session_out(session: Session, interview: InterviewSession, message: str = "") -> SessionOut:
     candidate = session.get(Candidate, interview.candidate_id)
     job = session.get(Job, interview.job_id)
+    analysis = session.exec(select(QaAnalysis).where(QaAnalysis.session_id == interview.id)).first()
     return SessionOut(id=interview.id, candidate_id=interview.candidate_id, job_id=interview.job_id,
                       candidate_name=candidate.full_name if candidate else "", job_title=job.title if job else "",
                       scheduled_at=as_utc(interview.scheduled_at), duration_minutes=interview.duration_minutes,
@@ -258,7 +260,11 @@ def session_out(session: Session, interview: InterviewSession, message: str = ""
                       created_at=as_utc(interview.created_at), message=message,
                       started_at=_maybe_utc(interview.started_at),
                       candidate_joined_at=_maybe_utc(interview.candidate_joined_at),
-                      ended_at=_maybe_utc(interview.ended_at))
+                      ended_at=_maybe_utc(interview.ended_at),
+                      # the Q&A analysis, so the Interviews list can show the score
+                      analysis_status=analysis.status if analysis else "not_started",
+                      analysis_error=(analysis.error or "") if analysis else "",
+                      interview_score=analysis.interview_score if analysis else None)
 
 
 # Returns the time marked as UTC, or None when there is no time

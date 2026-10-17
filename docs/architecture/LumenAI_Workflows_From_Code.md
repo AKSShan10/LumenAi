@@ -157,6 +157,56 @@ graph TD;
 	classDef last fill:#bfb6fc
 ```
 
+## Q&A analysis workflow (after the interview, one run per interview)
+
+Code: `backend/app/graphs/qa_analysis_graph.py`
+
+Steps: `load_transcript`, `segment_qa_pairs`, `classify_requirements`, `evaluate_relevance`, `evaluate_accuracy`, `evaluate_completeness`, `evaluate_articulation`, `merge_evaluation`, `detect_requirement_gaps`, `save`, `failed`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	load_transcript(load_transcript)
+	segment_qa_pairs(segment_qa_pairs)
+	classify_requirements(classify_requirements)
+	evaluate_relevance(evaluate_relevance)
+	evaluate_accuracy(evaluate_accuracy)
+	evaluate_completeness(evaluate_completeness)
+	evaluate_articulation(evaluate_articulation)
+	merge_evaluation(merge_evaluation)
+	detect_requirement_gaps(detect_requirement_gaps)
+	save(save)
+	failed(failed)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> load_transcript;
+	classify_requirements -.-> evaluate_accuracy;
+	classify_requirements -.-> evaluate_articulation;
+	classify_requirements -.-> evaluate_completeness;
+	classify_requirements -.-> evaluate_relevance;
+	classify_requirements -.-> failed;
+	detect_requirement_gaps --> save;
+	evaluate_accuracy --> merge_evaluation;
+	evaluate_articulation --> merge_evaluation;
+	evaluate_completeness --> merge_evaluation;
+	evaluate_relevance --> merge_evaluation;
+	load_transcript -.-> failed;
+	load_transcript -. &nbsp;go&nbsp; .-> segment_qa_pairs;
+	merge_evaluation -. &nbsp;go&nbsp; .-> detect_requirement_gaps;
+	merge_evaluation -.-> failed;
+	segment_qa_pairs -. &nbsp;go&nbsp; .-> classify_requirements;
+	segment_qa_pairs -.-> failed;
+	failed --> __end__;
+	save --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
 ## Assistant agent (the chatbot)
 
 Code: `backend/app/graphs/assistant_agent.py`

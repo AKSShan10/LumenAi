@@ -128,7 +128,8 @@ def forget_screening(session: Session, candidate: Candidate) -> None:
         session.delete(entry)
     from app.features.interviews.models import CallMessage, InterviewSession     # interview, chat ...
     from app.features.transcripts.models import TranscriptTurn                  # ... transcript ...
-    from app.features.interview_helper.models import HelperMessage              # ... and AI helper messages
+    from app.features.interview_helper.models import HelperMessage              # ... AI helper messages ...
+    from app.features.qa_analysis.models import QaAnalysis, QaItem              # ... and the Q&A analysis
     for interview in session.exec(select(InterviewSession).where(InterviewSession.candidate_id == candidate.id)).all():
         for message in session.exec(select(CallMessage).where(CallMessage.session_id == interview.id)).all():
             session.delete(message)
@@ -136,6 +137,10 @@ def forget_screening(session: Session, candidate: Candidate) -> None:
             session.delete(turn)
         for message in session.exec(select(HelperMessage).where(HelperMessage.session_id == interview.id)).all():
             session.delete(message)
+        for row in session.exec(select(QaItem).where(QaItem.session_id == interview.id)).all():
+            session.delete(row)
+        for row in session.exec(select(QaAnalysis).where(QaAnalysis.session_id == interview.id)).all():
+            session.delete(row)
         session.delete(interview)
 
 

@@ -14,12 +14,13 @@ export function clock(seconds) {
   return `${hours ? `${hours}:` : ""}${two(Math.floor(s / 60) % 60)}:${two(s % 60)}`;
 }
 
-// The sentences as a list: time, who, text (also used by TranscriptView.jsx after the call)
-export function TurnList({ turns, names = {} }) {
+// The sentences as a list: time, who, text (also used by the analysis page after the call).
+// marked: a time in seconds; the sentence said at that time is highlighted ("Show in transcript")
+export function TurnList({ turns, names = {}, marked = null }) {
   return (
     <ol className="transcript-list">
       {turns.map((t) => (
-        <li key={t.id} className={`transcript-turn ${t.speaker}`}>
+        <li key={t.id} className={`transcript-turn ${t.speaker}${t.start_sec === marked ? " marked" : ""}`}>
           <span className="transcript-time">{clock(t.start_sec)}</span>
           <b>{names[t.speaker] || (t.speaker === "interviewer" ? "Interviewer" : "Candidate")}</b>
           <span>{t.text}</span>
