@@ -38,7 +38,8 @@ CRITERIA = {
                  "topic, compare the answer with that note and name it in \"sources\". Otherwise use general "
                  "knowledge and give \"sources\": []."),
     "completeness": ("Completeness: does the answer cover every part of the question, with enough detail (for "
-                     "example what was done, how, why and the result)?"),
+                     "example what was done, how, why and the result)? Also give \"follow_up\": one short follow-up "
+                     "question the interviewer could ask to fill what is missing (\"\" when nothing is missing)."),
     "articulation": ("Articulation: are the answer's words clear and well organised in the transcript: on topic, in "
                      "a logical order, easy to follow? This is about the written words only, never about how the "
                      "candidate sounds."),
@@ -51,7 +52,7 @@ Grades: 100 excellent, 75 good, 50 partly, 25 weak, 0 not at all.
 For every pair ("n") give "grade" (exactly 0, 25, 50, 75 or 100), "reason" (one short sentence), and "quote": a few
 words copied exactly from the answer that show why.
 {fair}
-Answer: {{"grades": [{{"n": 1, "grade": 75, "reason": "...", "quote": "...", "sources": []}}]}}"""
+Answer: {{"grades": [{{"n": 1, "grade": 75, "reason": "...", "quote": "...", "sources": [], "follow_up": ""}}]}}"""
 
 GRADE_PROMPTS = {name: GRADE_PROMPT.format(criterion=text, stt=SPEECH_TO_TEXT, fair=FAIR)
                  for name, text in CRITERIA.items()}

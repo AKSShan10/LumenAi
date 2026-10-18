@@ -54,6 +54,8 @@ def test_the_answers_are_graded(client, anonymous, interview, livekit):  # noqa:
     assert python["evidence_quote"] == "I have used Python" and python["evidence_time"] == 15.0
 
     assert items[2]["score"] == 25 and items[2]["requirements"] == ["PostgreSQL"]
+    assert python["follow_up"] == "" and items[2]["follow_up"]                     # a follow-up for a weak answer
+    assert items[0]["follow_up"] == ""                                                # small talk gets none
     assert result["interview_score"] == round((75 + 25 + 25) / 3, 1)                     # job-related answers only
     assert result["covered"] == ["Python", "FastAPI"] and result["uncovered"] == ["PostgreSQL"]
 

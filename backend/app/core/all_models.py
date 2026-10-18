@@ -3,6 +3,7 @@
 Each feature adds its tables here.
 """
 from app.features.assistant.models.chat_model import AssistantAction, ChatConversation, ChatMessage
+from app.features.assessments.models.assessment_model import Assessment
 from app.features.auth.models.user_model import User
 from app.features.candidates.models.candidate_model import Candidate
 from app.features.interview_helper.models.helper_message_model import HelperMessage
@@ -17,5 +18,5 @@ from app.features.screening.models.shortlist_model import ShortlistEntry
 from app.features.system.models.workflow_run_model import WorkflowRun
 from app.features.transcripts.models.transcript_model import TranscriptTurn
 
-__all__ = ["AssistantAction", "CallMessage", "Candidate", "ChatConversation", "ChatMessage", "CompanyDocument",
+__all__ = ["Assessment", "AssistantAction", "CallMessage", "Candidate", "ChatConversation", "ChatMessage", "CompanyDocument",
            "HelperMessage", "InterviewSession", "Job", "JobPosting", "QaAnalysis", "QaItem", "ScreeningResult", "ShortlistEntry", "TranscriptTurn", "User", "WorkflowRun"]

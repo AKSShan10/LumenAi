@@ -15,6 +15,8 @@ from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE
 from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
+from app.graphs.assessment_prompts import (
+    AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
 
 # Returns a word-rule answer instead of Gemini, chosen by which prompt was sent (used by llm_json)
@@ -41,6 +43,20 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_qa_requirements(data)
     if instructions in GRADE_PROMPTS.values():
         return _fake_grades(data)
+    if instructions == STRENGTHS_PROMPT:
+        return {"strengths": _fake_evidence(data, strong=True)}
+    if instructions == WEAKNESSES_PROMPT:
+        return {"weaknesses": _fake_evidence(data, strong=False)}
+    if instructions == AREAS_PROMPT:
+        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)"}
+                          for gap in data.get("evidence_gaps", [])] or
+                [{"area": "Team work", "why": "Not discussed in the interview. (Fake AI text.)"}]}
+    if instructions == REPAIR_PROMPT:
+        return _fake_repair(data)
+    if instructions == SUMMARY_PROMPT:
+        return {"summary": f"Overall score {data['overall_score']} (CV {data['cv_score']}, interview "
+                           f"{data['interview_score']}). {len(data['strengths'])} strengths and "
+                           f"{len(data['weaknesses'])} weaknesses were found. (Fake AI text for offline tests.)"}
     return {"ok": True}
 
 
@@ -295,5 +311,33 @@ def _fake_grades(data: dict) -> dict:
         grade = 75 if len(words) >= 12 else 50 if len(words) >= 6 else 25
         grades.append({"n": pair["n"], "grade": grade, "quote": " ".join(words[:4]),
                        "reason": f"The answer has {len(words)} words. (Fake AI text for offline tests.)",
-                       "sources": notes})
+                       "sources": notes,
+                       "follow_up": "" if grade >= 75 else "Can you give a concrete example from your work?"})
     return {"grades": grades}
+
+
+# ---------- Assessment (assessment_graph.py) ----------
+
+def _fake_evidence(data: dict, strong: bool) -> list:
+    """Strengths: requirements the CV met (quote: the CV words from that skill on) and answers scoring 50+.
+    Weaknesses: answers scoring below 50. Every quote is copied from the CV text or an answer."""
+    items, words = [], data["cv_text"].split()
+    if strong:
+        for match in data["requirement_matches"]:
+            spot = next((n for n, w in enumerate(words) if match["requirement"].lower() in w.lower()), None)
+            if match["status"] == "met" and spot is not None:
+                items.append({"text": f"The CV shows {match['requirement']}.", "quote": " ".join(words[spot:spot + 3]),
+                              "source": "CV"})
+    for answer in data["answers"]:
+        good = (answer["score"] or 0) >= 50
+        if good == strong:
+            items.append({"text": f"{'Good' if strong else 'Weak'} answer about: {answer['question']}",
+                          "quote": " ".join(answer["answer"].split()[:4]), "source": "Interview"})
+    return items[:5]
+
+
+def _fake_repair(data: dict) -> dict:
+    """Leaves out the items whose quote was not found."""
+    wrong = {p["quote"] for p in data["problems"]}
+    return {"strengths": [i for i in data["strengths"] if i["quote"] not in wrong],
+            "weaknesses": [i for i in data["weaknesses"] if i["quote"] not in wrong]}

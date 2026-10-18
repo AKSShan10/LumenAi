@@ -420,3 +420,28 @@ button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
   .analysis-detail { position: static; max-height: none; }
   .analysis-bar, .analysis-body { padding-left: 16px; padding-right: 16px; }
 }
+
+/* ---------- Assessment report (features/assessments/AssessmentReportPage.jsx, its own tab) ---------- */
+.report-body { max-width: 1100px; }
+.report-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.evidence-list { padding-left: 18px; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.report-page .badge { margin: 0 4px 4px 0; }
+.decision-choices { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.decision-choice { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-weight: 600; }
+.decision-choice input { width: auto; margin: 0; }
+.decision-choice.chosen.hire { background: #d8f0df; border-color: #9fd5ae; color: var(--green); }
+.decision-choice.chosen.hold { background: #fff1cc; border-color: #f0d58a; color: #8a5a00; }
+.decision-choice.chosen.reject { background: #fbdcd9; border-color: #f0b8b3; color: #b3261e; }
+.report-decision textarea { width: 100%; box-sizing: border-box; }
+.print-only { display: none; }
+@media (max-width: 900px) { .report-grid { grid-template-columns: minmax(0, 1fr); } }
+/* Export PDF = the browser's print: only the report, on white, without buttons */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  .analysis-page, body { background: #fff; }
+  .analysis-bar { position: static; border-bottom: 2px solid #000; }
+  .card, .summary-tile { break-inside: avoid; box-shadow: none; }
+  .report-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.follow-up { background: #eef4ff; border: 1px solid #cfdcfb; border-radius: 8px; padding: 8px 10px; }

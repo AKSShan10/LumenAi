@@ -19,6 +19,8 @@ from app.core import config
 from app.core.database import init_db
 from app.core.logging_setup import setup_logging
 from app.graphs.checkpointer import checkpointer
+from app.features.assessments.routers import assessment_router
+from app.features.assessments.services.assessment_service import resume_running as resume_running_assessments
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
@@ -41,7 +43,8 @@ api_log = logging.getLogger("api")               # one line for every API call
 
 # Each feature that runs long AI work adds its "resume" function here.
 RESUME_FUNCTIONS: list = [resume_waiting_screening,      # CVs that still wait for screening after a restart
-                          resume_running_analyses]       # Q&A analyses that were still running
+                          resume_running_analyses,       # Q&A analyses that were still running
+                          resume_running_assessments]    # assessments that were still running
 
 
 def resume_unfinished_work() -> None:
@@ -105,6 +108,7 @@ for module in (auth_router,                      # login
                transcript_router,                # reading the transcript and the .txt download
                helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
                qa_analysis_router,               # after the call: the answers graded on four criteria (F5)
+               assessment_router,                # the final report, the decision and the comparison (F6)
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

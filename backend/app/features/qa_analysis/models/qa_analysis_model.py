@@ -42,3 +42,4 @@ class QaItem(SQLModel, table=True):
     evidence_time: Optional[float] = None             # when it was said, seconds from the interview start
     requirements: list = Field(default_factory=list, sa_column=Column(JSON))  # the job requirements it tests
     references: list = Field(default_factory=list, sa_column=Column(JSON))    # company documents used for accuracy
+    follow_up: str = Field(default="", sa_column=Column(Text))  # a question to ask next for what the answer missed

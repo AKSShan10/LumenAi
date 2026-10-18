@@ -21,6 +21,7 @@ class QaItemOut(BaseModel):
     evidence_time: Optional[float] = None   # seconds from the interview start
     requirements: list[str] = []
     references: list[str] = []       # company documents used for accuracy
+    follow_up: str = ""              # a suggested follow-up question for what the answer missed
 
 
 class QaAnalysisOut(BaseModel):

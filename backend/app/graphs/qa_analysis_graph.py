@@ -9,7 +9,8 @@
     segment_qa_pairs         AI: finds each question and its answer, marks small talk, splits multi-part questions
     classify_requirements    AI: links each pair to the job requirements it is about
     evaluate_*               AI, four calls at the same time: one grade per answer (0/25/50/75/100) with a reason
-                             and a quote. Accuracy also gets the 3 most similar company documents (RAG).
+                             and a quote. Accuracy also gets the 3 most similar company documents (RAG);
+                             completeness also suggests a follow-up question for what the answer missed.
     merge_evaluation         Python: checks each quote is really in the answer and adds its time; the answer score
                              is the average of the four grades, the interview score the average of the answers
     detect_requirement_gaps  Python: which job requirements the answers showed (covered) and which not (uncovered)
@@ -130,7 +131,8 @@ def _evaluate(state: QaState, criterion: str, notes: list | None = None) -> Opti
             continue                                   # skip anything without a pair number and a grade
         sources = item.get("sources") if isinstance(item.get("sources"), list) else []
         grades[n] = {"grade": grade, "reason": str(item.get("reason") or "").strip()[:300],
-                     "quote": str(item.get("quote") or "").strip()[:300], "sources": [str(s) for s in sources]}
+                     "quote": str(item.get("quote") or "").strip()[:300], "sources": [str(s) for s in sources],
+                     "follow_up": str(item.get("follow_up") or "").strip()[:300]}   # only completeness gives it
     return grades
 
 
@@ -244,6 +246,8 @@ def merge_evaluation(state: QaState) -> dict:
                 item["evidence_quote"], item["evidence_time"] = graded["quote"], said_at
         if grades:
             item["score"] = round(sum(grades) / len(grades), 1)        # the answer score: average of its grades
+        # a follow-up question that fills what the answer missed (from the completeness grader)
+        item["follow_up"] = (state["completeness"].get(n) or {}).get("follow_up", "") if pair["job_related"] else ""
         used = (state["accuracy"].get(n) or {}).get("sources", [])
         item["references"] = [title for title in state["notes"] if title in used]   # only documents it really got
         items.append(item)

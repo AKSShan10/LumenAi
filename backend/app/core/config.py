@@ -108,3 +108,7 @@ DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
 DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "nova-3")
 DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "en")
 DEEPGRAM_URL = os.getenv("DEEPGRAM_URL", "wss://api.deepgram.com/v1/listen")
+
+# ---------------- Assessment (F6) ----------------
+# Overall score = CV score x ASSESSMENT_CV_WEIGHT % + interview score x (100 - ASSESSMENT_CV_WEIGHT) %
+ASSESSMENT_CV_WEIGHT = max(0, min(100, int(os.getenv("ASSESSMENT_CV_WEIGHT", "40"))))

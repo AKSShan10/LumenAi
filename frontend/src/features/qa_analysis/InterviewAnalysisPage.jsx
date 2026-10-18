@@ -9,7 +9,8 @@ import { qaAnalysisApi } from "./qaAnalysisApi.js";
 // The Q&A analysis of one interview, in its own browser tab (/interview-analysis/<id>), opened from the Interviews
 // page. The tab gets a copy of the login from the tab that opened it.
 //   top:   who and when, "Analyse answers" / "Analyse again", the interview score and the requirements shown
-//   tabs:  Marks           every question with its four marks; click a row to see the answer, reasons and quote
+//   tabs:  Marks           every question with its four marks; click a row to see the answer, reasons, quote and a
+//                          suggested follow-up question for what the answer missed
 //          By requirement  each job requirement: which questions tested it, the best score, shown or not
 //          Transcript      everything said; "Show in transcript" jumps to the line of a quote
 // The AI suggests the marks from the transcript text only. A person decides.
@@ -86,6 +87,10 @@ function MarksTab({ items, chosen, setChosen, showInTranscript }) {
                   ))}
                 </ul>
                 <p><b>Answer score: <Mark value={item.score} /></b> <span className="muted small">(average of the four)</span></p>
+                {item.follow_up && (
+                  <p className="follow-up small"><b>Suggested follow-up:</b> {item.follow_up}{" "}
+                    <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(item.follow_up)}>Copy</button></p>
+                )}
                 {item.evidence_quote ? (
                   <p className="small qa-quote">"{item.evidence_quote}" <span className="muted">at {clock(item.evidence_time)}</span>{" "}
                     <button type="button" className="link" onClick={() => showInTranscript(item.evidence_time)}>Show in transcript</button></p>

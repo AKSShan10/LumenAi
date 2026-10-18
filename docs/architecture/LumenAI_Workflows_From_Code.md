@@ -207,6 +207,56 @@ graph TD;
 	classDef last fill:#bfb6fc
 ```
 
+## Assessment workflow (post-interview, one run per candidate)
+
+Code: `backend/app/graphs/assessment_graph.py`
+
+Steps: `load_all_results`, `analyze_strengths`, `analyze_weaknesses`, `evidence_gaps`, `recommended_areas`, `merge_assessment`, `validate_traceability`, `repair_assessment`, `generate_report`, `save`, `failed`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	load_all_results(load_all_results)
+	analyze_strengths(analyze_strengths)
+	analyze_weaknesses(analyze_weaknesses)
+	evidence_gaps(evidence_gaps)
+	recommended_areas(recommended_areas)
+	merge_assessment(merge_assessment)
+	validate_traceability(validate_traceability)
+	repair_assessment(repair_assessment)
+	generate_report(generate_report)
+	save(save)
+	failed(failed)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> load_all_results;
+	analyze_strengths --> merge_assessment;
+	analyze_weaknesses --> merge_assessment;
+	evidence_gaps --> merge_assessment;
+	generate_report -.-> failed;
+	generate_report -. &nbsp;go&nbsp; .-> save;
+	load_all_results -.-> analyze_strengths;
+	load_all_results -.-> analyze_weaknesses;
+	load_all_results -.-> evidence_gaps;
+	load_all_results -.-> failed;
+	load_all_results -.-> recommended_areas;
+	merge_assessment -.-> failed;
+	merge_assessment -. &nbsp;go&nbsp; .-> validate_traceability;
+	recommended_areas --> merge_assessment;
+	repair_assessment --> validate_traceability;
+	validate_traceability -.-> generate_report;
+	validate_traceability -.-> repair_assessment;
+	failed --> __end__;
+	save --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
 ## Assistant agent (the chatbot)
 
 Code: `backend/app/graphs/assistant_agent.py`
