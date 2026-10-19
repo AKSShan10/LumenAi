@@ -19,7 +19,7 @@ export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "th
   const pair = layout === "pair";
   return (
     <div className={`video-room ${pair ? "pair" : ""}`} data-lk-theme="default">
-      <LiveKitRoom serverUrl={livekitAddress(serverUrl)} token={ticket} connect video audio onDisconnected={onLeave}
+      <LiveKitRoom serverUrl={serverUrl} token={ticket} connect video audio onDisconnected={onLeave}
                    style={{ height: "100%" }}>
         <Stage waitingFor={waitingFor} />
         <RoomAudioRenderer />
@@ -29,13 +29,6 @@ export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "th
       </LiveKitRoom>
     </div>
   );
-}
-
-// "/" = the LiveKit server in Docker, at the same address as this page (nginx passes /rtc to it), so it also works
-// through an https:// tunnel. Any other value is a full address, e.g. wss://your-project.livekit.cloud
-function livekitAddress(url) {
-  if (!url.startsWith("/")) return url;
-  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
 }
 
 const canShareScreen = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;   // not on most phones

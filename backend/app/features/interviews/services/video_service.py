@@ -15,11 +15,13 @@ from app.core import config
 TICKET_HOURS = 4
 
 
-# Returns which LiveKit setting is empty in .env, or "" when video is set up
+# Returns which LiveKit setting is empty or wrong in .env, or "" when video is set up
 def video_problem() -> str:
     for name in ("LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"):
         if not getattr(config, name):
             return f"Video is not set up: {name} is empty in .env"
+    if not config.LIVEKIT_URL.startswith(("wss://", "ws://")):        # e.g. the old "/" for a local server
+        return "Video is not set up: LIVEKIT_URL must be the LiveKit Cloud address (wss://your-project.livekit.cloud)"
     return ""
 
 
@@ -43,5 +45,4 @@ def video_check() -> dict:
         make_ticket("settings-check", "check", "check")
     except Exception as problem:                     # never str(problem): it could contain the secret
         return {"ok": False, "message": f"A call ticket could not be made ({type(problem).__name__}). Check the LiveKit keys."}
-    where = "the LiveKit server in Docker" if config.LIVEKIT_URL.startswith("/") else config.LIVEKIT_URL
-    return {"ok": True, "message": f"Video is set up ({where}). Try a real call with two browsers."}
+    return {"ok": True, "message": f"Video is set up ({config.LIVEKIT_URL}). Try a real call with two browsers."}

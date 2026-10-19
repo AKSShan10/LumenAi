@@ -20,17 +20,21 @@
 
 1. [About the project](#about-the-project)
 2. [Features](#features)
-3. [Architecture](#architecture)
-4. [Technology stack](#technology-stack)
-5. [Repository structure](#repository-structure)
-6. [Getting started](#getting-started)
-7. [Configuration](#configuration)
-8. [Usage walkthrough](#usage-walkthrough)
-9. [Privacy and security](#privacy-and-security)
-10. [Known limitations](#known-limitations)
-11. [Branching and commits](#branching-and-commits)
-12. [Documentation](#documentation)
-13. [Author](#author)
+3. [How it works](#how-it-works)
+4. [Architecture](#architecture)
+5. [Technology stack](#technology-stack)
+6. [Repository structure](#repository-structure)
+7. [Getting started](#getting-started)
+8. [Configuration](#configuration)
+9. [Usage walkthrough](#usage-walkthrough)
+10. [API reference](#api-reference)
+11. [AI workflows](#ai-workflows)
+12. [Privacy and security](#privacy-and-security)
+13. [Troubleshooting](#troubleshooting)
+14. [Known limitations](#known-limitations)
+15. [Branching and commits](#branching-and-commits)
+16. [Documentation](#documentation)
+17. [Author](#author)
 
 ---
 
@@ -44,7 +48,13 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 
 **Why the name "LumenAI":** _to be written by the author (two to four sentences)._
 
-> **Repository status:** this `main` branch holds the project skeleton and the architecture documents. The application code is developed on `dev`.
+**Three principles apply throughout the system:**
+
+| Principle | How it is enforced |
+|---|---|
+| **The AI suggests, code checks** | Quotes, sources, requirement names and scores are verified or calculated by code, never trusted as returned by the AI. |
+| **A person decides** | The AI never approves a job, posts it, or makes a hiring decision. Those actions need an interviewer's explicit confirmation. |
+| **Only job-relevant evidence** | Voice, appearance, confidence and personal characteristics are never assessed. Candidates never see scores or reports. |
 
 ## Features
 
@@ -52,12 +62,12 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 
 | # | Feature | Summary |
 |---|---|---|
-| F1 | Job preparation, CV screening and ranking | The AI writes the job description from a short prompt, using the company's past job descriptions. Uploaded CVs are read, checked against every requirement and ranked, with a quote as proof. |
-| F2 | Candidate scoring | Skills, experience and qualifications are rated, then combined into a weighted score. |
-| F3 | Video interview | Scheduling, an AI-written invitation with a private link, and a live video call. During the call an interview helper suggests questions to the interviewer. |
-| F4 | Live transcript | Speech from both speakers becomes a timestamped, speaker-attributed transcript. |
-| F5 | Interview answer analysis | Each question and answer is found and rated against the company's own notes. |
-| F6 | Consolidated assessment | One final report per candidate, a comparison view, the hiring decision and a PDF export. |
+| F1 | Job preparation, CV collection, screening and ranking | An assistant chat writes the job description from a short prompt, using the company's own documents (RAG). After approval, the job is posted to Blogger through an MCP tool. Applications arrive through a Google Form; each CV is read (OCR for scanned files), checked against every requirement with a quote as proof, and ranked. |
+| F2 | Candidate scoring | Skills, experience and qualifications are rated and combined into a weighted CV score, using weights set per job. |
+| F3 | Video interview | Shortlist, scheduling, an AI-written invitation with a calendar invite and a private join link, and a live video call (LiveKit) with chat and screen sharing. An **AI Helper** suggests questions with model answers and answers the interviewer's questions during the call. |
+| F4 | Live transcript | Each participant's microphone is transcribed live (Deepgram) with the speaker and the time of every sentence. |
+| F5 | Interview answer analysis | Each question and answer is found in the transcript and graded on relevance, accuracy, completeness and articulation, with a verified quote, the company document used, and a suggested follow-up question. Answers are mapped to job requirements. |
+| F6 | Consolidated assessment | One final report per candidate: CV score, interview score and overall score, strengths and weaknesses with quotes, evidence gaps and areas to explore. Includes a ranked comparison of candidates, the hiring decision, and PDF / HTML export. |
 
 ### Stretch
 
@@ -67,37 +77,71 @@ _None attempted yet._
 
 _To be decided._
 
+## How it works
+
+```
+ JD  →  Job post  →  CV collection  →  Screening  →  Selection  →  Interview  →  Analysis  →  Final report
+ │        │             │                 │             │             │             │             │
+ Assistant Blogger       Google Form +     AI reads      Shortlist,    LiveKit call, Q&A grading   Assessment,
+ chat +    (MCP, after   Drive (service    each CV,      schedule,     live          on 4         comparison,
+ RAG       a person's    account)          checks every  AI-written    transcript,   criteria,    decision,
+           Yes)                            requirement   invitation    AI Helper     requirements PDF / HTML
+```
+
+1. **Prepare the job.** The interviewer describes the role in the Assistant chat. The AI drafts the job profile from the company's documents; the interviewer edits and approves it, and the job is posted after an explicit confirmation.
+2. **Collect and screen CVs.** Applications are read from the job's Google Form. Each CV is screened in the background: requirement matches with quotes, section scores, an overall CV score and a ranking. The interviewer can include or exclude any candidate.
+3. **Interview.** Shortlisted candidates receive an invitation with a private link. During the call, the transcript is written live and the AI Helper suggests questions.
+4. **Analyse.** After the call, the answers are graded and mapped to the job requirements.
+5. **Decide.** The final assessment combines the CV and the interview into one report. The interviewer compares candidates and records hire, hold or reject.
+
 ## Architecture
 
 ### High-level system diagram
 
-The 15 steps of the hiring flow, in four phases. The colour shows who does each step.
+The steps of the hiring flow and who carries out each one.
 
-![High-level system diagram](docs/architecture/LumenAI_High_Level_System_Diagram.png)
+![High-level system diagram](docs/architecture/LumenAI_High_Level_Diagram.svg)
 
 ### Detailed architecture
 
-The same 15 steps. Each step shows the page, backend service, workflow, outside service and database table that carry it out.
+Each step with the page, backend service, workflow, outside service and database table that carry it out.
 
-![Detailed architecture diagram](docs/architecture/LumenAI_Detailed_Architecture.png)
+![Detailed architecture diagram](docs/architecture/Details%20Diagram.drawio.svg)
 
 ### LangGraph design
 
-One parent graph starts one of three subgraphs: pre-interview (CV screening and scoring), interview analysis, and post-interview (final report). The subgraphs use parallel branches, a single OCR retry and a quote-repair loop limited to two rounds.
+The multi-step AI work runs as LangGraph workflows with parallel branches, retries and repair loops. Single AI calls (for example the AI Helper) are plain functions.
 
-![LangGraph workflows](docs/architecture/LumenAI_LangGraph_Workflows.png)
+![LangGraph workflows](docs/architecture/LumenAI_LangGraph_Workflows.svg)
+
+The diagrams generated directly from the code are in [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) (see [AI workflows](#ai-workflows)).
+
+### Request flow inside the backend
+
+Every feature follows the same layers:
+
+```
+React page (.jsx) → API client (.js) → Router (validates the request) → Service (business rules)
+                                                                      → LangGraph workflow (AI steps) → PostgreSQL
+```
+
+Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted` at once and runs in the background; the page polls for the result. Unfinished work resumes automatically after a restart.
 
 ## Technology stack
 
 | Layer | Choice | Why |
 |---|---|---|
-| Frontend | React + Vite | Fast to build screens; widely known. |
+| Frontend | React 19 + Vite | Fast to build screens; widely known. |
 | Backend | FastAPI + SQLModel | Required stack; typed endpoints with automatic API docs. |
-| AI workflows | LangGraph | Required stack; makes each AI step, branch and retry explicit. |
-| Database | PostgreSQL | Reliable relational store for jobs, candidates and reports. |
+| Database | PostgreSQL 16 + Alembic | Reliable relational store; versioned schema migrations. |
+| AI workflows | LangGraph | Required stack; makes each AI step, branch, retry and pause explicit. |
 | AI model | Google Gemini | Text, vision (scanned CVs) and embeddings from one provider. |
-| Video call | LiveKit | Browser video rooms without building media servers. |
-| Speech-to-text | Deepgram | Live streaming transcription with a simple API key. |
+| Tool protocol | MCP (FastMCP) | Lets the assistant chat choose tools; posting stays behind a person's confirmation. |
+| Video call | LiveKit Cloud | Hosted video rooms; works for candidates on any network. |
+| Speech-to-text | Deepgram | Live streaming transcription over WebSocket. |
+| CV collection | Google Forms + Drive API | Candidates apply through a form; CVs are read with a service account. |
+| Job posting | Blogger API | Public job posts with an "Apply now" link. |
+| Email | SMTP (e.g. Gmail) | Invitations with a calendar invite. |
 | Packaging | Docker Compose | One command starts the whole application. |
 
 ## Repository structure
@@ -106,173 +150,317 @@ One parent graph starts one of three subgraphs: pre-interview (CV screening and 
 .
 ├── backend/
 │   ├── app/
-│   │   ├── core/          settings, database, security
-│   │   ├── ai/            AI client and prompts
-│   │   ├── utils/         shared helpers
-│   │   ├── graphs/        LangGraph workflows
-│   │   └── features/      one folder per feature:
-│   │                      models/ schemas/ services/ routers/
-│   ├── scripts/
-│   └── tests/
+│   │   ├── main.py            FastAPI app: routers, start-up, resume of unfinished work
+│   │   ├── core/              settings, database, security, list of all tables
+│   │   ├── ai/                llm_client (the only place that calls the AI) and the offline fake AI
+│   │   ├── graphs/            LangGraph workflows and their prompts
+│   │   ├── mcp_servers/       MCP servers (Blogger, recruitment tools) and the MCP client
+│   │   ├── utils/             shared helpers
+│   │   └── features/          one folder per feature: models/ schemas/ services/ routers/
+│   ├── migrations/            Alembic database migrations
+│   ├── scripts/               blogger_login.py, print_workflows.py
+│   ├── tests/                 automated tests
+│   └── requirements.txt
 ├── frontend/
-│   ├── public/
 │   └── src/
-│       ├── shared/        api, hooks, styles, utils
-│       └── features/      one folder per feature
-├── docs/
-│   └── architecture/      diagrams (.png and .drawio)
+│       ├── main.jsx           chooses the page by address (app, candidate page, call, analysis, report)
+│       ├── App.jsx            sidebar layout and pages
+│       ├── shared/            HTTP client, login token, styles, shared components
+│       └── features/          one folder per feature
+├── docs/architecture/         diagrams (.svg and .drawio) and workflows generated from the code
+├── docker-compose.yml
 ├── .env.example
-├── .gitignore
 └── README.md
 ```
 
 | Feature folder | Purpose |
 |---|---|
-| `auth` | Login |
-| `system` | Health check and workflow run log |
-| `jobs` | Job profile, approval and posting record |
-| `job_library` | Company job descriptions used to write new ones |
-| `screening` | CV upload and screening |
-| `candidates` | Candidate details |
-| `scoring` | Scores, weights and ranking |
-| `interviews` | Scheduling, invitation and video room |
-| `interview_helper` | Question suggestions during the call |
-| `transcripts` | Live speech-to-text transcript |
-| `knowledge_base` | Company notes used to check answers |
-| `qa_analysis` | Rating of each interview answer |
-| `assessments` | Final report and decision |
+| `auth` | Interviewer accounts and login |
+| `system` | Connection checks and the workflow run log |
+| `assistant` | Assistant chat: the AI chooses tools; a person confirms approval and posting |
+| `job_library` | Company documents used for RAG (job descriptions and policy notes) |
+| `jobs` | Job profiles, approval and Blogger posts |
+| `candidates` | Applications from the Google Form, CV files and uploads |
+| `screening` | CV screening, scores, ranking, the interviewer's include / exclude decision and the shortlist |
+| `interviews` | Scheduling, invitation email, video call, call chat, candidate profile |
+| `interview_helper` | AI Helper during the call: suggested questions and chat |
+| `transcripts` | Live speech-to-text and the saved transcript |
+| `qa_analysis` | Grading of each interview answer (F5) |
+| `assessments` | Final report, decision and candidate comparison (F6) |
 
 ## Getting started
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Git
-- API keys for the outside services listed under [Configuration](#configuration)
+| Tool | Version | Needed for |
+|---|---|---|
+| Docker Desktop (with Compose) | recent | running the full application |
+| Git | any | cloning the repository |
+| Python | 3.11 | local backend development and tests (optional with Docker) |
+| Node.js | 22 | local frontend development (optional with Docker) |
 
-### Setup
+API keys are needed for the outside services; see [Configuration](#configuration). Without keys, the app can run with the offline fake providers (`LLM_PROVIDER=fake`, `STT_PROVIDER=fake`, `DRIVE_PROVIDER=fake`, `BLOGGER_PROVIDER=fake`).
 
-```bash
-git clone <repository-url>
-cd <repository-folder>
-git checkout dev
-cp .env.example .env      # then fill in your keys
-```
+### Option A: run everything with Docker (recommended)
 
-### Commands
+1. **Clone the repository and choose the branch**
+   ```bash
+   git clone <repository-url>
+   cd lumenAi
+   git checkout <branch>        # the latest module branch, e.g. m5
+   ```
+2. **Create the configuration file**
+   ```bash
+   cp .env.example .env          # Windows: copy .env.example .env
+   ```
+   Fill in at least `SECRET_KEY` and `LLM_API_KEY` (or set `LLM_PROVIDER=fake`). See [Configuration](#configuration).
+3. **Add secret files (only if used)**
+   Place the Google service-account key at `secrets/google-drive.json`. The `secrets/` folder is never committed.
+4. **Build and start**
+   ```bash
+   docker compose up --build
+   ```
+5. **Open the application**
+
+   | Address | What |
+   |---|---|
+   | http://localhost:8090 | the web app (`WEB_PORT`) |
+   | http://localhost:8010/docs | interactive API documentation (`API_PORT`) |
+
+6. **Create the first account.** On the first visit, the app asks for a name, email and password and creates the interviewer account.
+7. **Check the connections.** Open **Settings** and use the test buttons (AI, email, speech-to-text, video, Google Drive, Blogger). Each shows a plain-language result.
+
+### Option B: local development (without Docker for the app)
+
+1. **Start PostgreSQL** with Docker:
+   ```bash
+   docker compose up -d db
+   ```
+   In `.env`, point the backend at it: `POSTGRES_HOST=localhost` and `POSTGRES_PORT=5433` (`DB_HOST_PORT`). Set `APP_URL=http://localhost:5173`.
+2. **Backend**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate                    # macOS / Linux: source venv/bin/activate
+   pip install -r backend/requirements.txt
+   cd backend
+   uvicorn app.main:app --reload --port 8010
+   ```
+   Database migrations are applied automatically at start-up.
+3. **Frontend** (in a second terminal)
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   Open http://localhost:5173. Vite forwards `/api` to the backend; the video call connects to LiveKit Cloud directly.
+
+### Everyday commands
 
 | Action | Command |
 |---|---|
 | Build and run | `docker compose up --build` |
-| Build and run with a public https:// address (candidate on another device) | `docker compose --profile tunnel up --build` |
-| Show the tunnel's https:// address | `docker compose logs tunnel` |
+| Run in the background | `docker compose up -d --build` |
+| Apply a `.env` change to the backend | `docker compose up -d --force-recreate api` |
+| Follow the backend log | `docker compose logs -f api` |
 | Stop | `docker compose down` |
 | Reset (delete all data) | `docker compose down -v` |
-| Run the tests | `pytest` |
 | New database change (in `backend`) | `alembic revision --autogenerate -m "what changed"` |
 | Show the database version (in `backend`) | `alembic current` |
+| Draw the LangGraph workflows (in `backend`) | `python scripts/print_workflows.py` |
+| Renew the Blogger login (in `backend`) | `python scripts/blogger_login.py` |
 
 ### Docker services
 
 | Service | What it runs |
 |---|---|
-| `db` | PostgreSQL |
-| `api` | the FastAPI backend (database migrations at start, CV screening worker) |
-| `web` | the React app on nginx; passes `/api` to the backend and `/rtc` to LiveKit |
-| `livekit` | the video call server (used when `LIVEKIT_URL=/`) |
-| `blogger-mcp`, `recruitment-mcp` | the MCP servers (used by the Assistant chat), each as its own service (HTTP, only reachable by the other containers) |
+| `db` | PostgreSQL (port 5433 on your computer) |
+| `api` | the FastAPI backend: migrations at start, CV screening worker, background analysis |
+| `web` | the React app on nginx; forwards `/api` to the backend |
+| `blogger-mcp`, `recruitment-mcp` | the MCP servers used by the Assistant chat, reachable only by the other containers |
 | `tunnel` | optional public `https://` address (Cloudflare quick tunnel), started with `--profile tunnel` |
 
-Gemini, Google Drive / Forms, Blogger and Gmail are online services; the containers call them over the internet.
+LiveKit Cloud, Gemini, Deepgram, Google Drive / Forms, Blogger and the email server are online services; the containers call them over the internet.
 
 ### A candidate on another device (https tunnel)
 
-The quick tunnel gives the app a public `https://....trycloudflare.com` address. It needs no key or account, but **the address changes every time the tunnel restarts** (a PC restart, a Docker restart or `docker compose down`). After each restart:
+The quick tunnel gives the app a public `https://....trycloudflare.com` address. It needs no account, but **the address changes every time the tunnel restarts**. After each restart:
 
-1. Start the tunnel (or recreate it to get a fresh address):
-   ```
+1. Start (or recreate) the tunnel:
+   ```bash
    docker compose --profile tunnel up -d --force-recreate tunnel
    ```
-2. Find the address. If several are listed, use the **last** one:
-   ```
-   docker compose logs tunnel | findstr trycloudflare.com
+2. Find the address; if several are listed, use the **last** one:
+   ```bash
+   docker compose logs tunnel | findstr trycloudflare.com      # macOS / Linux: grep trycloudflare.com
    ```
 3. Put it in `.env`: `APP_URL=https://<the address>.trycloudflare.com`
-4. Recreate the api so it reads `.env` again (`restart` is not enough):
-   ```
+4. Recreate the backend so it reads `.env` again (`restart` is not enough):
+   ```bash
    docker compose up -d api
    ```
 5. In the invitation, click **Write again** so the link uses the new address, then send it.
 
-`docker compose ps tunnel` shows when the tunnel last started ("Up 14 minutes"): if it restarted, the old address no longer works. Invitations already sent keep the old link, so send them on the day of the interview or keep the tunnel running. If the log shows `failed to request quick Tunnel`, the network may block it; add `--protocol http2` to the tunnel's command in `docker-compose.yml`.
+**Video:** the call runs on LiveKit Cloud, so it works for a candidate on any network; only the app page goes through the tunnel.
 
-**Video:** use the `livekit` service when the candidate is on the same Wi-Fi (set `LIVEKIT_NODE_IP` to this computer's Wi-Fi address), or LiveKit Cloud (`LIVEKIT_URL=wss://...`) when the candidate is on another network: a tunnel cannot carry the UDP video.
-
-**A fixed address:** a named Cloudflare tunnel (free account + your own domain on Cloudflare) keeps the same address, so `APP_URL` is set once. Its token goes in `.env` only, never in git.
+**A fixed address:** a named Cloudflare tunnel (free account and your own domain) keeps the same address, so `APP_URL` is set once. Its token belongs in `.env` only.
 
 ## Configuration
 
-All keys and passwords are read from environment variables. Copy `.env.example` to `.env` and fill in the values. The `.env` file is never committed.
+All keys and passwords are read from environment variables in `.env` (copied from `.env.example`). The `.env` file and the `secrets/` folder are never committed.
 
-| Group | Used for |
+| Group | Variables | Used for |
+|---|---|---|
+| App | `APP_NAME`, `APP_URL`, `SECRET_KEY` | name, the base of the candidate's join link, signing login tokens |
+| Database | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_PORT` | PostgreSQL connection |
+| Ports | `API_PORT`, `WEB_PORT`, `DB_HOST_PORT` | ports on your computer |
+| AI model | `LLM_PROVIDER` (`gemini` / `fake`), `LLM_API_KEY`, `LLM_MODEL` | job drafts, screening, helper, analysis, reports |
+| CV collection | `DRIVE_PROVIDER`, `GOOGLE_DRIVE_KEY_FILE`, `STORAGE_DIR` | reading applications from Google Forms / Drive |
+| Screening | `SCREENING_MODE`, `SCREENING_RATE_LIMIT_WAIT` | background screening and rate-limit waiting |
+| Job posting | `BLOGGER_PROVIDER`, `BLOGGER_BLOG_ID`, `BLOGGER_CLIENT_ID`, `BLOGGER_CLIENT_SECRET`, `BLOGGER_REFRESH_TOKEN` | publishing job posts |
+| Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS` | invitations; empty host = saved as "not sent" |
+| Video call | `LIVEKIT_URL` (`wss://<project>.livekit.cloud`), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | interview rooms on LiveKit Cloud |
+| Speech-to-text | `STT_PROVIDER` (`deepgram` / `fake`), `DEEPGRAM_API_KEY` | live transcript |
+| MCP servers | `MCP_BLOGGER_URL`, `MCP_RECRUITMENT_URL` | set by Docker; empty = started as child processes |
+| Assessment | `ASSESSMENT_CV_WEIGHT` (default 40) | overall score = CV × weight % + interview × (100 − weight) % |
+| Logging | `LOG_FILE` | log of API calls, AI calls (with token counts) and posts |
+
+### Setting up the outside services
+
+| Service | Steps |
 |---|---|
-| AI model | Job descriptions, CV screening, scoring, answer analysis, reports |
-| Database | PostgreSQL connection |
-| Security | Login tokens |
-| Video call | Interview rooms |
-| Speech-to-text | Live transcript |
-| Email | Interview invitations |
+| **Gemini** | Create a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → `LLM_API_KEY`. |
+| **Deepgram** | Create a key at [console.deepgram.com](https://console.deepgram.com) → API Keys → `STT_PROVIDER=deepgram`, `DEEPGRAM_API_KEY`. |
+| **Google Drive / Forms** | Create a service account in Google Cloud, download its key to `secrets/google-drive.json`, and share each job's Drive folder (form, response sheet, uploaded files) with the service account as Viewer. |
+| **Blogger** | Create an OAuth client in Google Cloud → `BLOGGER_CLIENT_ID`, `BLOGGER_CLIENT_SECRET`, `BLOGGER_BLOG_ID`; then run `python scripts/blogger_login.py` (in `backend`) and copy the printed `BLOGGER_REFRESH_TOKEN` into `.env`. |
+| **Email (Gmail)** | `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, your address in `SMTP_USER` / `SMTP_FROM`, and an app password (Google account → Security → App passwords) in `SMTP_PASSWORD`. |
+| **LiveKit Cloud** | Create a project at [cloud.livekit.io](https://cloud.livekit.io) → Settings → Keys → `LIVEKIT_URL=wss://<project>.livekit.cloud`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. |
 
-### Live transcript (speech-to-text)
-
-Each browser in the call sends its own microphone to the backend (WebSocket), so the speaker comes from the microphone, not a guess. Finished sentences are saved with the time from the interview start; the sound itself is never stored.
-
-1. Create a key at [console.deepgram.com](https://console.deepgram.com) → API Keys.
-2. In `.env`: `STT_PROVIDER=deepgram` and `DEEPGRAM_API_KEY=<the key>`.
-3. Recreate the api: `docker compose up -d --force-recreate api`, then click **Test speech-to-text** on the Settings page.
-
-`STT_PROVIDER=fake` writes test sentences instead (no key; for demos only). The interviewer sees the sentences in the **Live Transcript** tab of the call; after the call, **Transcript** on the Interviews page shows them with the chat and a **Download .txt** button.
+After any `.env` change, recreate the backend (`docker compose up -d --force-recreate api`) and use the test buttons on the **Settings** page.
 
 ## Usage walkthrough
 
-1. Write a short prompt about the job. The AI writes the job description.
-2. Review and approve the job, then post it on a job board.
-3. Upload the CVs that arrive. The system screens, scores and ranks them.
-4. Choose candidates and send interview invitations.
-5. Hold the video interview. The helper suggests questions and the transcript is written live.
-6. Run the answer analysis and create the final report.
-7. Compare candidates and record the decision.
+1. **Job Requirements:** describe the job in the Assistant chat. Review the draft, save it, approve it (the chat asks for your Yes), and post it to Blogger (again only after your Yes).
+2. **Candidates:** fetch the applications from the job's Google Form, or upload CVs. Screening runs by itself; review the ranking, the requirement matches with quotes and the scores, and include or exclude candidates.
+3. **Shortlist and schedule:** choose candidates, plan interview times, check the AI-written invitation and send it.
+4. **Interviews:** start the call at the interview time (it opens in a new tab). The candidate joins with the private link. Use the **Live Transcript**, **AI Helper** and **Chat** tabs during the call, then end it for both.
+5. **Analyse answers:** on the Interviews page, open **Analyse answers** for an ended interview. Review the **Marks**, the **By requirement** view and the **Transcript**.
+6. **Reports:** compare the candidates of a job, create each candidate's assessment, review it, record **Hire**, **Hold** or **Reject**, and export it as PDF or HTML.
 
-_Screenshots will be added with the code._
+## API reference
+
+The complete, interactive documentation is generated by FastAPI at **http://localhost:8010/docs**. The main groups:
+
+| Group | Main endpoints |
+|---|---|
+| Login | `POST /api/auth/setup`, `POST /api/auth/login` |
+| Assistant | `POST /api/assistant/chat`, `POST /api/assistant/actions/{id}` (the person's Yes / No) |
+| Company documents | `/api/company-documents` (add, upload, search, delete) |
+| Jobs and posts | `/api/jobs`, `/api/jobs/{id}/postings` |
+| Candidates and screening | `/api/jobs/{id}/applications/fetch`, `/api/jobs/{id}/candidates/upload`, `/api/jobs/{id}/screening`, `/api/jobs/{id}/shortlist`, `PUT /api/candidates/{id}/decision` |
+| Interviews | `/api/sessions` (schedule, invitation, start, end, chat), `/api/join/{token}` (candidate page) |
+| Transcript | `WS /api/sessions/{id}/stt`, `WS /api/join/{token}/stt`, `GET /api/sessions/{id}/transcript`, `.../transcript.txt` |
+| AI Helper | `/api/sessions/{id}/helper`, `.../helper/questions`, `.../helper/chat` |
+| Q&A analysis | `POST` / `GET /api/sessions/{id}/analysis` |
+| Assessment | `POST` / `GET /api/candidates/{id}/assessment`, `PUT .../assessment/decision`, `GET /api/jobs/{id}/comparison` |
+| System | `/api/health`, `/api/llm-check`, `/api/posting-check`, `/api/drive-check`, `/api/email-check`, `/api/video-check`, `/api/stt-check`, `/api/workflow-runs` |
+
+All endpoints except login, health and the candidate's join page require the interviewer's login token (`Authorization: Bearer <token>`).
+
+## AI workflows
+
+| Workflow | File | Purpose |
+|---|---|---|
+| Job description | `graphs/job_description_graph.py` | retrieve company documents (RAG) → write the draft → check it → revise (at most once) |
+| Job posting | `graphs/job_post_graph.py` | prepare the post → **pause for the interviewer's Yes / No** → publish through the Blogger MCP tool |
+| CV screening | `graphs/cv_screening_graph.py` | parse → validate (OCR retry) → extract profile → match requirements → score sections → check quotes → rank → pause for the interviewer's decision |
+| Interview invitation | `graphs/invitation_graph.py` | write the email → pause until the interviewer sends it → send with a calendar invite |
+| Q&A analysis | `graphs/qa_analysis_graph.py` | pair questions and answers → link requirements → **four graders in parallel** (accuracy with RAG) → verify quotes → scores and coverage |
+| Assessment | `graphs/assessment_graph.py` | strengths, weaknesses, evidence gaps and areas **in parallel** → verify every quote ⇄ repair (at most twice) → overall score → summary |
+| Assistant agent | `graphs/assistant_agent.py` | ReAct agent: the AI chooses MCP tools; approval and posting only through a person's confirmation |
+
+To draw every workflow from the code (Mermaid diagrams):
+
+```bash
+cd backend
+python scripts/print_workflows.py
+```
+
+The result is saved to `docs/architecture/LumenAI_Workflows_From_Code.md`. VS Code (Markdown preview) and GitHub show the diagrams; any block can also be pasted into [mermaid.live](https://mermaid.live).
 
 ## Privacy and security
 
-- No secrets in the repository. Keys are supplied through environment variables.
-- No candidate data in the repository. Only made-up CVs are used for testing.
-- No audio or video is recorded. Only the written transcript is kept.
-- Candidates never see scores or reports.
-- Scoring uses job-relevant criteria only.
-- The AI suggests. People make every hiring decision.
+- **No secrets in the repository.** Keys are supplied through `.env` and `secrets/`, both excluded by `.gitignore`.
+- **No candidate data in the repository.** Only made-up CVs are used for testing.
+- **No audio or video is recorded.** Only the written transcript is kept.
+- **Candidates never see scores, notes, the AI Helper or reports.** Every such endpoint requires the interviewer's login.
+- **Job-relevant criteria only.** Prompts forbid judging voice, accent, confidence, appearance, age, gender, family, religion, nationality or health.
+- **People make every decision.** The AI cannot approve, post or decide on its own.
+- **Deleting a candidate** deletes their CV, screening, interviews, transcript, chat, helper messages, analysis and assessment.
 
-Which outside services receive candidate data, and exactly what is sent to each, will be documented here with the code.
+### What each outside service receives
+
+| Service | Data sent |
+|---|---|
+| Google Gemini | job details; CV text with email addresses and phone numbers removed (scanned PDFs are sent as files for OCR); transcript text; graded answers |
+| Deepgram | the live microphone audio during the interview (not stored by LumenAI) |
+| LiveKit Cloud | the video and audio of the call (not recorded) |
+| Google Drive / Forms | read only: the applications and CV files of the job's form |
+| Blogger | the approved job post text |
+| Email server | the invitation email and calendar invite to the candidate |
+
+## Troubleshooting
+
+| Problem | Cause and fix |
+|---|---|
+| Docker says "port is already allocated" | Change `API_PORT`, `WEB_PORT` or `DB_HOST_PORT` in `.env`. |
+| A `.env` change has no effect | Recreate the backend: `docker compose up -d --force-recreate api` (`restart` does not reload `.env`). |
+| Job post fails with `invalid_grant` | The Blogger login expired (Google apps in *Testing* mode expire after 7 days). Run `python scripts/blogger_login.py`, update `BLOGGER_REFRESH_TOKEN`, recreate `api` and `blogger-mcp`. Publishing the OAuth app to *In production* avoids the weekly expiry. |
+| "The AI did not answer … 503 / high demand" | A temporary overload at Google. Wait a minute and try again. |
+| "Too many requests" from Gemini | The free quota's per-minute limit; screening waits `SCREENING_RATE_LIMIT_WAIT` seconds and continues. |
+| The candidate's link does not open | With the tunnel, the address changed after a restart: update `APP_URL`, recreate `api`, click **Write again** and resend. |
+| No transcript appears | Check **Settings → Test speech-to-text** (`DEEPGRAM_API_KEY`) and allow the microphone in the browser. |
+| The video call does not start | Check `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` with **Settings → Test video call settings**, and allow the camera and microphone in the browser. |
+| Git shows many files as modified on Windows | Line endings only (CRLF). Run `git config core.autocrlf true` once. |
 
 ## Known limitations
 
-_To be completed as the features are built. This section will state plainly what does not work and why._
+- **End-to-end run with live services pending.** The full flow with all live services (Gemini, Deepgram, Drive, Blogger, SMTP, LiveKit Cloud) has not yet been run in one session.
+- **Blogger login expires weekly** while the Google OAuth app is in *Testing* mode.
+- **One sender address.** All invitations are sent from the single SMTP account in `.env`.
+- **Quick tunnel address changes** on every restart; a named tunnel is needed for a fixed address.
+- **English interviews.** Speech-to-text is configured for English (`DEEPGRAM_LANGUAGE=en`).
+- **Speech-to-text errors.** Misheard words can reach the analysis; the prompts tell the AI to read by meaning and not to penalise them, but very poor audio still lowers quality.
+- **AI availability.** Gemini can be temporarily overloaded (503); the affected step fails with a clear message and can be retried.
 
 ## Branching and commits
 
 | Branch | Purpose |
 |---|---|
-| `main` | Stable branch. Skeleton and documents now; working releases later. |
+| `main` | Stable branch: project skeleton and architecture documents. |
 | `dev` | Integration branch for the application code. |
-| `feature/<name>` | One feature or task at a time. |
+| `m2` … `m5` | One branch per module of the build plan; each WBS task is one commit. |
 
-Commit messages describe the change, for example `Add OCR retry to CV parsing`, not `update` or `fix`.
+Commit messages follow the conventional format `type(scope): summary` (at most 50 characters), with bullet points in the body and the Redmine reference in the footer:
+
+```
+feat(qa_analysis): add post-interview Q&A analysis
+
+- add qa_analysis_graph: segment, link requirements, grade
+- verify quotes against the transcript and attach the time said
+
+Refs #650062, #650063, #650064
+```
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 
 ## Documentation
 
-All project documents are under [`docs/`](docs/README.md): the architecture diagrams now, and the clarification document, Work Breakdown Structure and innovation rationale as they are completed.
+| Document | Location |
+|---|---|
+| Architecture diagrams (high level, detailed, LangGraph) | [`docs/architecture/`](docs/architecture/) |
+| Workflows generated from the code | [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) |
+| Interactive API documentation | http://localhost:8010/docs (when running) |
+| Clarification document, WBS, SRS, innovation rationale | _to be added by the author_ |
 
 ## Author
 

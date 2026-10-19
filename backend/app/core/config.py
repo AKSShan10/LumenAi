@@ -94,8 +94,8 @@ MCP_RECRUITMENT_URL = os.getenv("MCP_RECRUITMENT_URL", "")        # http://recru
 # ---------------- Video call (LiveKit) ----------------
 # A LiveKit Cloud project (the free plan is enough): Settings > Keys. The secret signs the call tickets; keep it in .env.
 # Empty = everything works except the video itself (the page says "Video is not set up").
-# "/" = the LiveKit server in Docker, reached through the same address as the app (nginx passes /rtc to it).
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud, or /
+# Only LiveKit Cloud: a hosted server can connect an interviewer and a candidate on different networks.
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
 
