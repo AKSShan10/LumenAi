@@ -31,7 +31,7 @@ class QaItem(SQLModel, table=True):
     answer: str = Field(default="", sa_column=Column(Text))        # the candidate's own words from the transcript
     job_related: bool = True                          # False = small talk: kept, but not graded
     split_from_multi_part: bool = False               # one part of a question that asked several things
-    # The four grades: 0 / 25 / 50 / 75 / 100 (None for small talk)
+    # The four grades: 0 to 100 (None for small talk)
     relevance: Optional[int] = None
     accuracy: Optional[int] = None
     completeness: Optional[int] = None

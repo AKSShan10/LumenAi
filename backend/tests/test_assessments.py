@@ -141,3 +141,25 @@ def test_deleting_the_candidate_deletes_the_assessment(client, anonymous, interv
     from app.features.assessments.models import Assessment
     with Session(engine) as session:
         assert session.exec(select(Assessment).where(Assessment.candidate_id == candidate)).all() == []
+
+
+def test_the_interviewer_changes_the_weight_of_a_job(client, anonymous, interview, livekit):  # noqa: F811
+    candidate = ready(client, anonymous, interview)
+    report = assess(client, candidate)
+    assert report["cv_weight"] == 40                                            # the default: CV 40 %, interview 60 %
+    client.put(f"/api/candidates/{candidate}/assessment/decision", json={"decision": "hold", "note": "Check SQL."})
+
+    rows = client.put(f"/api/jobs/{report['job_id']}/assessment-weight", json={"cv_weight": 30})
+    assert rows.status_code == 200 and rows.json()[0]["cv_weight"] == 30
+    changed = client.get(f"/api/candidates/{candidate}/assessment").json()
+    assert changed["cv_weight"] == 30                                           # recalculated by code, no AI call
+    assert changed["overall_score"] == round(report["cv_score"] * 0.3 + report["interview_score"] * 0.7, 1)
+    assert changed["summary"] == report["summary"] and changed["decision"] == "hold"   # report and decision kept
+
+    again = assess(client, candidate)                                           # a new report uses the job's weight
+    assert again["cv_weight"] == 30
+
+    for wrong in (-1, 101):
+        assert client.put(f"/api/jobs/{report['job_id']}/assessment-weight", json={"cv_weight": wrong}).status_code == 422
+    assert anonymous.put(f"/api/jobs/{report['job_id']}/assessment-weight", json={"cv_weight": 50}).status_code == 401
+    assert client.put("/api/jobs/999999/assessment-weight", json={"cv_weight": 50}).status_code == 404

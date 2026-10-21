@@ -8,7 +8,7 @@
     load_transcript          Python + database: the job and every transcript sentence, numbered
     segment_qa_pairs         AI: finds each question and its answer, marks small talk, splits multi-part questions
     classify_requirements    AI: links each pair to the job requirements it is about
-    evaluate_*               AI, four calls at the same time: one grade per answer (0/25/50/75/100) with a reason
+    evaluate_*               AI, four calls at the same time: one grade per answer (0 to 100) with a reason
                              and a quote. Accuracy also gets the 3 most similar company documents (RAG);
                              completeness also suggests a follow-up question for what the answer missed.
     merge_evaluation         Python: checks each quote is really in the answer and adds its time; the answer score
@@ -77,13 +77,13 @@ def _number(value) -> Optional[int]:
         return None
 
 
-# A grade from the AI, rounded to the nearest of 0 / 25 / 50 / 75 / 100 (None if it is not a number)
+# A grade from the AI as a whole number from 0 to 100: 60 stays 60, 120 becomes 100 (None if it is not a number)
 def _grade(value) -> Optional[int]:
     try:
         grade = max(0.0, min(100.0, float(value)))
     except (TypeError, ValueError):
         return None
-    return int(round(grade / 25) * 25)
+    return int(round(grade))
 
 
 # Lower case, letters and digits only, so "Docker, mostly!" matches "docker mostly"

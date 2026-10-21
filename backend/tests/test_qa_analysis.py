@@ -80,7 +80,7 @@ def test_code_checks_the_ais_answer(client, anonymous, interview, livekit, monke
     monkeypatch.setattr(qa_analysis_graph, "llm_json", made_up)
     items = analyse(client, interview)["items"]
     assert "Who said this?" not in [i["question"] for i in items]       # interviewer lines are never an answer
-    assert items[1]["relevance"] == 50                                  # 60 becomes the nearest allowed grade
+    assert items[1]["relevance"] == 60                                  # any whole grade from 0 to 100 is kept
     assert items[1]["evidence_quote"] == "" and items[1]["evidence_time"] is None    # a made-up quote is removed
 
 
@@ -156,3 +156,25 @@ def test_deleting_the_candidate_deletes_the_analysis(client, anonymous, intervie
     with Session(engine) as session:
         assert session.exec(select(QaItem).where(QaItem.session_id == interview["id"])).all() == []
         assert session.exec(select(QaAnalysis).where(QaAnalysis.session_id == interview["id"])).all() == []
+
+
+def test_answers_analysed_before_the_follow_up_column_still_load(client, anonymous, interview, livekit):  # noqa: F811
+    """Rows made before migration 0030 have follow_up = NULL; the page must still load them."""
+    from sqlmodel import Session, select
+    from app.core.database import engine
+    from app.features.qa_analysis.models import QaItem
+    have_the_call(client, anonymous, interview)
+    analyse(client, interview)
+    with Session(engine) as session:
+        for item in session.exec(select(QaItem).where(QaItem.session_id == interview["id"])).all():
+            item.follow_up = None                                    # as in an old row
+            session.add(item)
+        session.commit()
+    answer = client.get(f"/api/sessions/{interview['id']}/analysis")
+    assert answer.status_code == 200 and all(i["follow_up"] == "" for i in answer.json()["items"])
+
+
+def test_grades_are_whole_numbers_from_0_to_100():
+    grade = qa_analysis_graph._grade
+    assert [grade(60), grade("72.6"), grade(120), grade(-5)] == [60, 73, 100, 0]   # kept, rounded or capped
+    assert grade("good") is None and grade(None) is None                           # not a number: skipped

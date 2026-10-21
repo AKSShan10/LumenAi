@@ -47,6 +47,11 @@ class DecisionIn(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+class WeightIn(BaseModel):
+    """The CV part of the overall score in %, set on the Reports page; the interview is the rest (100 - cv_weight)."""
+    cv_weight: int = Field(ge=0, le=100)
+
+
 class ComparisonRow(BaseModel):
     """One candidate of the job in the comparison table."""
     candidate_id: int

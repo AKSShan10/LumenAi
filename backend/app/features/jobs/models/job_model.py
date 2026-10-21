@@ -25,6 +25,9 @@ class Job(SQLModel, table=True):
     weight_skills: int = 50
     weight_experience: int = 30
     weight_qualifications: int = 20
+    # The CV part of the final overall score in % (F6); the interview is the rest. Empty = ASSESSMENT_CV_WEIGHT (40).
+    # Changed on the Reports page; the overall scores of the job are then recalculated by code.
+    assessment_cv_weight: Optional[int] = None
     # The keywords an ATS would look for in a CV for this job, made once by the AI (screening_service.ats_keywords):
     # {"source": fingerprint of the job text they were made from, "keywords": [...]}. Made again when the job changes.
     ats_keywords: dict = Field(default_factory=dict, sa_column=Column(JSON))

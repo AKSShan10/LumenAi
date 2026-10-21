@@ -73,6 +73,7 @@ class AssessmentState(TypedDict):
     problems: list                     # items whose quote was not found
     repair_rounds: int
     summary: str
+    cv_weight: int                     # the CV part of the overall score in %, read from the job when it is used
     overall_score: Optional[float]
     error: str                         # set when a step failed: the workflow goes to "failed"
     started: float
@@ -112,6 +113,18 @@ def _items(answer, key: str) -> Optional[list]:
 # Job requirements with no proof: not met in the CV and not shown in the interview (code, not AI)
 def _gaps(state: AssessmentState) -> list:
     return [r for r in state["requirements"] if r not in state["cv_proof"] and r not in state["covered"]]
+
+
+# The CV part of the overall score for a job, in %: the job's own setting, or ASSESSMENT_CV_WEIGHT (40) if not set
+def job_cv_weight(job: Optional[Job]) -> int:
+    if job and job.assessment_cv_weight is not None:
+        return job.assessment_cv_weight
+    return config.ASSESSMENT_CV_WEIGHT
+
+
+# Overall score = CV score x weight % + interview score x (100 - weight) %  (also used when the weight is changed)
+def overall_score(cv_score: float, interview_score: float, cv_weight: int) -> float:
+    return round(cv_score * cv_weight / 100 + interview_score * (100 - cv_weight) / 100, 1)
 
 
 # ---------- nodes ----------
@@ -220,8 +233,9 @@ def repair_assessment(state: AssessmentState) -> dict:
 def generate_report(state: AssessmentState) -> dict:
     strengths = [i for i in state["strengths"] if _found_in(i["quote"], state)]       # unproven items are removed
     weaknesses = [i for i in state["weaknesses"] if _found_in(i["quote"], state)]
-    weight = config.ASSESSMENT_CV_WEIGHT
-    overall = round(state["cv_score"] * weight / 100 + state["interview_score"] * (100 - weight) / 100, 1)
+    with Session(engine) as session:                  # read now, so a weight changed meanwhile is used
+        weight = job_cv_weight(session.get(Job, state["job_id"]))
+    overall = overall_score(state["cv_score"], state["interview_score"], weight)
     answer = llm_json(SUMMARY_PROMPT, {"job_title": state["facts"]["job"]["title"], "strengths": strengths,
                                        "weaknesses": weaknesses, "evidence_gaps": state["gaps"],
                                        "cv_score": state["cv_score"], "interview_score": state["interview_score"],
@@ -229,7 +243,8 @@ def generate_report(state: AssessmentState) -> dict:
     summary = str(answer.get("summary") or "").strip() if isinstance(answer, dict) else ""
     if not summary:
         return {"error": f"The AI did not write the summary ({last_error()}). Please try again."}
-    return {"strengths": strengths, "weaknesses": weaknesses, "overall_score": overall, "summary": summary[:2000]}
+    return {"strengths": strengths, "weaknesses": weaknesses, "overall_score": overall, "cv_weight": weight,
+            "summary": summary[:2000]}
 
 
 # Workflow step "save": the report replaces the old one; the person's decision is kept
@@ -238,7 +253,7 @@ def save(state: AssessmentState) -> dict:
         row = session.exec(select(Assessment).where(Assessment.candidate_id == state["candidate_id"])).one()
         row.status, row.error, row.session_id = "done", "", state["session_id"]
         row.cv_score, row.interview_score = state["cv_score"], state["interview_score"]
-        row.overall_score, row.cv_weight = state["overall_score"], config.ASSESSMENT_CV_WEIGHT
+        row.overall_score, row.cv_weight = state["overall_score"], state["cv_weight"]
         row.summary, row.repair_rounds = state["summary"], state["repair_rounds"]
         row.strengths, row.weaknesses = state["strengths"], state["weaknesses"]
         row.evidence_gaps, row.recommended_areas = state["gaps"], state["areas"]
@@ -317,7 +332,7 @@ def assess_candidate(candidate_id: int) -> AssessmentState:
     state: AssessmentState = {"candidate_id": candidate_id, "job_id": 0, "session_id": None, "facts": {},
                               "cv_text": "", "answers_text": "", "requirements": [], "cv_proof": [], "covered": [],
                               "cv_score": None, "interview_score": None, "strengths": [], "weaknesses": [],
-                              "gaps": [], "areas": [], "problems": [], "repair_rounds": 0, "summary": "",
+                              "gaps": [], "areas": [], "problems": [], "repair_rounds": 0, "summary": "", "cv_weight": 0,
                               "overall_score": None, "error": "", "started": time.time()}
     try:
         return assessment_graph.invoke(state)

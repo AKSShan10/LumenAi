@@ -48,8 +48,8 @@ CRITERIA = {
 GRADE_PROMPT = """You grade a candidate's answers from a job interview on ONE criterion.
 {criterion}
 {stt}
-Grades: 100 excellent, 75 good, 50 partly, 25 weak, 0 not at all.
-For every pair ("n") give "grade" (exactly 0, 25, 50, 75 or 100), "reason" (one short sentence), and "quote": a few
+Grades from 0 to 100: 90-100 excellent, 70-89 good, 50-69 partly, 25-49 weak, 0-24 not at all.
+For every pair ("n") give "grade" (a whole number from 0 to 100), "reason" (one short sentence), and "quote": a few
 words copied exactly from the answer that show why.
 {fair}
 Answer: {{"grades": [{{"n": 1, "grade": 75, "reason": "...", "quote": "...", "sources": [], "follow_up": ""}}]}}"""

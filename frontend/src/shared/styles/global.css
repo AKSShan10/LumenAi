@@ -445,3 +445,7 @@ button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
   .report-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 .follow-up { background: #eef4ff; border: 1px solid #cfdcfb; border-radius: 8px; padding: 8px 10px; }
+.weight-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 8px 0; }
+.weight-bar label.inline { margin: 0; }
+.weight-bar input { width: 72px; margin: 0; padding: 4px 6px; display: inline-block; }
+.weight-bar button { margin: 0; }

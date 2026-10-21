@@ -11,7 +11,7 @@ class QaItemOut(BaseModel):
     answer: str
     job_related: bool                # False = small talk (kept, not graded)
     split_from_multi_part: bool
-    relevance: Optional[int] = None  # 0 / 25 / 50 / 75 / 100
+    relevance: Optional[int] = None  # 0 to 100
     accuracy: Optional[int] = None
     completeness: Optional[int] = None
     articulation: Optional[int] = None

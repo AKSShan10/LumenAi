@@ -50,7 +50,9 @@ def result(session: Session, interview: InterviewSession) -> QaAnalysisOut:
     return QaAnalysisOut(session_id=interview.id, status=row.status, error=row.error or "",
                          interview_score=row.interview_score, covered=row.covered or [],
                          uncovered=row.uncovered or [], created_at=row.created_at,
-                         items=[QaItemOut(**item.model_dump()) for item in items])
+                         # follow_up is empty (NULL) for answers analysed before that column existed (migration 0030)
+                         items=[QaItemOut(**{**item.model_dump(), "follow_up": item.follow_up or ""})
+                                for item in items])
 
 
 def resume_running() -> None:

@@ -16,13 +16,13 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	retrieve_documents(retrieve_documents)
 	write_draft(write_draft)
 	check_draft(check_draft)
 	revise_draft(revise_draft)
 	log_run(log_run)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> retrieve_documents;
 	check_draft -.-> log_run;
 	check_draft -.-> revise_draft;
@@ -30,9 +30,9 @@ graph TD;
 	revise_draft --> check_draft;
 	write_draft --> check_draft;
 	log_run --> __end__;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## Job posting workflow (pauses for the interviewer's Yes or No)
@@ -48,12 +48,12 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	check_job(check_job)
 	ask_person(ask_person)
 	publish(publish)
 	save_result(save_result)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> check_job;
 	ask_person -.-> publish;
 	ask_person -.-> save_result;
@@ -61,9 +61,9 @@ graph TD;
 	check_job -.-> save_result;
 	publish --> save_result;
 	save_result --> __end__;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## CV screening workflow (pre-interview subgraph, one run per CV)
@@ -79,7 +79,7 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	parse_cv(parse_cv)
 	validate_extraction(validate_extraction)
 	ocr_once(ocr_once)
@@ -116,9 +116,9 @@ graph TD;
 	validate_extraction -.-> needs_review;
 	validate_extraction -.-> ocr_once;
 	extract_profile -.-> extract_profile;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## Interview invitation workflow (pauses until the interviewer sends)
@@ -134,14 +134,14 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	write_draft(write_draft)
 	check_draft(check_draft)
 	save_draft(save_draft)
 	ask_person(ask_person)
 	send_email(send_email)
 	save_result(save_result)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> write_draft;
 	ask_person -.-> send_email;
 	ask_person -.-> write_draft;
@@ -152,9 +152,9 @@ graph TD;
 	send_email --> save_result;
 	write_draft --> check_draft;
 	ask_person -.-> __end__;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## Q&A analysis workflow (after the interview, one run per interview)
@@ -170,7 +170,7 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	load_transcript(load_transcript)
 	segment_qa_pairs(segment_qa_pairs)
 	classify_requirements(classify_requirements)
@@ -182,7 +182,7 @@ graph TD;
 	detect_requirement_gaps(detect_requirement_gaps)
 	save(save)
 	failed(failed)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> load_transcript;
 	classify_requirements -.-> evaluate_accuracy;
 	classify_requirements -.-> evaluate_articulation;
@@ -202,9 +202,9 @@ graph TD;
 	segment_qa_pairs -.-> failed;
 	failed --> __end__;
 	save --> __end__;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## Assessment workflow (post-interview, one run per candidate)
@@ -220,7 +220,7 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	load_all_results(load_all_results)
 	analyze_strengths(analyze_strengths)
 	analyze_weaknesses(analyze_weaknesses)
@@ -232,7 +232,7 @@ graph TD;
 	generate_report(generate_report)
 	save(save)
 	failed(failed)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> load_all_results;
 	analyze_strengths --> merge_assessment;
 	analyze_weaknesses --> merge_assessment;
@@ -252,9 +252,9 @@ graph TD;
 	validate_traceability -.-> repair_assessment;
 	failed --> __end__;
 	save --> __end__;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
 ## Assistant agent (the chatbot)
@@ -270,17 +270,17 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([<p>__start__</p>]):::first
+	__start__([start]):::first
 	agent(agent)
 	tools(tools)
 	pre_model_hook(pre_model_hook)
-	__end__([<p>__end__</p>]):::last
+	__end__([end]):::last
 	__start__ --> pre_model_hook;
 	agent -.-> __end__;
 	agent -.-> tools;
 	pre_model_hook --> agent;
 	tools --> pre_model_hook;
-	classDef default fill:#f2f0ff,line-height:1.2
-	classDef first fill-opacity:0
-	classDef last fill:#bfb6fc
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```

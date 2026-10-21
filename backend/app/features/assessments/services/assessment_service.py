@@ -5,6 +5,7 @@
     result(session, candidate)        the report for the page (it asks every 3 s while "running")
     decide(session, candidate, ...)   the interviewer records hire, hold or reject (never the AI)
     comparison(session, job)          every interviewed candidate of the job, best overall score first
+    set_weight(session, job, weight)  the interviewer changes the CV / interview split; overall scores recalculated
     resume_running()                  after a restart: assessments that were still running start again
 """
 import logging
@@ -12,7 +13,6 @@ import logging
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.core import config
 from app.core.database import engine
 from app.features.assessments.models import Assessment
 from app.features.assessments.schemas import AssessmentOut, ComparisonRow, DecisionIn
@@ -21,7 +21,7 @@ from app.features.interviews.models import InterviewSession
 from app.features.jobs.models import Job
 from app.features.qa_analysis.models import QaAnalysis
 from app.features.screening.models import ScreeningResult
-from app.graphs.assessment_graph import assess_candidate
+from app.graphs.assessment_graph import assess_candidate, job_cv_weight, overall_score
 from app.utils.datetime_utils import utc_now
 
 log = logging.getLogger("assessment")
@@ -64,7 +64,7 @@ def result(session: Session, candidate: Candidate) -> AssessmentOut:
              "job_title": job.title if job else ""}
     row = session.exec(select(Assessment).where(Assessment.candidate_id == candidate.id)).first()
     if not row:
-        return AssessmentOut(**names, status="not_started", cv_weight=config.ASSESSMENT_CV_WEIGHT)
+        return AssessmentOut(**names, status="not_started", cv_weight=job_cv_weight(job))
     return AssessmentOut(**names, **row.model_dump(exclude={"id", "candidate_id", "job_id"}))
 
 
@@ -84,6 +84,7 @@ def decide(session: Session, candidate: Candidate, body: DecisionIn, email: str)
 def comparison(session: Session, job: Job) -> list[ComparisonRow]:
     """Every candidate of the job who had an interview, best overall score first (not assessed ones last)."""
     interviews = session.exec(select(InterviewSession).where(InterviewSession.job_id == job.id)).all()
+    weight = job_cv_weight(job)                       # the job's CV / interview split (40 / 60 by default)
     rows = []
     for candidate_id in dict.fromkeys(i.candidate_id for i in interviews):          # each candidate once
         candidate = session.get(Candidate, candidate_id)
@@ -101,10 +102,26 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
             interview_score=report.interview_score if report and report.interview_score is not None
             else (analysis.interview_score if analysis else None),
             overall_score=report.overall_score if report else None,
-            cv_weight=report.cv_weight if report and report.status == "done" else config.ASSESSMENT_CV_WEIGHT,
+            cv_weight=weight,
             decision=report.decision if report else "pending"))
     rows.sort(key=lambda r: (r.overall_score is None, -(r.overall_score or 0), r.candidate_name))
     return rows
+
+
+def set_weight(session: Session, job: Job, cv_weight: int) -> list[ComparisonRow]:
+    """Saves the job's CV weight (the interview gets the rest) and recalculates the overall score of every finished
+    assessment of the job. Only maths, no AI: the reports, quotes and decisions stay as they are."""
+    job.assessment_cv_weight = cv_weight
+    session.add(job)
+    reports = session.exec(select(Assessment).where(Assessment.job_id == job.id, Assessment.status == "done")).all()
+    for report in reports:
+        report.cv_weight = cv_weight
+        report.overall_score = overall_score(report.cv_score, report.interview_score, cv_weight)
+        session.add(report)
+    session.commit()
+    log.info("assessment weight job=%s cv=%s%% interview=%s%% reports=%s", job.id, cv_weight, 100 - cv_weight,
+             len(reports))
+    return comparison(session, job)
 
 
 def resume_running() -> None:

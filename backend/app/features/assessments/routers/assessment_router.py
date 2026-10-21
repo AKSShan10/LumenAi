@@ -4,6 +4,7 @@
   GET  /api/candidates/{id}/assessment            the report; the page asks every 3 seconds while it is "running"
   PUT  /api/candidates/{id}/assessment/decision   {decision: hire | hold | reject | pending, note}: a person decides
   GET  /api/jobs/{id}/comparison                  the interviewed candidates of a job, best overall score first
+  PUT  /api/jobs/{id}/assessment-weight           {cv_weight}: change the CV / interview split; scores recalculated
 
 The routes only check the request; the work is in assessment_service.py and graphs/assessment_graph.py.
 """
@@ -12,7 +13,7 @@ from sqlmodel import Session
 
 from app.core.database import get_session
 from app.core.security import current_email, require_interviewer
-from app.features.assessments.schemas import AssessmentOut, ComparisonRow, DecisionIn
+from app.features.assessments.schemas import AssessmentOut, ComparisonRow, DecisionIn, WeightIn
 from app.features.assessments.services import assessment_service
 from app.features.candidates.routers.candidate_router import get_candidate_or_404
 from app.features.jobs.services.job_service import get_job_or_404
@@ -45,3 +46,9 @@ def record_decision(candidate_id: int, body: DecisionIn, session: Session = Depe
 def compare_candidates(job_id: int, session: Session = Depends(get_session)):
     """The comparison table of the Reports page."""
     return assessment_service.comparison(session, get_job_or_404(session, job_id))
+
+
+@router.put("/jobs/{job_id}/assessment-weight", response_model=list[ComparisonRow])
+def change_weight(job_id: int, body: WeightIn, session: Session = Depends(get_session)):
+    """The interviewer changes how much the CV counts (0-100 %); the overall scores of the job are recalculated."""
+    return assessment_service.set_weight(session, get_job_or_404(session, job_id), body.cv_weight)
