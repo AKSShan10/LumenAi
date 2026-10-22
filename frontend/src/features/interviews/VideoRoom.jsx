@@ -2,6 +2,7 @@ import "@livekit/components-styles";
 import { ChatIcon, ConnectionStateToast, DisconnectButton, LeaveIcon, LiveKitRoom, MediaDeviceMenu, ParticipantTile,
   RoomAudioRenderer, StartMediaButton, TrackToggle, useLocalParticipant, useTracks } from "@livekit/components-react";
 import { Track } from "livekit-client";
+import MicToText from "../transcripts/MicToText.jsx";
 
 // The video call itself, the same for the interviewer and the candidate.
 // The browser connects straight to the LiveKit server with the ticket our backend signed (one person, one room).
@@ -12,26 +13,22 @@ import { Track } from "livekit-client";
 // cameras move to a strip at the side. Only the buttons differ:
 //   layout="speaker" (the candidate): a bar with a Chat button (chat = {open, unread, onToggle} opens CallChat.jsx)
 //   layout="pair"    (the interviewer's room): round buttons on top of the video, at the bottom
-export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "the other person", chat, layout = "speaker" }) {
+// transcribe = {path, login, onStatus}: also sends this browser's microphone for the live transcript (transcripts/MicToText.jsx)
+export default function VideoRoom({ serverUrl, ticket, onLeave, waitingFor = "the other person", chat, layout = "speaker",
+                                    transcribe }) {
   const pair = layout === "pair";
   return (
     <div className={`video-room ${pair ? "pair" : ""}`} data-lk-theme="default">
-      <LiveKitRoom serverUrl={livekitAddress(serverUrl)} token={ticket} connect video audio onDisconnected={onLeave}
+      <LiveKitRoom serverUrl={serverUrl} token={ticket} connect video audio onDisconnected={onLeave}
                    style={{ height: "100%" }}>
         <Stage waitingFor={waitingFor} />
         <RoomAudioRenderer />
         <ConnectionStateToast />
+        {transcribe && <MicToText {...transcribe} />}
         {pair ? <RoundControls /> : <CallControls chat={chat} />}
       </LiveKitRoom>
     </div>
   );
-}
-
-// "/" = the LiveKit server in Docker, at the same address as this page (nginx passes /rtc to it), so it also works
-// through an https:// tunnel. Any other value is a full address, e.g. wss://your-project.livekit.cloud
-function livekitAddress(url) {
-  if (!url.startsWith("/")) return url;
-  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
 }
 
 const canShareScreen = typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;   // not on most phones

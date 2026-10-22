@@ -98,9 +98,9 @@ def test_login_rules(anonymous, client, interview, livekit):
     assert client.get("/api/video-check").json()["ok"] is True
 
 
-def test_livekit_in_docker_uses_the_apps_own_address(client, interview, livekit, monkeypatch):
-    """LIVEKIT_URL=/ (the livekit service): the browser gets "/" and connects to /rtc on the app's address."""
+def test_only_a_livekit_cloud_address_is_accepted(client, interview, livekit, monkeypatch):
+    """The call runs on LiveKit Cloud only; the old local value "/" is refused with a plain message."""
     monkeypatch.setattr(config, "LIVEKIT_URL", "/")
-    started = client.post(f"/api/sessions/{interview['id']}/start").json()
-    assert started["server_url"] == "/" and claims(started["ticket"])["video"]["room"] == started["room_name"]
-    assert "LiveKit server in Docker" in client.get("/api/video-check").json()["message"]
+    check = client.get("/api/video-check").json()
+    assert check["ok"] is False and "LiveKit Cloud address" in check["message"]
+    assert client.post(f"/api/sessions/{interview['id']}/start").status_code == 503

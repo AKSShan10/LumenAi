@@ -1,16 +1,15 @@
-"""MCP client: reaches one of our MCP servers, calls its tools and returns their text answers.
+"""MCP client: the one place that knows our MCP servers, and calls one tool on them.
 
-    call_tool("app.mcp_servers.blogger_server", "publish_blog_post", {"title": ..., "text": ...})
+    mcp_servers()                                   where each server is: used here and by the assistant agent
+    call_tool("blogger", "check_blogger_settings")  backend code calls one tool by name and gets its text answer
 
 Two ways to reach a server:
-    stdio  (default)  the server runs as a short-lived child process, spoken to over standard input / output
-    HTTP   (Docker)   the server is its own Docker service; its address comes from .env / docker-compose.yml
-                      (MCP_EMAIL_URL, MCP_BLOGGER_URL, MCP_RECRUITMENT_URL)
+    stdio  (default)  the server is started as a short-lived child process: python -m app.mcp_servers.<name>_server
+    HTTP   (Docker)   the server is its own Docker service; its address is MCP_BLOGGER_URL / MCP_RECRUITMENT_URL
 """
 import asyncio
 import os
 import sys
-from contextlib import asynccontextmanager
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -26,54 +25,43 @@ class McpError(Exception):
     """The MCP server could not be started, did not answer in time, or the tool failed."""
 
 
-# The HTTP address of a server when it runs as a Docker service, or "" to start it as a child process
-def server_url(module: str) -> str:
-    return {"app.mcp_servers.email_server": config.MCP_EMAIL_URL,
-            "app.mcp_servers.blogger_server": config.MCP_BLOGGER_URL,
-            "app.mcp_servers.recruitment_server": config.MCP_RECRUITMENT_URL}.get(module, "")
+def mcp_servers() -> dict:
+    """Our two MCP servers. An address in .env means its Docker service (HTTP); no address means a child process."""
+    environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}      # the child gets the backend's settings, can import app
+    servers = {}
+    for name, url in (("recruitment", config.MCP_RECRUITMENT_URL), ("blogger", config.MCP_BLOGGER_URL)):
+        if url:
+            servers[name] = {"url": url, "transport": "streamable_http"}
+        else:
+            servers[name] = {"command": sys.executable, "args": ["-m", f"app.mcp_servers.{name}_server"],
+                             "transport": "stdio", "env": environment}
+    return servers
 
 
-# Opens the connection to a server: over HTTP (Docker service) or by starting it as a child process (stdio)
-@asynccontextmanager
-async def _connect(module: str):
-    url = server_url(module)
-    if url:
-        async with streamable_http_client(url) as (read, write, _):    # → the server's Docker service
-            yield read, write
-        return
-    # The child process gets the same settings (.env values) as the backend, and can import `app`.
-    environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}
-    parameters = StdioServerParameters(command=sys.executable, args=["-m", module], env=environment)
-    async with stdio_client(parameters) as (read, write):              # → starts python -m <module>
-        yield read, write
-
-
-# Connects to an MCP server and calls its tools one by one (used by call_tools)
-async def _call(module: str, calls: list[tuple[str, dict]]) -> list[str]:
-    answers = []
-    async with _connect(module) as (read, write):
+async def _call(server: dict, tool: str, arguments: dict) -> str:
+    """Connects to one server, runs one tool, returns its text answer."""
+    if server["transport"] == "streamable_http":
+        connection = streamable_http_client(server["url"])                # → the server's Docker service
+    else:
+        connection = stdio_client(StdioServerParameters(command=server["command"], args=server["args"],
+                                                        env=server["env"]))  # → starts python -m <server>
+    async with connection as streams:
+        read, write = streams[0], streams[1]          # HTTP also gives a third value, which is not needed
         async with ClientSession(read, write) as session:
-            await session.initialize()
-            for tool, arguments in calls:
-                # → MCP: runs the tool inside the server process (e.g. publish_blog_post)
-                result = await session.call_tool(tool, arguments)
-                text = "".join(part.text for part in result.content if getattr(part, "type", "") == "text")
-                if result.isError:
-                    raise McpError(text or f"the tool {tool} reported an error")
-                answers.append(text)
-    return answers
+            await session.initialize()                                      # MCP hello: client and server agree
+            result = await session.call_tool(tool, arguments)               # → runs the tool inside the server
+    text = "".join(part.text for part in result.content if getattr(part, "type", "") == "text")
+    if result.isError:
+        raise McpError(text or f"the tool {tool} reported an error")
+    return text
 
 
-def call_tools(module: str, calls: list[tuple[str, dict]], timeout: int = TIMEOUT_SEC) -> list[str]:
-    """Starts the server once and calls several tools one after the other. Runs in normal (non-async) code."""
+def call_tool(name: str, tool: str, arguments: dict | None = None) -> str:
+    """Calls one tool on the server "blogger" or "recruitment" from normal (non-async) code. Waits at most 45 s."""
+    server = mcp_servers()[name]
     try:
-        return asyncio.run(asyncio.wait_for(_call(module, calls), timeout))
+        return asyncio.run(asyncio.wait_for(_call(server, tool, arguments or {}), TIMEOUT_SEC))
     except McpError:
         raise
-    except Exception as exc:
+    except Exception as exc:                          # not started, no answer in time, connection refused ...
         raise McpError(f"{type(exc).__name__} while calling the MCP server") from exc
-
-
-def call_tool(module: str, tool: str, arguments: dict | None = None) -> str:
-    """Calls one tool and returns its text answer."""
-    return call_tools(module, [(tool, arguments or {})])[0]

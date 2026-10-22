@@ -4,7 +4,7 @@ it can answer. This is the "ReAct agent" pattern (reason, act, repeat).
     interviewer's message -> agent (AI) --needs a tool?--> tool -> agent (AI) -> ... -> answer
 
 Where the tools come from:
-    MCP_SERVERS      the MCP servers; MultiServerMCPClient starts them and collects their tools
+    mcp_servers()    the MCP servers (app/mcp_servers/client.py); MultiServerMCPClient starts them, collects their tools
     HIDDEN_TOOLS     MCP tools the AI must not get (it could post without a person's Yes)
     LOCAL_TOOLS      two tools written here: they only ASK for an approval or a post
 
@@ -19,8 +19,6 @@ MAX_AI_MESSAGES messages of the thread (keep_recent); the full chat stays in the
 """
 import asyncio
 import logging
-import os
-import sys
 
 from langchain_core.messages import trim_messages
 from langchain_core.tools import tool
@@ -34,29 +32,13 @@ from app.features.assistant.models import AssistantAction
 from app.features.jobs.models import Job
 from app.graphs.assistant_prompts import ASSISTANT_PROMPT
 from app.graphs.checkpointer import async_checkpointer
+from app.mcp_servers.client import mcp_servers      # where the MCP servers are (one list for the whole app)
 
 log = logging.getLogger("assistant")
 
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TIMEOUT_SEC = 180
 MAX_STEPS = 16                   # how many AI and tool steps one message may take
 MAX_AI_MESSAGES = 30             # how many of the newest thread messages the model sees (tool answers included)
-
-
-def mcp_servers() -> dict:
-    """The MCP servers the assistant can use: their Docker services over HTTP when MCP_*_URL is set,
-    otherwise small programs started over stdio."""
-    environment = {**os.environ, "PYTHONPATH": BACKEND_DIR}       # same settings as the backend; can import `app`
-
-    def server(module: str, url: str) -> dict:
-        if url:
-            return {"url": url, "transport": "streamable_http"}  # → the server's Docker service
-        return {"command": sys.executable, "args": ["-m", module], "transport": "stdio", "env": environment}
-
-    return {
-        "recruitment": server("app.mcp_servers.recruitment_server", config.MCP_RECRUITMENT_URL),
-        "blogger": server("app.mcp_servers.blogger_server", config.MCP_BLOGGER_URL),
-    }
 
 
 # The Blogger server can post. The assistant only gets its check tool; posting goes through

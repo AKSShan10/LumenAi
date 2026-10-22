@@ -19,15 +19,21 @@ from app.core import config
 from app.core.database import init_db
 from app.core.logging_setup import setup_logging
 from app.graphs.checkpointer import checkpointer
+from app.features.assessments.routers import assessment_router
+from app.features.assessments.services.assessment_service import resume_running as resume_running_assessments
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
+from app.features.interview_helper.routers import helper_router
 from app.features.interviews.routers import interview_router, join_router
 from app.features.job_library.routers import company_document_router
 from app.features.jobs.routers import job_posting_router, job_router
+from app.features.qa_analysis.routers import qa_analysis_router
+from app.features.qa_analysis.services.qa_analysis_service import resume_running as resume_running_analyses
 from app.features.screening.routers import screening_router
 from app.features.screening.services.screening_worker import resume_waiting_screening
 from app.features.system.routers import system_router
+from app.features.transcripts.routers import stt_router, transcript_router
 
 # Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
 setup_logging(config.LOG_FILE)
@@ -36,7 +42,9 @@ api_log = logging.getLogger("api")               # one line for every API call
 
 
 # Each feature that runs long AI work adds its "resume" function here.
-RESUME_FUNCTIONS: list = [resume_waiting_screening]      # CVs that still wait for screening after a restart
+RESUME_FUNCTIONS: list = [resume_waiting_screening,      # CVs that still wait for screening after a restart
+                          resume_running_analyses,       # Q&A analyses that were still running
+                          resume_running_assessments]    # assessments that were still running
 
 
 def resume_unfinished_work() -> None:
@@ -96,6 +104,11 @@ for module in (auth_router,                      # login
                screening_router,                 # CV screening: the AI reads each CV, code checks the requirements
                interview_router,                 # interviews: schedule a shortlisted candidate, invitation email + calendar
                join_router,                      # the candidate's page (public, only with the private link)
+               stt_router,                       # the live transcript: each browser sends its own microphone
+               transcript_router,                # reading the transcript and the .txt download
+               helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
+               qa_analysis_router,               # after the call: the answers graded on four criteria (F5)
+               assessment_router,                # the final report, the decision and the comparison (F6)
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
                system_router):                   # "Test AI connection", workflow run log

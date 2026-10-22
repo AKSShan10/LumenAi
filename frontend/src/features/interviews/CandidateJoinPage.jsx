@@ -59,6 +59,7 @@ export default function CandidateJoinPage({ joinToken }) {
         <div className="room-body">
           <Suspense fallback={<p className="room-note">Opening the call...</p>}>
             <VideoRoom serverUrl={call.server_url} ticket={call.ticket} waitingFor="the interviewer"
+                       transcribe={{ path: `/api/join/${joinToken}/stt` }}
                        chat={{ open: chatOpen, unread, onToggle: () => setChatOpen(!chatOpen) }}
                        onLeave={() => { setCall(null); setLeft(true); }} />
           </Suspense>

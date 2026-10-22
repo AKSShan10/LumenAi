@@ -14,7 +14,6 @@ app/graphs/invitation_graph.py; this file starts it and passes the interviewer's
     end_call(...)            the interviewer ends the call for both: status ended
     candidate_ticket(...)    the candidate's ticket, only while the call is live
     session_out(...)         one interview for the page
-    email_check()            the Settings button "Test email"
 
 Draft first: nothing is sent by itself. The AI writes, code checks and puts in the link, a person sends.
 """
@@ -33,11 +32,12 @@ from app.ai.llm_client import llm_json
 from app.features.interviews.schemas import (BulkOut, BulkProblem, PlanIn, PlanRowOut, ScheduleIn, SessionOut,
                                              TemplateText, TicketOut)
 from app.features.interviews.services.invitation_service import (
-    as_utc, email_check, interviewer_name, join_link, standard_text, template_facts, template_problems)
+    as_utc, interviewer_name, join_link, standard_text, template_facts, template_problems)
 from app.graphs.invitation_prompts import INVITATION_TEMPLATE_PROMPT
 from app.features.interviews.services.slot_service import WorkingHours, hours_problem, plan_slots
 from app.features.interviews.services.video_service import make_ticket, video_problem
 from app.features.jobs.models import Job
+from app.features.qa_analysis.models import QaAnalysis
 from app.features.screening.models import ShortlistEntry
 from app.features.screening.services.shortlist_service import shortlist_rows
 from app.features.system.models import WorkflowRun
@@ -46,7 +46,7 @@ from app.graphs.invitation_graph import answer, start_invitation
 log = logging.getLogger("interviews")
 
 MAX_DAYS_AHEAD = 365
-__all__ = ["candidate_ticket", "email_check", "end_call", "plan_times", "reschedule", "rewrite", "schedule",
+__all__ = ["candidate_ticket", "end_call", "plan_times", "reschedule", "rewrite", "schedule",
            "schedule_many", "send_all", "send_invitation", "session_out", "start_call"]
 
 
@@ -218,7 +218,7 @@ def schedule_many(session: Session, items: list[ScheduleIn], by: str, template: 
 
 def send_all(session: Session, job_id: int, by: str) -> BulkOut:
     """Only after the interviewer clicked "Send all" and said Yes: every scheduled interview of the job whose invitation
-    is not sent yet is sent as it is now (the same path as the Send button: the workflow and the email MCP server)."""
+    is not sent yet is sent as it is now (the same path as the Send button: the workflow, then SMTP)."""
     rows = session.exec(select(InterviewSession).where(InterviewSession.job_id == job_id,
                                                        InterviewSession.status == "scheduled",
                                                        InterviewSession.invitation_status != "sent")
@@ -249,6 +249,7 @@ def _not_sent_reason(status: str) -> str:
 def session_out(session: Session, interview: InterviewSession, message: str = "") -> SessionOut:
     candidate = session.get(Candidate, interview.candidate_id)
     job = session.get(Job, interview.job_id)
+    analysis = session.exec(select(QaAnalysis).where(QaAnalysis.session_id == interview.id)).first()
     return SessionOut(id=interview.id, candidate_id=interview.candidate_id, job_id=interview.job_id,
                       candidate_name=candidate.full_name if candidate else "", job_title=job.title if job else "",
                       scheduled_at=as_utc(interview.scheduled_at), duration_minutes=interview.duration_minutes,
@@ -259,7 +260,11 @@ def session_out(session: Session, interview: InterviewSession, message: str = ""
                       created_at=as_utc(interview.created_at), message=message,
                       started_at=_maybe_utc(interview.started_at),
                       candidate_joined_at=_maybe_utc(interview.candidate_joined_at),
-                      ended_at=_maybe_utc(interview.ended_at))
+                      ended_at=_maybe_utc(interview.ended_at),
+                      # the Q&A analysis, so the Interviews list can show the score
+                      analysis_status=analysis.status if analysis else "not_started",
+                      analysis_error=(analysis.error or "") if analysis else "",
+                      interview_score=analysis.interview_score if analysis else None)
 
 
 # Returns the time marked as UTC, or None when there is no time

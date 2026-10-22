@@ -16,6 +16,7 @@
   GET  /api/sessions/{id}/chat?after=12   the call chat: the messages after message 12 (0 = all)
   POST /api/sessions/{id}/chat            send a chat message as the interviewer
   GET  /api/sessions/{id}/profile         the candidate's profile and screening result (interviewer only)
+  (The transcript routes are in features/transcripts.)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select

@@ -84,22 +84,31 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")                    # keep it only in .env
 SMTP_FROM = os.getenv("SMTP_FROM", "") or SMTP_USER               # the sender address the candidate sees
 SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").lower() != "false"
-# EMAIL_TRANSPORT:
-#   mcp  - the backend calls the email MCP server (app/mcp_servers/email_server.py), which sends it (default)
-#   smtp - the backend sends it itself (same SMTP code, no MCP server)
-EMAIL_TRANSPORT = os.getenv("EMAIL_TRANSPORT", "mcp")
 
 # ---------------- MCP servers ----------------
 # Empty (default): the backend starts each MCP server itself as a short-lived child process (stdio).
 # Docker: each server is its own service and these are their addresses (docker-compose.yml sets them).
-MCP_EMAIL_URL = os.getenv("MCP_EMAIL_URL", "")                    # http://email-mcp:8001/mcp
 MCP_BLOGGER_URL = os.getenv("MCP_BLOGGER_URL", "")                # http://blogger-mcp:8002/mcp
 MCP_RECRUITMENT_URL = os.getenv("MCP_RECRUITMENT_URL", "")        # http://recruitment-mcp:8003/mcp
 
 # ---------------- Video call (LiveKit) ----------------
 # A LiveKit Cloud project (the free plan is enough): Settings > Keys. The secret signs the call tickets; keep it in .env.
 # Empty = everything works except the video itself (the page says "Video is not set up").
-# "/" = the LiveKit server in Docker, reached through the same address as the app (nginx passes /rtc to it).
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud, or /
+# Only LiveKit Cloud: a hosted server can connect an interviewer and a candidate on different networks.
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")                        # wss://your-project.livekit.cloud
 LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
+
+# ---------------- Live transcript (speech-to-text) ----------------
+# STT_PROVIDER:
+#   deepgram = Deepgram live (https://console.deepgram.com > API Keys); the key stays in .env
+#   fake     = no service: test sentences (tests and demos without a key). Never use it for a real interview.
+STT_PROVIDER = os.getenv("STT_PROVIDER", "deepgram")
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
+DEEPGRAM_MODEL = os.getenv("DEEPGRAM_MODEL", "nova-3")
+DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "en")
+DEEPGRAM_URL = os.getenv("DEEPGRAM_URL", "wss://api.deepgram.com/v1/listen")
+
+# ---------------- Assessment (F6) ----------------
+# Overall score = CV score x ASSESSMENT_CV_WEIGHT % + interview score x (100 - ASSESSMENT_CV_WEIGHT) %
+ASSESSMENT_CV_WEIGHT = max(0, min(100, int(os.getenv("ASSESSMENT_CV_WEIGHT", "40"))))

@@ -3,8 +3,10 @@
     publish_blog_post(title, text, button_text, button_url)   publishes one post on the blog set in .env
     check_blogger_settings()                                  asks Google about the login and the blog, publishes nothing
 
-The backend starts it when it has something to publish:   python -m app.mcp_servers.blogger_server
-It talks over standard input / output (the "stdio" transport), so it needs no port and no extra container.
+Who calls it:
+    job_posting_service   call_tool("blogger", "publish_blog_post", ...) after a person's Yes, and the Settings check
+    assistant agent       gets only check_blogger_settings (publish_blog_post is hidden, see HIDDEN_TOOLS)
+How it runs (app/mcp_servers/client.py): a child process over stdio, or the blogger-mcp Docker service over HTTP.
 Any other MCP client can use the same server, for example the MCP Inspector:
     npx @modelcontextprotocol/inspector python -m app.mcp_servers.blogger_server
 

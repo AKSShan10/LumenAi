@@ -1,8 +1,9 @@
 """System checks for the interviewer.
 
   GET /api/llm-check       makes one tiny call to the AI service and says in plain words whether it works
-  GET /api/email-check     checks the email (SMTP) settings and login through the email MCP server; sends nothing
+  GET /api/email-check     checks the email (SMTP) settings and login; sends nothing
   GET /api/video-check     are the LiveKit settings there, and can a call ticket be made? connects to nothing
+  GET /api/stt-check       is speech-to-text set up, and does Deepgram accept the key? sends no sound
   GET /api/workflow-runs   the latest runs of the recruitment graph (stage, outcome, error, seconds)
 """
 from fastapi import APIRouter, Depends, Query
@@ -11,7 +12,8 @@ from sqlmodel import Session, select
 from app.ai.llm_client import check_connection
 from app.core.database import get_session
 from app.core.security import require_interviewer
-from app.features.interviews.services.invitation_service import email_check as check_email
+from app.features.interviews.services.smtp_service import check_email_settings as check_email
+from app.features.transcripts.services.stt_service import stt_check as check_stt
 from app.features.interviews.services.video_service import video_check as check_video
 from app.features.system.models import WorkflowRun
 
@@ -24,7 +26,7 @@ def llm_check():
     return check_connection()
 
 
-# GET /api/email-check: checks the email settings through the email MCP server; sends nothing
+# GET /api/email-check: checks the email (SMTP) settings and login; sends nothing
 @router.get("/email-check")
 def email_check():
     return check_email()
@@ -34,6 +36,12 @@ def email_check():
 @router.get("/video-check")
 def video_check():
     return check_video()
+
+
+# GET /api/stt-check: checks the speech-to-text settings and key; sends no sound
+@router.get("/stt-check")
+def stt_check():
+    return check_stt()
 
 
 # GET /api/workflow-runs: returns the latest WorkflowRun rows, newest first

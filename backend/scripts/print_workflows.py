@@ -22,6 +22,8 @@ from app.graphs.cv_screening_graph import cv_screening_graph  # noqa: E402
 from app.graphs.job_description_graph import job_description_graph  # noqa: E402
 from app.graphs.invitation_graph import invitation_graph  # noqa: E402
 from app.graphs.job_post_graph import job_post_graph  # noqa: E402
+from app.graphs.qa_analysis_graph import qa_analysis_graph  # noqa: E402
+from app.graphs.assessment_graph import assessment_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
 # keep_recent -> agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
@@ -37,9 +39,32 @@ WORKFLOWS = [
      cv_screening_graph),
     ("Interview invitation workflow (pauses until the interviewer sends)", "backend/app/graphs/invitation_graph.py",
      invitation_graph),
+    ("Q&A analysis workflow (after the interview, one run per interview)", "backend/app/graphs/qa_analysis_graph.py",
+     qa_analysis_graph),
+    ("Assessment workflow (post-interview, one run per candidate)", "backend/app/graphs/assessment_graph.py",
+     assessment_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),
 ]
 OUTPUT = BACKEND.parent / "docs" / "architecture" / "LumenAI_Workflows_From_Code.md"
+
+
+# LangGraph colours the boxes light but sets no text colour, so a dark editor theme (VS Code) shows light text
+# on light boxes. Dark text, a visible border and readable arrow labels work on dark and light backgrounds.
+READABLE = {
+    "classDef default fill:#f2f0ff,line-height:1.2":
+        "classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2",
+    "classDef last fill:#bfb6fc": "classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434",
+    "classDef first fill-opacity:0": "classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434",
+    "([<p>__start__</p>])": "([start])",           # the HTML label ignores the text colour; plain text follows it
+    "([<p>__end__</p>])": "([end])",
+}
+
+
+# Returns the Mermaid drawing with colours that stay readable on a dark background
+def readable(drawing: str) -> str:
+    for old, new in READABLE.items():
+        drawing = drawing.replace(old, new)
+    return drawing
 
 
 def main() -> None:
@@ -49,7 +74,7 @@ def main() -> None:
              "A solid arrow is always followed. A dotted arrow is a choice made by the code at that step.",
              ""]
     for title, file, compiled in WORKFLOWS:
-        drawing = compiled.get_graph().draw_mermaid()
+        drawing = readable(compiled.get_graph().draw_mermaid())
         steps = [name for name in compiled.get_graph().nodes if not name.startswith("__")]
         print(f"\n=== {title} ({file}) ===\nSteps: {' -> '.join(steps)}\n\n{drawing}")
         parts += [f"## {title}", "", f"Code: `{file}`", "", f"Steps: {', '.join(f'`{s}`' for s in steps)}", "",

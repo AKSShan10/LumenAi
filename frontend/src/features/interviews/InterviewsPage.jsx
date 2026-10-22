@@ -11,6 +11,15 @@ const CALL = {
   live: { label: "Live", badge: "done" },
   ended: { label: "Ended", badge: "draft" },
 };
+// The Q&A analysis in the Score column
+const ANALYSIS = {
+  not_started: { label: "Not analysed", badge: "" },
+  running: { label: "Analysing...", badge: "draft" },
+  done: { label: "Analysed", badge: "done" },
+  failed: { label: "Failed", badge: "failed" },
+};
+// The colour of a score: green 75 and above, amber 50 and above, red below 50
+const tone = (value) => (value === null || value === undefined ? "" : value >= 75 ? "good" : value >= 50 ? "fair" : "weak");
 const LOOK_AGAIN_MS = 10000;      // the list refreshes itself, so "Live" and the join times appear
 // Turns a date text from the backend into a short local date and time (empty if no date)
 const when = (text) => (text ? new Date(text).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
@@ -70,6 +79,14 @@ export default function InterviewsPage() {
       .catch(() => setNote({ ok: true, message: row.join_link }));
   }
 
+  // Opens the analysis page of an interview in a new tab ("transcript" opens it on the Transcript tab)
+  function openAnalysis(row, tab = "") {
+    setError("");
+    // → opens /interview-analysis/<id> in a new tab; window.open (inside the click) copies this tab's login
+    const page = window.open(`/interview-analysis/${row.id}${tab ? `?tab=${tab}` : ""}`, "_blank");
+    if (!page) setError("The browser blocked the new tab. Allow pop-ups for this site and click again.");
+  }
+
   if (!jobs) return <div className="card"><p className="muted">Loading...</p></div>;
   if (jobs.length === 0) return <div className="card"><p className="muted">No approved job yet.</p></div>;
 
@@ -104,16 +121,31 @@ export default function InterviewsPage() {
               {row.ended_at && <div className="muted">ended {when(row.ended_at)}</div>}
             </>
           ) },
+          { key: "score", title: "Score", className: "small", render: (row) => {
+            const result = ANALYSIS[row.analysis_status];
+            if (row.status !== "ended") return <span className="muted">–</span>;
+            return (
+              <span title={row.analysis_error || ""}>
+                {row.analysis_status === "done" && <b className={`mark ${tone(row.interview_score)}`}>{row.interview_score ?? "–"}</b>}{" "}
+                <span className={`badge ${result?.badge || ""}`}>{result?.label || row.analysis_status}</span>
+              </span>
+            );
+          } },
           { key: "actions", title: "", className: "small actions", render: (row) => (
             <>
               {row.status !== "ended" && (
                 <button className="link" onClick={() => openCall(row)}>
-                  {row.status === "live" ? "Join again (new tab)" : "Start interview (new tab)"}</button>
+                  {row.status === "live" ? "Join again" : "Start interview"}</button>
               )}
               {row.status === "live" && (
                 <button className="link" onClick={() => end(row)} disabled={busy !== ""}>End interview</button>
               )}
               {row.status !== "ended" && <button className="link" onClick={() => copyLink(row)}>Copy candidate link</button>}
+              {row.started_at && <button className="link" onClick={() => openAnalysis(row, "transcript")}>Transcript</button>}
+              {row.status === "ended" && (
+                <button className="link" onClick={() => openAnalysis(row)}>
+                  {row.analysis_status === "not_started" ? "Analyse answers" : "View analysis"}</button>
+              )}
             </>
           ) },
         ]} />

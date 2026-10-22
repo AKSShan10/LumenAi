@@ -15,6 +15,7 @@ os.environ.update({
     "LLM_PROVIDER": "fake",
     "BLOGGER_PROVIDER": "fake",
     "DRIVE_PROVIDER": "fake",
+    "STT_PROVIDER": "fake",               # test sentences instead of Deepgram
     "SCREENING_MODE": "manual",           # nothing screens by itself in the background during tests
     "STORAGE_DIR": tempfile.mkdtemp(prefix="lumenai-test-cvs-"),      # CV files of the tests; never the real folder
     "LOG_FILE": "",                       # tests write no log file
@@ -143,13 +144,13 @@ class FakeSmtpServer:
 
 @pytest.fixture
 def fake_smtp(monkeypatch):
-    """SMTP settings that point to the pretend server, for this process and for the MCP server it starts."""
+    """SMTP settings that point to the pretend server, so nothing is really sent."""
     from app.core import config
     server = FakeSmtpServer()
     settings = {"SMTP_HOST": "127.0.0.1", "SMTP_PORT": str(server.port), "SMTP_USER": "hr@example.com",
                 "SMTP_PASSWORD": "made-up-password", "SMTP_FROM": "hr@example.com", "SMTP_STARTTLS": "false"}
     for name, value in settings.items():
-        monkeypatch.setenv(name, value)                  # the MCP server is a child process: it reads the environment
+        monkeypatch.setenv(name, value)
         monkeypatch.setattr(config, name, int(value) if name == "SMTP_PORT" else value)
     monkeypatch.setattr(config, "SMTP_STARTTLS", False)
     yield server

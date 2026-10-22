@@ -10,9 +10,13 @@ import re
 
 from app.utils.skill_names import find_skill
 
+from app.features.interview_helper.services.helper_service import CHAT_PROMPT, QUESTIONS_PROMPT
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
 from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
+from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
+from app.graphs.assessment_prompts import (
+    AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
 
 # Returns a word-rule answer instead of Gemini, chosen by which prompt was sent (used by llm_json)
@@ -29,6 +33,30 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_ats_keywords(data)
     if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT):
         return _fake_invitation(data)
+    if instructions == QUESTIONS_PROMPT:
+        return _fake_questions(data)
+    if instructions == CHAT_PROMPT:
+        return _fake_helper_chat(data)
+    if instructions == SEGMENT_PROMPT:
+        return _fake_qa_pairs(data)
+    if instructions == REQUIREMENTS_PROMPT:
+        return _fake_qa_requirements(data)
+    if instructions in GRADE_PROMPTS.values():
+        return _fake_grades(data)
+    if instructions == STRENGTHS_PROMPT:
+        return {"strengths": _fake_evidence(data, strong=True)}
+    if instructions == WEAKNESSES_PROMPT:
+        return {"weaknesses": _fake_evidence(data, strong=False)}
+    if instructions == AREAS_PROMPT:
+        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)"}
+                          for gap in data.get("evidence_gaps", [])] or
+                [{"area": "Team work", "why": "Not discussed in the interview. (Fake AI text.)"}]}
+    if instructions == REPAIR_PROMPT:
+        return _fake_repair(data)
+    if instructions == SUMMARY_PROMPT:
+        return {"summary": f"Overall score {data['overall_score']} (CV {data['cv_score']}, interview "
+                           f"{data['interview_score']}). {len(data['strengths'])} strengths and "
+                           f"{len(data['weaknesses'])} weaknesses were found. (Fake AI text for offline tests.)"}
     return {"ok": True}
 
 
@@ -204,3 +232,112 @@ def _fake_invitation(data: dict) -> dict:
             "A calendar invite is attached. Please reply if the time does not suit you.\n\n"
             f"Kind regards,\n{data['interviewer_name']}\nHiring team\n(Fake AI text for offline tests.)")
     return {"subject": f"Interview invitation: {data['job_title']}", "body": body}
+
+
+def _fake_questions(data: dict) -> dict:
+    """One question per requirement: first the topic, then what the CV did not show, then the required skills.
+    Already suggested questions are skipped."""
+    wanted = ([data["topic"]] if data.get("topic") else []) + data.get("not_shown_in_cv", []) + \
+        data["job"].get("required_skills", []) + ["teamwork", "problem solving"]
+    questions, seen = [], set(data.get("already_suggested", []))
+    note = (data.get("company_notes") or [{}])[0]               # the first company note found (RAG), if any
+    asks = ["Can you describe a project where you used {}?", "What was the hardest problem you solved with {}?",
+            "How would you explain {} to a new team member?"]
+    for ask in asks:
+        for requirement in wanted:
+            question = ask.format(requirement)
+            if question in seen:
+                continue
+            seen.add(question)
+            questions.append({"question": question, "requirement": requirement,
+                              "why": f"The job asks for {requirement}. (Fake AI text for offline tests.)",
+                              "model_answer": f"A strong answer names a real project, what the candidate did with "
+                                              f"{requirement} and what the result was.",
+                              "source": note.get("title", "") if not questions else ""})   # the first uses the note
+    return {"questions": questions[:8]}
+
+
+def _fake_helper_chat(data: dict) -> dict:
+    """Repeats the interviewer's last message and lists two required skills to ask about."""
+    last = data["conversation"][-1]["text"] if data.get("conversation") else ""
+    skills = (data["job"].get("required_skills") or ["the main skills"])[:2]
+    lines = "\n".join(f"{i}. Ask about {skill}." for i, skill in enumerate(skills, 1))
+    notes = [n["title"] for n in data.get("company_notes", [])][:1]
+    return {"answer": f"You asked: {last}\n{lines}\n(Fake AI text for offline tests.)", "sources": notes}
+
+
+# ---------- Q&A analysis (qa_analysis_graph.py) ----------
+
+SMALL_TALK = ("hear me", "how are you", "ready to start", "any questions for us")
+
+
+def _fake_qa_pairs(data: dict) -> dict:
+    """An interviewer line with "?" is a question; the candidate lines after it are the answer.
+    "... and how ...?" is split into two parts. Greetings are small talk."""
+    pairs, current = [], None
+    for line in data["lines"]:
+        if line["speaker"] == "Interviewer":
+            current = None
+            if line["text"].strip().endswith("?"):
+                current = {"question": line["text"].strip(), "question_lines": [line["n"]], "answer_lines": [],
+                           "job_related": not any(words in line["text"].lower() for words in SMALL_TALK)}
+                pairs.append(current)
+        elif current is not None:
+            current["answer_lines"].append(line["n"])
+    result = []
+    for pair in pairs:
+        first, joint, second = pair["question"].partition(" and how ")
+        if joint:                                      # one question that asks two things
+            result.append({**pair, "question": first + "?", "split": True})
+            result.append({**pair, "question": "How " + second, "split": True})
+        else:
+            result.append({**pair, "split": False})
+    return {"pairs": result}
+
+
+def _fake_qa_requirements(data: dict) -> dict:
+    """A requirement is linked when its name appears in the question or the answer."""
+    return {"pairs": [{"n": p["n"], "requirements": [r for r in data["requirements"]
+                                                     if r.lower() in (p["question"] + " " + p["answer"]).lower()]}
+                      for p in data["pairs"]]}
+
+
+def _fake_grades(data: dict) -> dict:
+    """Longer answers get better grades. The quote is the first four words of the answer."""
+    notes = [n["title"] for n in data.get("company_notes", [])][:1]
+    grades = []
+    for pair in data["pairs"]:
+        words = pair["answer"].split()
+        grade = 75 if len(words) >= 12 else 50 if len(words) >= 6 else 25
+        grades.append({"n": pair["n"], "grade": grade, "quote": " ".join(words[:4]),
+                       "reason": f"The answer has {len(words)} words. (Fake AI text for offline tests.)",
+                       "sources": notes,
+                       "follow_up": "" if grade >= 75 else "Can you give a concrete example from your work?"})
+    return {"grades": grades}
+
+
+# ---------- Assessment (assessment_graph.py) ----------
+
+def _fake_evidence(data: dict, strong: bool) -> list:
+    """Strengths: requirements the CV met (quote: the CV words from that skill on) and answers scoring 50+.
+    Weaknesses: answers scoring below 50. Every quote is copied from the CV text or an answer."""
+    items, words = [], data["cv_text"].split()
+    if strong:
+        for match in data["requirement_matches"]:
+            spot = next((n for n, w in enumerate(words) if match["requirement"].lower() in w.lower()), None)
+            if match["status"] == "met" and spot is not None:
+                items.append({"text": f"The CV shows {match['requirement']}.", "quote": " ".join(words[spot:spot + 3]),
+                              "source": "CV"})
+    for answer in data["answers"]:
+        good = (answer["score"] or 0) >= 50
+        if good == strong:
+            items.append({"text": f"{'Good' if strong else 'Weak'} answer about: {answer['question']}",
+                          "quote": " ".join(answer["answer"].split()[:4]), "source": "Interview"})
+    return items[:5]
+
+
+def _fake_repair(data: dict) -> dict:
+    """Leaves out the items whose quote was not found."""
+    wrong = {p["quote"] for p in data["problems"]}
+    return {"strengths": [i for i in data["strengths"] if i["quote"] not in wrong],
+            "weaknesses": [i for i in data["weaknesses"] if i["quote"] not in wrong]}

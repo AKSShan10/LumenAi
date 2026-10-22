@@ -24,6 +24,7 @@ export default function SettingsPage() {
         <p><CheckButton label="Test Google Drive" check={systemApi.driveCheck} /></p>
         <p><CheckButton label="Test email" check={systemApi.emailCheck} /></p>
         <p><CheckButton label="Test video call settings" check={systemApi.videoCheck} /></p>
+        <p><CheckButton label="Test speech-to-text" check={systemApi.sttCheck} /></p>
       </div>
 
       <ChangePasswordCard />
