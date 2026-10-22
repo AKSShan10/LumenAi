@@ -74,6 +74,7 @@ from pydantic import BaseModel, ValidationError, field_validator
 from sqlmodel import Session, select
 
 from app.ai.llm_client import last_error, llm_json, llm_read_pdf
+from app.ai.model_choice import current_model
 from app.core import config
 from app.core.database import engine
 from app.features.candidates.services.cv_reading_service import looks_english, text_problem
@@ -357,7 +358,7 @@ def save_result(state: CvScreenState) -> dict:
             session.add(WorkflowRun(stage="hr_decision", subject_id=state["candidate_id"],   # change it again later)
                                     outcome=f"cleared ({row.decision} by {row.decided_by or 'a person'})", seconds=0.0))
             row.decision, row.decision_note, row.decided_by, row.decided_at = "", "", "", None
-        row.model = "fake" if config.LLM_PROVIDER == "fake" else config.LLM_MODEL
+        row.model = "fake" if config.LLM_PROVIDER == "fake" else current_model()
         session.add(row)
         # screened again and no longer included: off the shortlist (only included candidates are invited)
         remove_unless_included(session, state["candidate_id"], "included" if row.result == "passed" else row.result)

@@ -212,6 +212,3 @@ def test_the_report_shows_the_parts_behind_the_scores(client, anonymous, intervi
     for name in analysis["uncovered"]:
         assert rows[name]["interview"] is False
     assert all(r["cv"] in ("met", "partial", "unmet", "unchecked") for r in rows.values())
-
-    row = client.get(f"/api/jobs/{report['job_id']}/comparison").json()[0]       # the comparison shows them too
-    assert row["evidence_gaps"] == report["evidence_gaps"] and row["top_strength"] == report["strengths"][0]["text"]

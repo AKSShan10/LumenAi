@@ -15,8 +15,10 @@ from app.features.jobs.models.job_posting_model import JobPosting
 from app.features.qa_analysis.models.qa_analysis_model import QaAnalysis, QaItem
 from app.features.screening.models.screening_model import ScreeningResult
 from app.features.screening.models.shortlist_model import ShortlistEntry
+from app.features.system.models.app_setting_model import AppSetting
 from app.features.system.models.workflow_run_model import WorkflowRun
+from app.features.talent_pool.models.talent_pool_model import TalentInvite, TalentPoolEntry
 from app.features.transcripts.models.transcript_model import TranscriptTurn
 
-__all__ = ["Assessment", "AssistantAction", "CallMessage", "Candidate", "ChatConversation", "ChatMessage", "CompanyDocument",
-           "HelperMessage", "InterviewSession", "Job", "JobPosting", "QaAnalysis", "QaItem", "ScreeningResult", "ShortlistEntry", "TranscriptTurn", "User", "WorkflowRun"]
+__all__ = ["AppSetting", "Assessment", "AssistantAction", "CallMessage", "Candidate", "ChatConversation", "ChatMessage", "CompanyDocument",
+           "HelperMessage", "InterviewSession", "Job", "JobPosting", "QaAnalysis", "QaItem", "ScreeningResult", "ShortlistEntry", "TalentInvite", "TalentPoolEntry", "TranscriptTurn", "User", "WorkflowRun"]

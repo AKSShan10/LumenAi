@@ -19,6 +19,7 @@ import logging
 import re
 import time
 
+from app.ai.model_choice import current_model
 from app.core import config
 
 log = logging.getLogger("llm")
@@ -90,7 +91,7 @@ def llm_json(instructions: str, data) -> dict | None:
         client = _client()
         options = {} if config.LLM_TEMPERATURE is None else {"temperature": config.LLM_TEMPERATURE}
         response = client.chat.completions.create(  # → the actual Gemini call (OpenAI-compatible API at LLM_BASE_URL)
-            model=config.LLM_MODEL,
+            model=current_model(),
             messages=[
                 {"role": "system", "content": instructions + "\nReply with one JSON object only."},
                 {"role": "user", "content": data if isinstance(data, str) else json.dumps(data)},
@@ -101,7 +102,7 @@ def llm_json(instructions: str, data) -> dict | None:
         if answer is None:
             _fail("the AI answered, but not with valid JSON (try again, or try another model)")
         else:
-            log.info("AI call ok model=%s %.1fs %s", config.LLM_MODEL, time.time() - started, _tokens(response.usage))
+            log.info("AI call ok model=%s %.1fs %s", current_model(), time.time() - started, _tokens(response.usage))
         return answer
     except Exception as exc:  # network error, bad key, rate limit...
         name = type(exc).__name__
@@ -125,7 +126,7 @@ def llm_read_pdf(instructions: str, pdf: bytes) -> str | None:
 
     import requests
     started = time.time()
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.LLM_MODEL}:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{current_model()}:generateContent"
     body = {"contents": [{"parts": [
         {"inline_data": {"mime_type": "application/pdf", "data": base64.b64encode(pdf).decode()}},
         {"text": instructions}]}]}
@@ -146,7 +147,7 @@ def llm_read_pdf(instructions: str, pdf: bytes) -> str | None:
         _fail("the AI could not read any text in the PDF")
         return None
     usage = response.json().get("usageMetadata", {})
-    log.info("AI read a PDF model=%s %.1fs tokens in=%s out=%s thinking=%s", config.LLM_MODEL, time.time() - started,
+    log.info("AI read a PDF model=%s %.1fs tokens in=%s out=%s thinking=%s", current_model(), time.time() - started,
              usage.get("promptTokenCount", "?"), usage.get("candidatesTokenCount", "?"), usage.get("thoughtsTokenCount", 0))
     return text
 
@@ -177,7 +178,7 @@ def embed_texts(texts: list[str]) -> list[list[float]] | None:
 
 def check_connection() -> dict:
     """One tiny test call, used by the 'Test AI connection' button."""
-    info = {"provider": config.LLM_PROVIDER, "model": config.LLM_MODEL}
+    info = {"provider": config.LLM_PROVIDER, "model": current_model()}
     if config.LLM_PROVIDER == "fake":
         return {**info, "ok": True, "message": "Offline fake AI. Set LLM_PROVIDER=gemini for real AI."}
     answer = llm_json('Return {"ok": true}.', "ping")

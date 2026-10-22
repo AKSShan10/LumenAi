@@ -33,6 +33,7 @@ from app.features.qa_analysis.services.qa_analysis_service import resume_running
 from app.features.screening.routers import screening_router
 from app.features.screening.services.screening_worker import resume_waiting_screening
 from app.features.system.routers import system_router
+from app.features.talent_pool.routers import talent_pool_router, unsubscribe_router
 from app.features.transcripts.routers import stt_router, transcript_router
 
 # Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
@@ -111,5 +112,7 @@ for module in (auth_router,                      # login
                assessment_router,                # the final report, the decision and the comparison (F6)
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
+               talent_pool_router,               # talent pool: keep past candidates, invite them to new jobs
+               unsubscribe_router,               # the public "no more emails" link of a pool invitation
                system_router):                   # "Test AI connection", workflow run log
     app.include_router(module.router)

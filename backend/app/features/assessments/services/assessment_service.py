@@ -22,6 +22,8 @@ from app.features.interviews.models import InterviewSession
 from app.features.jobs.models import Job
 from app.features.qa_analysis.models import QaAnalysis, QaItem
 from app.features.screening.models import ScreeningResult
+from app.features.talent_pool.models import TalentPoolEntry
+from app.features.talent_pool.services.pool_service import state as pool_state
 from app.graphs.assessment_graph import assess_candidate, job_cv_weight, overall_score
 from app.utils.datetime_utils import utc_now
 
@@ -128,6 +130,7 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
         screening = session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate_id)).first()
         analysis = _done_analysis(session, candidate_id)
         report = session.exec(select(Assessment).where(Assessment.candidate_id == candidate_id)).first()
+        kept = session.exec(select(TalentPoolEntry).where(TalentPoolEntry.candidate_id == candidate_id)).first()
         rows.append(ComparisonRow(
             candidate_id=candidate_id, candidate_name=candidate.full_name,
             interview_ended=any(i.candidate_id == candidate_id and i.status == "ended" for i in interviews),
@@ -138,8 +141,7 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
             else (analysis.interview_score if analysis else None),
             overall_score=report.overall_score if report else None,
             cv_weight=weight,
-            evidence_gaps=(report.evidence_gaps or []) if report else [],
-            top_strength=(report.strengths or [{}])[0].get("text", "") if report and report.strengths else "",
+            pool=pool_state(kept) if kept else "",
             decision=report.decision if report else "pending"))
     rows.sort(key=lambda r: (r.overall_score is None, -(r.overall_score or 0), r.candidate_name))
     return rows

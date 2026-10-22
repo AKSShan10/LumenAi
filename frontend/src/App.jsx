@@ -9,6 +9,7 @@ import JobRequirementsPage from "./features/jobs/JobRequirementsPage.jsx";
 import CandidatesPage from "./features/candidates/CandidatesPage.jsx";
 import InterviewsPage from "./features/interviews/InterviewsPage.jsx";
 import ReportsPage from "./features/assessments/ReportsPage.jsx";
+import TalentPoolPage from "./features/talent_pool/TalentPoolPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
@@ -17,10 +18,11 @@ const MENU = [
   ["interviews", "Interviews", "calendar", "Invitations, live interviews and transcripts."],
   ["jobs", "Job Requirements", "document", "Chat with the AI: store documents, write the job, approve it and post it."],
   ["reports", "Reports", "chart", "Compare candidates and record the decision."],
+  ["talent-pool", "Talent Pool", "star", "Keep good past candidates and invite them to new jobs that fit."],
   ["settings", "Settings", "gear", "Connection checks and the workflow log."],
 ];
 
-// Each page has its own address: /dashboard, /candidates, /interviews, /jobs, /reports, /settings.
+// Each page has its own address: /dashboard, /candidates, /interviews, /jobs, /reports, /talent-pool, /settings.
 // The page is read from the address, so refresh, the Back button and bookmarks work. No router library needed:
 // a click writes the address with history.pushState, and Back/Forward ("popstate") reads it again.
 // nginx already sends every address to index.html (try_files in nginx.conf).
@@ -95,8 +97,9 @@ export default function App() {
           {page === "candidates" && <CandidatesPage />}
           {page === "interviews" && <InterviewsPage />}
           {page === "reports" && <ReportsPage />}
+          {page === "talent-pool" && <TalentPoolPage />}
           {/* Placeholder: each feature replaces this card with its real page. */}
-          {!["settings", "jobs", "candidates", "interviews", "reports"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
+          {!["settings", "jobs", "candidates", "interviews", "reports", "talent-pool"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

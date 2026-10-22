@@ -98,7 +98,8 @@ def chat_model():
         return FakeToolChatModel()
     from langchain_google_genai import ChatGoogleGenerativeAI
     # → the Gemini chat model that chooses the tools in the assistant
-    return ChatGoogleGenerativeAI(model=config.LLM_MODEL, google_api_key=config.LLM_API_KEY)
+    from app.ai.model_choice import current_model
+    return ChatGoogleGenerativeAI(model=current_model(), google_api_key=config.LLM_API_KEY)
 
 
 # ---------- running it ----------

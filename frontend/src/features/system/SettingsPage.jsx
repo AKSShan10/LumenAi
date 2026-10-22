@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { systemApi } from "./systemApi.js";
 import CheckButton from "./CheckButton.jsx";
+import ModelCard from "./ModelCard.jsx";
 import ChangePasswordCard from "../auth/ChangePasswordCard.jsx";
 import UsersCard from "../auth/UsersCard.jsx";
 import DataTable from "../../shared/utils/DataTable.jsx";
@@ -16,10 +17,11 @@ export default function SettingsPage() {
 
   return (
     <>
+      <ModelCard />
+
       <div className="card">
         <h2>Connection checks</h2>
         <p className="muted">Each check makes one small test call and says in plain words what to fix. Keys live in the .env file.</p>
-        <p><CheckButton label="Test AI connection" check={systemApi.llmCheck} /></p>
         <p><CheckButton label="Test job posting" check={systemApi.postingCheck} /></p>
         <p><CheckButton label="Test Google Drive" check={systemApi.driveCheck} /></p>
         <p><CheckButton label="Test email" check={systemApi.emailCheck} /></p>

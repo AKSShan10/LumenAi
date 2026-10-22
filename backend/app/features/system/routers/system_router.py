@@ -1,17 +1,21 @@
 """System checks for the interviewer.
 
   GET /api/llm-check       makes one tiny call to the AI service and says in plain words whether it works
+  GET /api/llm-model       the AI model in use, the default (LLM_MODEL) and the allowed list (LLM_MODEL_CHOICES)
+  PUT /api/llm-model       {model}: choose another allowed model; the next AI call uses it (no restart)
   GET /api/email-check     checks the email (SMTP) settings and login; sends nothing
   GET /api/video-check     are the LiveKit settings there, and can a call ticket be made? connects to nothing
   GET /api/stt-check       is speech-to-text set up, and does Deepgram accept the key? sends no sound
   GET /api/workflow-runs   the latest runs of the recruitment graph (stage, outcome, error, seconds)
 """
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.ai.llm_client import check_connection
+from app.ai.model_choice import choose_model, model_info
 from app.core.database import get_session
-from app.core.security import require_interviewer
+from app.core.security import current_email, require_interviewer
 from app.features.interviews.services.smtp_service import check_email_settings as check_email
 from app.features.transcripts.services.stt_service import stt_check as check_stt
 from app.features.interviews.services.video_service import video_check as check_video
@@ -24,6 +28,22 @@ router = APIRouter(prefix="/api", tags=["System"], dependencies=[Depends(require
 @router.get("/llm-check")
 def llm_check():
     return check_connection()
+
+
+class ModelIn(BaseModel):
+    model: str
+
+
+# GET /api/llm-model: the model in use, the default and the allowed list (Settings page)
+@router.get("/llm-model")
+def llm_model():
+    return model_info()
+
+
+# PUT /api/llm-model: the interviewer chooses another allowed model
+@router.put("/llm-model")
+def change_llm_model(body: ModelIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
+    return choose_model(session, body.model.strip(), email)
 
 
 # GET /api/email-check: checks the email (SMTP) settings and login; sends nothing

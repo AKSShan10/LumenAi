@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import { assessmentsApi } from "./assessmentsApi.js";
+import { talentPoolApi } from "../talent_pool/talentPoolApi.js";
 
 // The Reports page: the interviewed candidates of a job side by side, best overall score first.
 // "Create assessment" starts the report in the background; "View report" opens it in a new tab
@@ -56,6 +57,13 @@ export default function ReportsPage() {
     else if (start) setTimeout(() => load(), 3000);   // show "Assessing..." here soon
   }
 
+  // "Add to talent pool": → PUT /api/candidates/{id}/talent-pool (status "strong"; the note can be added on the report)
+  async function addToPool(row) {
+    setError("");
+    try { await talentPoolApi.add(row.candidate_id, "strong", ""); await load(); } catch (e) { setError(e.message); }
+  }
+  const POOL_WORDS = { active: "In talent pool", unsubscribed: "Unsubscribed", expired: "Pool time ended" };
+
   // On "Save weights": → PUT /api/jobs/{id}/assessment-weight; the answer is the recalculated table
   async function saveWeight(cvWeight) {
     setError(""); setNote("");
@@ -105,9 +113,6 @@ export default function ReportsPage() {
         { key: "cv", title: "CV score", render: (row) => <Score value={row.cv_score} /> },
         { key: "interview", title: "Interview score", render: (row) => <Score value={row.interview_score} /> },
         { key: "overall", title: "Overall", render: (row) => <b><Score value={row.overall_score} /></b> },
-        { key: "strength", title: "Top strength", className: "small", render: (row) => row.top_strength || "–" },
-        { key: "gaps", title: "Evidence gaps", className: "small", render: (row) => (row.evidence_gaps.length
-          ? row.evidence_gaps.map((gap) => <span key={gap} className="badge failed">{gap}</span>) : "–") },
         { key: "decision", title: "Decision", className: "small", render: (row) => (
           <span className={`badge ${DECISION[row.decision]?.badge || ""}`}>{DECISION[row.decision]?.label || row.decision}</span>
         ) },
@@ -122,6 +127,9 @@ export default function ReportsPage() {
               {row.status === "running" && <span className="muted">Assessing... </span>}
               {row.status === "failed" && <span className="badge failed">Failed</span>}{" "}
               <button className="link" onClick={() => openReport(row)}>View report</button>
+              {row.status === "done" && (row.pool
+                ? <span className={`badge ${row.pool === "active" ? "done" : ""}`}>{POOL_WORDS[row.pool]}</span>
+                : <button className="link" onClick={() => addToPool(row)}>Add to talent pool</button>)}
             </>
           );
         } },

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { auth } from "../../shared/api/authToken.js";
 import { assessmentsApi } from "./assessmentsApi.js";
 import { clock } from "../transcripts/LiveTranscript.jsx";
+import TalentPoolCard from "../talent_pool/TalentPoolCard.jsx";
 
 // The assessment report of one candidate, in its own browser tab (/assessment-report/<candidate id>), opened from
 // the Reports page. The tab gets a copy of the login from the tab that opened it.
@@ -304,6 +305,7 @@ export default function AssessmentReportPage({ candidateId }) {
         )}
 
         {status === "done" && <DecisionCard key={report.updated_at} report={report} onSaved={setReport} />}
+        {status === "done" && <TalentPoolCard candidateId={report.candidate_id} />}
       </div>
     </div>
   );

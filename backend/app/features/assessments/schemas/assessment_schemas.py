@@ -87,6 +87,5 @@ class ComparisonRow(BaseModel):
     interview_score: Optional[float] = None
     overall_score: Optional[float] = None
     cv_weight: int = 40              # the CV part of the overall score, in %
-    evidence_gaps: list[str] = []    # requirements with no proof (from the report)
-    top_strength: str = ""           # the first proven strength (from the report)
+    pool: str = ""                   # talent pool: "" (not in it) | active | unsubscribed | expired
     decision: str = "pending"

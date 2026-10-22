@@ -15,6 +15,7 @@ from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE
 from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
+from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
 from app.graphs.assessment_prompts import (
     AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
@@ -54,6 +55,13 @@ def fake_answer(instructions: str, data) -> dict:
                   "quote": " ".join(a["answer"].split()[:4])} for a in data["answers"][:1]]}
     if instructions == REPAIR_PROMPT:
         return _fake_repair(data)
+    if instructions == TALENT_INVITE_PROMPT:
+        skills = ", ".join(data["fitting_skills"]) or "your skills"
+        return {"subject": f"A new opening: {data['new_job']}",
+                "body": f"Dear {data['first_name']},\n\nThank you again for your earlier application for "
+                        f"{data['earlier_job']}. We now have a new opening for {data['new_job']}, and your experience "
+                        f"with {skills} may fit this role well. We would be glad if you applied for it. "
+                        f"(Fake AI text for offline tests.)"}
     if instructions == SUMMARY_PROMPT:
         return {"summary": f"Overall score {data['overall_score']} (CV {data['cv_score']}, interview "
                            f"{data['interview_score']}). {len(data['strengths'])} strengths and "

@@ -25,6 +25,9 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL") or (GEMINI_BASE_URL if LLM_PROVIDER == "gemini" else None)
 LLM_MODEL = os.getenv("LLM_MODEL") or ("gemini-3.5-flash" if LLM_PROVIDER == "gemini" else "gpt-4o-mini")
+# The models the interviewer may choose on the Settings page (comma-separated); LLM_MODEL is always one of them
+LLM_MODEL_CHOICES = list(dict.fromkeys(
+    [LLM_MODEL] + [m.strip() for m in os.getenv("LLM_MODEL_CHOICES", "").split(",") if m.strip()]))
 # Temperature is NOT sent unless you set it. Google asks to keep Gemini 3 models at their
 # default (1.0); lower values can make them loop. Stable scores come from our Python maths instead.
 LLM_TEMPERATURE = float(os.environ["LLM_TEMPERATURE"]) if os.getenv("LLM_TEMPERATURE") else None
@@ -112,3 +115,8 @@ DEEPGRAM_URL = os.getenv("DEEPGRAM_URL", "wss://api.deepgram.com/v1/listen")
 # ---------------- Assessment (F6) ----------------
 # Overall score = CV score x ASSESSMENT_CV_WEIGHT % + interview score x (100 - ASSESSMENT_CV_WEIGHT) %
 ASSESSMENT_CV_WEIGHT = max(0, min(100, int(os.getenv("ASSESSMENT_CV_WEIGHT", "40"))))
+
+# Talent pool: how many days a past candidate is kept and suggested for new jobs
+POOL_KEEP_DAYS = max(1, int(os.getenv("POOL_KEEP_DAYS", "365")))
+# Talent pool: the starting "minimum match %" on the Talent Pool page (the interviewer can change it there)
+POOL_MIN_MATCH = max(0, min(100, int(os.getenv("POOL_MIN_MATCH", "50"))))

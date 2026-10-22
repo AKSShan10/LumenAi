@@ -24,6 +24,7 @@ from app.graphs.invitation_graph import invitation_graph  # noqa: E402
 from app.graphs.job_post_graph import job_post_graph  # noqa: E402
 from app.graphs.qa_analysis_graph import qa_analysis_graph  # noqa: E402
 from app.graphs.assessment_graph import assessment_graph  # noqa: E402
+from app.graphs.talent_invite_graph import talent_invite_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
 # keep_recent -> agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
@@ -43,6 +44,8 @@ WORKFLOWS = [
      qa_analysis_graph),
     ("Assessment workflow (post-interview, one run per candidate)", "backend/app/graphs/assessment_graph.py",
      assessment_graph),
+    ("Talent pool invitation workflow (one run per person; a person sends)", "backend/app/graphs/talent_invite_graph.py",
+     talent_invite_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),
 ]
 OUTPUT = BACKEND.parent / "docs" / "architecture" / "LumenAI_Workflows_From_Code.md"

@@ -257,6 +257,39 @@ graph TD;
 	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
+## Talent pool invitation workflow (one run per person; a person sends)
+
+Code: `backend/app/graphs/talent_invite_graph.py`
+
+Steps: `load_facts`, `write_draft`, `check_draft`, `standard_text`, `finish`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([start]):::first
+	load_facts(load_facts)
+	write_draft(write_draft)
+	check_draft(check_draft)
+	standard_text(standard_text)
+	finish(finish)
+	__end__([end]):::last
+	__start__ --> load_facts;
+	check_draft -.-> finish;
+	check_draft -.-> standard_text;
+	check_draft -.-> write_draft;
+	load_facts --> write_draft;
+	standard_text --> finish;
+	write_draft --> check_draft;
+	finish --> __end__;
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
+```
+
 ## Assistant agent (the chatbot)
 
 Code: `backend/app/graphs/assistant_agent.py`
