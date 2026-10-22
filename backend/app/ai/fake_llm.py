@@ -48,9 +48,10 @@ def fake_answer(instructions: str, data) -> dict:
     if instructions == WEAKNESSES_PROMPT:
         return {"weaknesses": _fake_evidence(data, strong=False)}
     if instructions == AREAS_PROMPT:
-        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)"}
-                          for gap in data.get("evidence_gaps", [])] or
-                [{"area": "Team work", "why": "Not discussed in the interview. (Fake AI text.)"}]}
+        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)",
+                           "requirement": gap, "quote": ""} for gap in data.get("evidence_gaps", [])] or
+                [{"area": f"Follow up: {a['question']}", "why": "The answer was short. (Fake AI text.)", "requirement": "",
+                  "quote": " ".join(a["answer"].split()[:4])} for a in data["answers"][:1]]}
     if instructions == REPAIR_PROMPT:
         return _fake_repair(data)
     if instructions == SUMMARY_PROMPT:

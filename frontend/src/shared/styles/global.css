@@ -434,11 +434,15 @@ button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
 .decision-choice.chosen.reject { background: #fbdcd9; border-color: #f0b8b3; color: #b3261e; }
 .report-decision textarea { width: 100%; box-sizing: border-box; }
 .print-only { display: none; }
+.print-inline { display: none; }
+.parts-table { margin-top: 4px; } .parts-table td:last-child { text-align: right; }
+.parts-table b.good { color: var(--green); } .parts-table b.fair { color: #8a5a00; } .parts-table b.weak { color: #b3261e; }
 @media (max-width: 900px) { .report-grid { grid-template-columns: minmax(0, 1fr); } }
 /* Export PDF = the browser's print: only the report, on white, without buttons */
 @media print {
   .no-print { display: none !important; }
   .print-only { display: block; }
+  .print-inline { display: inline; }
   .analysis-page, body { background: #fff; }
   .analysis-bar { position: static; border-bottom: 2px solid #000; }
   .card, .summary-tile { break-inside: avoid; box-shadow: none; }

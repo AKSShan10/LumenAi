@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { auth } from "../../shared/api/authToken.js";
 import { assessmentsApi } from "./assessmentsApi.js";
+import { clock } from "../transcripts/LiveTranscript.jsx";
 
 // The assessment report of one candidate, in its own browser tab (/assessment-report/<candidate id>), opened from
 // the Reports page. The tab gets a copy of the login from the tab that opened it.
-//   scores (CV, interview, overall) · summary · strengths and weaknesses with their proof · evidence gaps ·
-//   areas to explore · the interviewer's decision · Export PDF (the browser's print: only the report is printed)
+//   scores (CV, interview, overall) and the parts behind them · summary · strengths and weaknesses with their proof
+//   (CV, or the interview with the time: a link to that line of the transcript) · requirements (CV and interview) ·
+//   evidence gaps · areas to explore with their requirement or quote · the interviewer's decision · Export PDF (the browser's print: only the report is printed)
 //   · Download HTML (the same report as one HTML file that opens in any browser)
 // ?start=1 (from "Create assessment"): the tab starts the assessment itself and shows the progress.
 // The AI writes the report; the decision is always made by the interviewer.
@@ -18,12 +20,23 @@ const tone = (value) => (value === null || value === undefined ? "" : value >= 7
 // Makes text safe to put inside HTML ("<" and "&" in a CV would otherwise break the file)
 const safe = (text) => String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+// Where a quote comes from, as text: "CV" or "Interview · 01:05"
+const where = (item) => (item.source === "Interview" && item.time !== null && item.time !== undefined
+  ? `Interview · ${clock(item.time)}` : item.source);
+
+// CV result and interview result of a requirement, in words
+const CV_WORDS = { met: "Met", partial: "Partly", unmet: "Not met", unchecked: "Not checked" };
+const shown = (value) => (value === true ? "Shown" : value === false ? "Not shown" : "–");
+
 // The report as one self-contained HTML file (styles inside), for "Download HTML": opens in any browser, offline
 function reportHtml(report) {
   const weight = report.cv_weight;
   const list = (items) => (items.length
-    ? `<ul>${items.map((i) => `<li>${safe(i.text)}<div class="quote">"${safe(i.quote)}" · ${safe(i.source)}</div></li>`).join("")}</ul>`
+    ? `<ul>${items.map((i) => `<li>${safe(i.text)}<div class="quote">"${safe(i.quote)}" · ${safe(where(i))}</div></li>`).join("")}</ul>`
     : "<p class=\"muted\">None proven with a quote.</p>");
+  const parts = (rows) => rows.map((p) => `<tr><td>${safe(p.name)}</td><td>${p.score ?? "–"}</td></tr>`).join("");
+  const areaBasis = (a) => [a.requirement && `Requirement: ${safe(a.requirement)}`,
+    a.quote && `"${safe(a.quote)}" · ${safe(where(a))}`].filter(Boolean).join(" · ");
   const decision = report.decision === "pending" ? "Pending"
     : `${report.decision[0].toUpperCase()}${report.decision.slice(1)}${report.decision_note ? ` · ${safe(report.decision_note)}` : ""}`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -34,7 +47,8 @@ function reportHtml(report) {
   .muted, .quote { color: #5f6878; font-size: 13px; } .scores { display: flex; gap: 12px; margin-top: 16px; }
   .score { border: 1px solid #e3e7ef; border-radius: 10px; padding: 10px 16px; } .score b { display: block; font-size: 24px; }
   .gap { display: inline-block; background: #fbdcd9; color: #b3261e; border-radius: 10px; padding: 2px 8px; margin: 0 4px 4px 0; font-size: 13px; }
-  li { margin-bottom: 8px; }
+  li { margin-bottom: 8px; } table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #e3e7ef; } .parts { display: flex; gap: 24px; }
 </style></head><body>
 <h1>Assessment report · ${safe(report.candidate_name)}</h1>
 <p class="muted">${safe(report.job_title)} · ${safe(new Date(report.updated_at).toLocaleString())}</p>
@@ -43,15 +57,23 @@ function reportHtml(report) {
   <div class="score">Interview score (${100 - weight} %)<b>${report.interview_score}</b></div>
   <div class="score">Overall score<b>${report.overall_score}</b></div>
 </div>
+<div class="parts">
+  <div><h2>CV score parts</h2><table>${parts(report.cv_parts)}</table></div>
+  <div><h2>Interview score parts</h2><table>${parts(report.interview_parts)}</table></div>
+</div>
 <h2>Summary</h2><p>${safe(report.summary)}</p>
 <h2>Strengths</h2>${list(report.strengths)}
 <h2>Weaknesses</h2>${list(report.weaknesses)}
+<h2>Requirements</h2><table><tr><th>Requirement</th><th>CV</th><th>Interview</th></tr>${report.requirements.map((r) =>
+    `<tr><td>${safe(r.requirement)}${r.kind === "must" ? " (must)" : ""}</td><td>${CV_WORDS[r.cv] || safe(r.cv)}</td><td>${shown(r.interview)}</td></tr>`).join("")}</table>
 <h2>Evidence gaps</h2>${report.evidence_gaps.length ? report.evidence_gaps.map((g) => `<span class="gap">${safe(g)}</span>`).join("")
     : "<p>None: every requirement has some proof.</p>"}
-<h2>Areas to explore</h2><ul>${report.recommended_areas.map((a) => `<li><b>${safe(a.area)}</b><div class="quote">${safe(a.why)}</div></li>`).join("")}</ul>
+<h2>Areas to explore</h2><ul>${report.recommended_areas.map((a) => `<li><b>${safe(a.area)}</b><div class="quote">${safe(a.why)}</div>
+<div class="quote">${areaBasis(a)}</div></li>`).join("")}</ul>
 <h2>Decision</h2><p><b>${decision}</b></p>
-<p class="muted">Every strength and weakness has a quote checked against the CV or the interview transcript. The AI wrote
-the report; the decision was made by the interviewer.</p>
+<p class="muted">Every strength and weakness has a quote checked against the CV or the interview transcript (with the time
+it was said); every area to explore is linked to a job requirement or a checked quote. The summary is written only from
+these checked items. The AI wrote the report; the decision was made by the interviewer.</p>
 </body></html>`;
 }
 
@@ -65,16 +87,44 @@ function downloadHtml(report) {
   URL.revokeObjectURL(link.href);
 }
 
+// Where a quote comes from: "CV", or "Interview · 01:05" as a link to that line of the transcript (analysis page,
+// new tab). Printed as plain text.
+function Source({ item, sessionId }) {
+  if (item.source !== "Interview" || item.time === null || item.time === undefined || !sessionId) return item.source;
+  // → opens /interview-analysis/<id>?tab=transcript&t=<seconds>; window.open (inside the click) copies the login
+  const open = () => window.open(`/interview-analysis/${sessionId}?tab=transcript&t=${item.time}`, "_blank");
+  return (
+    <>
+      <button type="button" className="link no-print" onClick={open} title="Show in transcript">{where(item)}</button>
+      <span className="print-inline">{where(item)}</span>
+    </>
+  );
+}
+
 // Strengths or weaknesses: the sentence, then the proof (the quote and where it is from)
-function EvidenceList({ items, empty }) {
+function EvidenceList({ items, empty, sessionId }) {
   if (!items.length) return <p className="muted small">{empty}</p>;
   return (
     <ul className="evidence-list">
       {items.map((item, n) => (
         <li key={n}>{item.text}
-          <div className="small muted">"{item.quote}" · {item.source}</div></li>
+          <div className="small muted">"{item.quote}" · <Source item={item} sessionId={sessionId} /></div></li>
       ))}
     </ul>
+  );
+}
+
+// The parts behind a total, e.g. Skills 80, Experience 70 (from the CV screening or the Q&A analysis)
+function Parts({ title, parts }) {
+  return (
+    <div className="card"><h3>{title}</h3>
+      {parts.length ? (
+        <table className="parts-table"><tbody>
+          {parts.map((p) => <tr key={p.name}><td>{p.name}</td>
+            <td><b className={tone(p.score)}>{p.score ?? "–"}</b></td></tr>)}
+        </tbody></table>
+      ) : <p className="muted small">Not available.</p>}
+    </div>
   );
 }
 
@@ -195,13 +245,41 @@ export default function AssessmentReportPage({ candidateId }) {
                 <b className={`summary-number ${tone(report.overall_score)}`}>{report.overall_score}</b></div>
             </div>
 
-            <div className="card"><h3>Summary</h3><p>{report.summary}</p></div>
+            <div className="report-grid">
+              <Parts title={`CV score parts (${report.cv_score})`} parts={report.cv_parts} />
+              <Parts title={`Interview score parts (${report.interview_score})`} parts={report.interview_parts} />
+            </div>
+
+            <div className="card"><h3>Summary</h3><p>{report.summary}</p>
+              <p className="small muted">Written only from the checked strengths, weaknesses and evidence gaps below.</p></div>
             <div className="report-grid">
               <div className="card"><h3>Strengths</h3>
-                <EvidenceList items={report.strengths} empty="No strength could be proven with a quote." /></div>
+                <EvidenceList items={report.strengths} sessionId={report.session_id}
+                              empty="No strength could be proven with a quote." /></div>
               <div className="card"><h3>Weaknesses</h3>
-                <EvidenceList items={report.weaknesses} empty="No weakness could be proven with a quote." /></div>
+                <EvidenceList items={report.weaknesses} sessionId={report.session_id}
+                              empty="No weakness could be proven with a quote." /></div>
             </div>
+            {report.requirements.length > 0 && (
+              <div className="card"><h3>Requirements</h3>
+                <p className="muted small">What the CV screening found for each requirement, and whether an interview
+                  answer showed it.</p>
+                <div className="table-scroll"><table>
+                  <thead><tr><th>Requirement</th><th>CV</th><th>Interview</th></tr></thead>
+                  <tbody>
+                    {report.requirements.map((r) => (
+                      <tr key={r.requirement}>
+                        <td>{r.requirement}{r.kind === "must" && <span className="muted small"> (must)</span>}</td>
+                        <td><span className={`badge ${r.cv === "met" ? "done" : r.cv === "unmet" ? "failed" : ""}`}
+                                  title={r.cv_how}>{CV_WORDS[r.cv] || r.cv}</span></td>
+                        <td>{r.interview === null ? "–"
+                          : <span className={`badge ${r.interview ? "done" : ""}`}>{shown(r.interview)}</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+              </div>
+            )}
             <div className="report-grid">
               <div className="card"><h3>Evidence gaps</h3>
                 <p className="muted small">Job requirements with no proof in the CV or the interview.</p>
@@ -209,12 +287,19 @@ export default function AssessmentReportPage({ candidateId }) {
                   : <p className="small">None: every requirement has some proof.</p>}</div>
               <div className="card"><h3>Areas to explore</h3>
                 <ul className="evidence-list">
-                  {report.recommended_areas.map((a) => <li key={a.area}><b>{a.area}</b><div className="small muted">{a.why}</div></li>)}
+                  {report.recommended_areas.map((a) => (
+                    <li key={a.area}><b>{a.area}</b><div className="small muted">{a.why}</div>
+                      <div className="small muted">
+                        {a.requirement && <span className="badge">{a.requirement}</span>}
+                        {a.quote && <>"{a.quote}" · <Source item={a} sessionId={report.session_id} /></>}
+                      </div></li>
+                  ))}
                 </ul></div>
             </div>
             <p className="small muted">Every strength and weakness has a quote that was checked against the CV or the
-              interview transcript{report.repair_rounds ? ` (${report.repair_rounds} correction round${report.repair_rounds > 1 ? "s" : ""})` : ""}.
-              Only the words were assessed, never voice or appearance.</p>
+              interview transcript{report.repair_rounds ? ` (${report.repair_rounds} correction round${report.repair_rounds > 1 ? "s" : ""})` : ""};
+              an interview time opens that line of the transcript. Every area to explore is linked to a job requirement
+              or a checked quote. Only the words were assessed, never voice or appearance.</p>
           </>
         )}
 

@@ -141,13 +141,15 @@ function RequirementsTab({ analysis, openQuestion }) {
 }
 
 export default function InterviewAnalysisPage({ sessionId }) {
-  const first = new URLSearchParams(window.location.search).get("tab");
+  const query = new URLSearchParams(window.location.search);
+  const first = query.get("tab");
+  const time = query.get("t");                      // from the assessment report: the transcript line to show
   const [tab, setTab] = useState(first === "transcript" ? "transcript" : "marks");  // marks | requirements | transcript
   const [interview, setInterview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [turns, setTurns] = useState([]);
   const [chosen, setChosen] = useState(null);       // the question shown on the right of the Marks tab
-  const [marked, setMarked] = useState(null);       // the transcript time "Show in transcript" jumps to
+  const [marked, setMarked] = useState(time === null ? null : Number(time));   // the time "Show in transcript" jumps to
   const [error, setError] = useState("");
   const running = analysis?.status === "running";
 

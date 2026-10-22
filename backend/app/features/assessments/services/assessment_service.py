@@ -2,7 +2,8 @@
 
     start(session, candidate)         "Create assessment": checks the CV score and the interview analysis exist
     run(candidate_id)                 runs the workflow (graphs/assessment_graph.py); called as a background task
-    result(session, candidate)        the report for the page (it asks every 3 s while "running")
+    result(session, candidate)        the report for the page (it asks every 3 s while "running"), with the parts
+                                      behind the scores (breakdown)
     decide(session, candidate, ...)   the interviewer records hire, hold or reject (never the AI)
     comparison(session, job)          every interviewed candidate of the job, best overall score first
     set_weight(session, job, weight)  the interviewer changes the CV / interview split; overall scores recalculated
@@ -15,16 +16,20 @@ from sqlmodel import Session, select
 
 from app.core.database import engine
 from app.features.assessments.models import Assessment
-from app.features.assessments.schemas import AssessmentOut, ComparisonRow, DecisionIn
+from app.features.assessments.schemas import AssessmentOut, ComparisonRow, DecisionIn, PartScore, RequirementRow
 from app.features.candidates.models import Candidate
 from app.features.interviews.models import InterviewSession
 from app.features.jobs.models import Job
-from app.features.qa_analysis.models import QaAnalysis
+from app.features.qa_analysis.models import QaAnalysis, QaItem
 from app.features.screening.models import ScreeningResult
 from app.graphs.assessment_graph import assess_candidate, job_cv_weight, overall_score
 from app.utils.datetime_utils import utc_now
 
 log = logging.getLogger("assessment")
+
+CV_PARTS = [("skills", "Skills"), ("experience", "Experience"), ("qualifications", "Qualifications")]
+INTERVIEW_PARTS = [("relevance", "Relevance"), ("accuracy", "Accuracy"), ("completeness", "Completeness"),
+                   ("articulation", "Articulation")]
 
 
 # The newest finished interview analysis of a candidate, or None
@@ -33,6 +38,35 @@ def _done_analysis(session: Session, candidate_id: int) -> QaAnalysis | None:
     return session.exec(select(QaAnalysis).where(QaAnalysis.session_id.in_(interview_ids or [0]),
                                                  QaAnalysis.status == "done")
                         .order_by(QaAnalysis.session_id.desc())).first()
+
+
+def breakdown(session: Session, job: Job | None, candidate_id: int, session_id: int | None) -> dict:
+    """The parts behind the totals, read from the saved results (code only, no AI):
+    the CV section scores, the average of each interview criterion, and every requirement with its CV and interview
+    result. So the report shows where each total comes from."""
+    screening = session.exec(select(ScreeningResult).where(ScreeningResult.candidate_id == candidate_id)).first()
+    sections = (screening.sections or {}) if screening else {}
+    cv_parts = [PartScore(name=label, score=(sections.get(key) or {}).get("score"))
+                for key, label in CV_PARTS if isinstance(sections.get(key), dict)]
+
+    analysis = session.exec(select(QaAnalysis).where(QaAnalysis.session_id == (session_id or 0))).first()
+    items = session.exec(select(QaItem).where(QaItem.session_id == (session_id or 0),
+                                              QaItem.job_related.is_(True))).all()
+    interview_parts = []
+    for key, label in INTERVIEW_PARTS:
+        grades = [getattr(i, key) for i in items if getattr(i, key) is not None]
+        interview_parts.append(PartScore(name=label, score=round(sum(grades) / len(grades), 1) if grades else None))
+
+    skills = list(dict.fromkeys(((job.required_skills or []) + (job.preferred_skills or [])) if job else []))
+    covered = set(analysis.covered or []) if analysis else set()
+    matches = {m.get("requirement"): m for m in (screening.matches or []) if isinstance(m, dict)} if screening else {}
+    rows = [RequirementRow(requirement=name, kind=str(matches.get(name, {}).get("kind") or ""),
+                           cv=str(matches.get(name, {}).get("status") or "unchecked"),
+                           cv_how=str(matches.get(name, {}).get("how") or ""),
+                           interview=name in covered) for name in skills]
+    rows += [RequirementRow(requirement=str(name), kind=str(m.get("kind") or ""), cv=str(m.get("status") or "unchecked"),
+                            cv_how=str(m.get("how") or "")) for name, m in matches.items() if name not in skills]
+    return {"cv_parts": cv_parts, "interview_parts": interview_parts if items else [], "requirements": rows}
 
 
 def start(session: Session, candidate: Candidate) -> AssessmentOut:
@@ -65,7 +99,8 @@ def result(session: Session, candidate: Candidate) -> AssessmentOut:
     row = session.exec(select(Assessment).where(Assessment.candidate_id == candidate.id)).first()
     if not row:
         return AssessmentOut(**names, status="not_started", cv_weight=job_cv_weight(job))
-    return AssessmentOut(**names, **row.model_dump(exclude={"id", "candidate_id", "job_id"}))
+    parts = breakdown(session, job, candidate.id, row.session_id) if row.session_id else {}
+    return AssessmentOut(**names, **row.model_dump(exclude={"id", "candidate_id", "job_id"}), **parts)
 
 
 def decide(session: Session, candidate: Candidate, body: DecisionIn, email: str) -> AssessmentOut:
@@ -103,6 +138,8 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
             else (analysis.interview_score if analysis else None),
             overall_score=report.overall_score if report else None,
             cv_weight=weight,
+            evidence_gaps=(report.evidence_gaps or []) if report else [],
+            top_strength=(report.strengths or [{}])[0].get("text", "") if report and report.strengths else "",
             decision=report.decision if report else "pending"))
     rows.sort(key=lambda r: (r.overall_score is None, -(r.overall_score or 0), r.candidate_name))
     return rows

@@ -9,11 +9,31 @@ class EvidenceItem(BaseModel):
     text: str                        # one sentence, e.g. "Built REST APIs with FastAPI for three years."
     quote: str                       # words copied from the CV or the candidate's answers (checked by code)
     source: str                      # CV | Interview
+    time: Optional[float] = None     # Interview: when it was said, seconds from the interview start (link to transcript)
 
 
 class AreaItem(BaseModel):
     area: str                        # what to explore further, e.g. "PostgreSQL indexing"
     why: str
+    requirement: str = ""            # the job requirement it is about (checked: one of the job's own)
+    quote: str = ""                  # proof from the CV or the answers (checked by code), or ""
+    source: str = ""                 # CV | Interview | "" (no quote)
+    time: Optional[float] = None     # Interview: when the quote was said
+
+
+class PartScore(BaseModel):
+    """One part behind a total score, e.g. CV "Skills" 80 or interview "Accuracy" 62.5."""
+    name: str
+    score: Optional[float] = None
+
+
+class RequirementRow(BaseModel):
+    """One job requirement: what the CV screening found and whether the interview showed it."""
+    requirement: str
+    kind: str = ""                   # must | nice
+    cv: str = "unchecked"            # met | partial | unmet | unchecked (from the CV screening)
+    cv_how: str = ""                 # the screening's one-sentence reason
+    interview: Optional[bool] = None # True = shown in an answer, False = not shown, None = not a skill asked about
 
 
 class AssessmentOut(BaseModel):
@@ -33,6 +53,10 @@ class AssessmentOut(BaseModel):
     weaknesses: list[EvidenceItem] = []
     evidence_gaps: list[str] = []
     recommended_areas: list[AreaItem] = []
+    # The parts behind the totals (read from the CV screening and the Q&A analysis when the report is opened)
+    cv_parts: list[PartScore] = []           # skills, experience, qualifications
+    interview_parts: list[PartScore] = []    # relevance, accuracy, completeness, articulation (averages)
+    requirements: list[RequirementRow] = []  # every requirement: CV result and interview result
     repair_rounds: int = 0
     decision: str = "pending"        # pending | hire | hold | reject
     decision_note: str = ""
@@ -63,4 +87,6 @@ class ComparisonRow(BaseModel):
     interview_score: Optional[float] = None
     overall_score: Optional[float] = None
     cv_weight: int = 40              # the CV part of the overall score, in %
+    evidence_gaps: list[str] = []    # requirements with no proof (from the report)
+    top_strength: str = ""           # the first proven strength (from the report)
     decision: str = "pending"

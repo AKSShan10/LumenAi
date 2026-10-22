@@ -105,6 +105,9 @@ export default function ReportsPage() {
         { key: "cv", title: "CV score", render: (row) => <Score value={row.cv_score} /> },
         { key: "interview", title: "Interview score", render: (row) => <Score value={row.interview_score} /> },
         { key: "overall", title: "Overall", render: (row) => <b><Score value={row.overall_score} /></b> },
+        { key: "strength", title: "Top strength", className: "small", render: (row) => row.top_strength || "–" },
+        { key: "gaps", title: "Evidence gaps", className: "small", render: (row) => (row.evidence_gaps.length
+          ? row.evidence_gaps.map((gap) => <span key={gap} className="badge failed">{gap}</span>) : "–") },
         { key: "decision", title: "Decision", className: "small", render: (row) => (
           <span className={`badge ${DECISION[row.decision]?.badge || ""}`}>{DECISION[row.decision]?.label || row.decision}</span>
         ) },
