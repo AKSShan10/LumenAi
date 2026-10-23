@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import { interviewsApi, invitationStatus } from "./interviewsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
+import JobPicker from "../../shared/utils/JobPicker.jsx";
+import { currentJob } from "../../shared/utils/currentJob.js";
 
 // The interviews of a job: start the video call, join it again, or end it. Interviews are scheduled from the
 // Shortlist on the Candidates page. The call opens in its own tab (InterviewRoomPage.jsx, /interview-room/<id>).
@@ -24,7 +26,8 @@ const LOOK_AGAIN_MS = 10000;      // the list refreshes itself, so "Live" and th
 // Turns a date text from the backend into a short local date and time (empty if no date)
 const when = (text) => (text ? new Date(text).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
 
-// The Interviews page: the interviews of a job, with Start, End and Copy link buttons; opened from App
+// The Interviews page: the interviews of all jobs (or of one job), with Start, End and Copy link buttons. The job
+// chosen here is opened on the other pages too (currentJob.js). Opened from App.
 export default function InterviewsPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
@@ -37,21 +40,23 @@ export default function InterviewsPage() {
     jobsApi.list().then((list) => {
       const approved = list.filter((j) => j.status === "approved");
       setJobs(approved);
-      if (approved[0]) setJobId(approved[0].id);
+      setJobId(currentJob.get(approved));          // the job chosen on another page, or All jobs
     }).catch((e) => setError(e.message));
   }, []);
 
-  // Loads the interviews of the job from GET /api/sessions?job_id=...
+  // Loads the interviews: → GET /api/sessions?job_id=... (one job) or GET /api/sessions (all jobs)
   function load(id = jobId) {
-    if (!id) return Promise.resolve();
-    // → GET /api/sessions?job_id=...: the interviews of this job
+    if (!jobs) return Promise.resolve();
     return interviewsApi.list(id).then(setSessions).catch((e) => setError(e.message));
   }
   useEffect(() => {
     load(jobId);
     const timer = setInterval(() => { if (!document.hidden) load(jobId); }, LOOK_AGAIN_MS);
     return () => clearInterval(timer);
-  }, [jobId]);                                       // eslint-disable-line react-hooks/exhaustive-deps
+  }, [jobId, jobs]);                                 // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A click on a job name in the All jobs list: show only that job (and remember it for the other pages)
+  function showJob(id) { currentJob.set(id); setJobId(id); }
 
   // The call opens in a new tab. window.open (inside the click) gives that tab a copy of this tab's login.
   function openCall(row) {
@@ -95,19 +100,18 @@ export default function InterviewsPage() {
       <div className="card">
         <div className="row-between">
           <h3>Interviews</h3>
-          <label htmlFor="interviews-job" className="inline">Job
-            <select id="interviews-job" value={jobId || ""} onChange={(e) => setJobId(Number(e.target.value))}>
-              {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
-            </select>
-          </label>
+          <JobPicker id="interviews-job" jobs={jobs} value={jobId} onChange={setJobId} />
         </div>
         <p className="muted small">Schedule interviews from the Shortlist on the Candidates page. Start the call here at the
           interview time; the candidate can join only while it is live.</p>
         {note && <p className={note.ok ? "ok small" : "error small"}>{note.message}</p>}
         {error && <p className="error">{error}</p>}
 
-        <DataTable rows={sessions} empty="No interviews for this job yet." columns={[
+        <DataTable rows={sessions} empty={jobId ? "No interviews for this job yet." : "No interviews yet."} columns={[
           { key: "who", title: "Candidate", render: (row) => <b>{row.candidate_name || "(name not given)"}</b> },
+          ...(jobId ? [] : [{ key: "job", title: "Job", className: "small", render: (row) => (
+            <button type="button" className="link" onClick={() => showJob(row.job_id)} title="Show only this job">
+              {row.job_title}</button>) }]),
           { key: "time", title: "Time", render: (row) => <>{when(row.scheduled_at)}<div className="muted small">{row.duration_minutes} minutes</div></> },
           { key: "invite", title: "Invitation", className: "small", render: (row) => {
             const status = invitationStatus(row.invitation_status);

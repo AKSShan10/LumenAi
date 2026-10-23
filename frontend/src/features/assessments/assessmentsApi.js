@@ -4,6 +4,8 @@ import { put, request } from "../../shared/api/httpClient.js";
 export const assessmentsApi = {
   // GET /api/jobs/{id}/comparison: the interviewed candidates of a job, best overall score first
   comparison: (jobId) => request(`/api/jobs/${jobId}/comparison`),
+  // GET /api/comparison: the same for all jobs, grouped by job (scores are not ranked across jobs)
+  comparisonAll: () => request("/api/comparison"),
   // PUT /api/jobs/{id}/assessment-weight: the CV part of the overall score in % (the interview gets the rest);
   // the overall scores of the job are recalculated. Answers the new comparison table.
   setWeight: (jobId, cvWeight) => request(`/api/jobs/${jobId}/assessment-weight`, put({ cv_weight: cvWeight })),

@@ -6,7 +6,7 @@
   POST /api/sessions/template             "Write the invitation": the AI writes ONE invitation for the shortlist (to check)
   POST /api/sessions/bulk                 "Schedule and save invitations": many candidates at once, drafts only
   POST /api/sessions/send-all?job_id=3    "Send all invitations": sends every unsent draft of the job
-  GET  /api/sessions?job_id=3             the interviews of a job
+  GET  /api/sessions?job_id=3             the interviews of a job (without job_id: of all jobs)
   GET  /api/sessions/{id}                 one interview with its invitation
   PUT  /api/sessions/{id}/time            a new time: a new draft (send it again so the candidate knows)
   POST /api/sessions/{id}/invitation      "Write again with AI": a new draft, nothing is sent
@@ -74,11 +74,11 @@ def send_all_invitations(job_id: int, session: Session = Depends(get_session), e
     return send_all(session, job_id, email)
 
 
-# GET /api/sessions?job_id=: returns the interviews of one job, ordered by time (session_out)
+# GET /api/sessions?job_id=: the interviews of one job, or of all jobs without job_id, ordered by time (session_out)
 @router.get("", response_model=list[SessionOut])
-def list_sessions(job_id: int, session: Session = Depends(get_session)):
-    rows = session.exec(select(InterviewSession).where(InterviewSession.job_id == job_id)
-                        .order_by(InterviewSession.scheduled_at)).all()
+def list_sessions(job_id: int | None = None, session: Session = Depends(get_session)):
+    query = select(InterviewSession).order_by(InterviewSession.scheduled_at)
+    rows = session.exec(query.where(InterviewSession.job_id == job_id) if job_id else query).all()
     return [session_out(session, row) for row in rows]
 
 

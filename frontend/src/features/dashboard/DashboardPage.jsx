@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import { dashboardApi } from "./dashboardApi.js";
+import { currentJob } from "../../shared/utils/currentJob.js";
 
 // The Dashboard: where every job, CV, interview and report stands. All numbers are counted by the backend from the
 // saved data (dashboard_service.py, no AI). "All jobs" or one job; the jobs table and the AI health are always for all.
@@ -39,14 +40,17 @@ function Bar({ label, value, max, text, className = "" }) {
 }
 
 export default function DashboardPage({ jobs = [], onOpen = () => {} }) {
-  const [jobId, setJobId] = useState("");
+  const [jobId, setJobId] = useState(() => { try { return sessionStorage.getItem("lumenai_job") || ""; } catch { return ""; } });
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
   // → GET /api/dashboard (again when another job is chosen)
   useEffect(() => {
     setError("");
-    dashboardApi.get(jobId).then(setData).catch((e) => setError(e.message));
+    dashboardApi.get(jobId).then(setData).catch((e) => {
+      if (jobId) { currentJob.clear(); setJobId(""); return; }   // the remembered job was deleted: All jobs
+      setError(e.message);
+    });
   }, [jobId]);
 
   if (error) return <div className="card"><p className="error">{error}</p></div>;
@@ -62,7 +66,7 @@ export default function DashboardPage({ jobs = [], onOpen = () => {} }) {
       <div className="row-between dash-head">
         <p className="muted small">{chosen ? `Showing: ${chosen.title}` : "Showing: all jobs"}</p>
         <label htmlFor="dash-job" className="inline">Job
-          <select id="dash-job" value={jobId} onChange={(e) => setJobId(e.target.value)}>
+          <select id="dash-job" value={jobId} onChange={(e) => { setJobId(e.target.value); currentJob.set(Number(e.target.value) || null); }}>
             <option value="">All jobs</option>
             {data.jobs.map((j) => <option key={j.job_id} value={j.job_id}>{j.title}</option>)}
           </select>

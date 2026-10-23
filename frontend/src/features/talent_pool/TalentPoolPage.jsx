@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { jobsApi } from "../jobs/jobsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
+import JobPicker from "../../shared/utils/JobPicker.jsx";
+import { currentJob } from "../../shared/utils/currentJob.js";
 import { POOL_STATUS, talentPoolApi } from "./talentPoolApi.js";
 
 // The Talent Pool page (innovation feature).
@@ -33,14 +35,14 @@ export default function TalentPoolPage() {
     jobsApi.list().then((list) => {
       const approved = list.filter((j) => j.status === "approved");
       setJobs(approved);
-      if (approved[0]) setJobId(approved[0].id);
+      setJobId(currentJob.get(approved) || "");     // the job chosen on another page, or All jobs ("")
     }).catch((e) => setError(e.message));
     loadPool();
   }, []);
 
   // → GET /api/jobs/{id}/talent-matches with the filters; the first answer fills in the default minimum match
   function loadMatches(id = jobId, chosenFilters = filters) {
-    if (!id) return;
+    if (!id) { setMatches([]); return; }
     talentPoolApi.matches(id, chosenFilters).then((answer) => {
       setMatches(answer.rows);
       setFilters((old) => (old.min_match === "" ? { ...old, min_match: String(answer.min_match) } : old));
@@ -109,11 +111,8 @@ export default function TalentPoolPage() {
       <div className="card">
         <div className="row-between">
           <h3>Past candidates for a job</h3>
-          <label htmlFor="pool-job" className="inline">Job
-            <select id="pool-job" value={jobId} onChange={(e) => setJobId(Number(e.target.value))}>
-              {jobs.map((j) => <option key={j.id} value={j.id}>{j.title}</option>)}
-            </select>
-          </label>
+          <JobPicker id="pool-job" jobs={jobs} value={jobId || null} onChange={(id) => setJobId(id || "")}
+                     allLabel="Choose a job" />
         </div>
         <p className="muted small">The match uses only the job's skills and the CV text (also other names of a skill,
           e.g. Postgres = PostgreSQL). Required skills count twice, preferred skills once. Name, gender, age, address and
@@ -137,6 +136,9 @@ export default function TalentPoolPage() {
         </div>
         {error && <p className="error">{error}</p>}
 
+        {!jobId && <p className="muted small">Choose a job to see the past candidates who fit it. The talent pool below
+          shows everyone.</p>}
+        {jobId && <>
         <DataTable rows={matches} rowKey={(row) => row.pool_id}
                    empty="No one meets these filters. Lower the minimum match or clear a filter. People are not suggested for a job they already applied to." columns={[
           { key: "pick", title: "", render: (row) => (
@@ -156,6 +158,7 @@ export default function TalentPoolPage() {
         ]} />
         <button type="button" onClick={draft} disabled={!chosen.length || busy}>
           {busy && !drafts ? "Drafting..." : `Draft invitations (${chosen.length})`}</button>
+        </>}
 
         {drafts && (
           <div className="pool-drafts">

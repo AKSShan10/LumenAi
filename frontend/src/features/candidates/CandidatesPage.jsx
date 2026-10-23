@@ -7,6 +7,8 @@ import ScreeningCard from "../screening/ScreeningCard.jsx";
 import DecisionControl from "../screening/DecisionControl.jsx";
 import { screeningApi } from "../screening/screeningApi.js";
 import { SectionHead, StepTabs } from "./StepTabs.jsx";
+import JobPicker from "../../shared/utils/JobPicker.jsx";
+import { currentJob } from "../../shared/utils/currentJob.js";
 
 const SOURCES = { google_form: "Google Form", upload: "Uploaded by hand" };
 const CHECK_EVERY_MS = 60000;      // the job's Google Form is looked at again every minute
@@ -21,6 +23,10 @@ function lastTab() {
 // the job's "Apply now" link, given when the job was posted), fetch them (the CV files are saved on this
 // computer), or upload CVs by hand. Each application is ONE form answer, so a person is always shown with their own CV.
 // The page has one tab per hiring step: Applications → Included / Excluded → Shortlist, each in its own color.
+// "All jobs" (no job chosen) shows everyone who applied to any job; choosing a job opens the steps and the actions.
+// The job chosen here is opened on the other pages too (currentJob.js).
+const STATE = { waiting: ["waiting", ""], needs_review: ["needs a look", "draft"], included: ["included", "done"],
+  excluded: ["excluded", "failed"] };
 export default function CandidatesPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
@@ -29,6 +35,7 @@ export default function CandidatesPage() {
   const [show, setShow] = useState("all");          // which candidates the list shows: all | google_form | upload
   const [result, setResult] = useState(null);       // answer of the last fetch
   const [candidates, setCandidates] = useState([]);
+  const [everyone, setEveryone] = useState([]);     // All jobs: every candidate with the job title
   const [person, setPerson] = useState({ fullName: "", email: "", phone: "" });
   const [files, setFiles] = useState([]);
   const [uploadNotes, setUploadNotes] = useState([]);
@@ -45,7 +52,7 @@ export default function CandidatesPage() {
     jobsApi.list().then((list) => {
       const approved = list.filter((j) => j.status === "approved");
       setJobs(approved);
-      if (approved[0]) choose(approved[0]);
+      choose(approved.find((j) => j.id === currentJob.get(approved)) || null);   // the job chosen on another page
     }).catch((e) => setError(e.message));
   }, []);
 
@@ -75,10 +82,17 @@ export default function CandidatesPage() {
     return () => clearInterval(timer);                             // stops when you leave the page or change the job
   }, [jobId, formReady]);
 
-  // Picks a job: clears old messages, loads its candidates and checks its Google Form for new answers
+  // Picks a job: clears old messages, loads its candidates and checks its Google Form for new answers.
+  // null = All jobs: loads everyone (→ GET /api/candidates); the form and the uploads need a job.
   function choose(job) {
-    setJobId(job.id);
     setNews(null); setCheckedAt(null); setResult(null); setUploadNotes([]); setError(""); setShow("all");
+    if (!job) {
+      setJobId(null);
+      candidatesApi.listAll().then(setEveryone).catch((e) => setError(e.message));
+      return;
+    }
+    currentJob.set(job.id);
+    setJobId(job.id);
     candidatesApi.list(job.id).then(setCandidates).catch((e) => setError(e.message));
     check(job.id);                                  // so you know about new applications as soon as the page opens
   }
@@ -138,6 +152,31 @@ export default function CandidatesPage() {
   if (jobs.length === 0) {
     return <div className="card"><p className="muted">No approved job yet. Write and approve a job in the chat on the Job Requirements page first.</p></div>;
   }
+  if (!jobId) {                                     // All jobs: an overview; the steps and actions need a job
+    return (
+      <div className="card">
+        <div className="row-between">
+          <h3>All candidates <small className="muted">({everyone.length})</small></h3>
+          <JobPicker id="candidates-job" jobs={jobs} value={null}
+                     onChange={(id) => choose(jobs.find((j) => j.id === id) || null)} />
+        </div>
+        <p className="muted small">Everyone who applied to any job, newest first. Choose a job to fetch applications, upload
+          CVs, see the screening steps and make the shortlist.</p>
+        {error && <p className="error">{error}</p>}
+        <DataTable rows={everyone} empty="No candidates yet." columns={[
+          { key: "name", title: "Name", render: (c) => <b>{c.full_name || "(name not given)"}</b> },
+          { key: "job", title: "Job", className: "small", render: (c) => (
+            <button type="button" className="link" title="Open this job"
+                    onClick={() => choose(jobs.find((j) => j.id === c.job_id) || null)}>{c.job_title}</button>) },
+          { key: "email", title: "Email", className: "small" },
+          { key: "state", title: "Screening", className: "small", render: (c) => (
+            <span className={`badge ${STATE[c.screening_state]?.[1] || ""}`}>{STATE[c.screening_state]?.[0] || c.screening_state}</span>) },
+          { key: "from", title: "From", className: "small", render: (c) => (
+            <>{SOURCES[c.source] || c.source}{c.applied_at && <div className="muted">{c.applied_at}</div>}</>) },
+        ]} />
+      </div>
+    );
+  }
   const shown = candidates.filter((c) => show === "all" || c.source === show);
   // The # column: 1 for the oldest candidate of this job, then 2, 3 ... with no gaps, also after a delete.
   // The list comes newest first, so the newest one gets the highest number.
@@ -148,11 +187,10 @@ export default function CandidatesPage() {
   return (
     <>
       <div className="card page-top">
-        <label className="inline job-pick">Job{" "}
-          <select value={jobId} onChange={(e) => choose(jobs.find((j) => j.id === Number(e.target.value)))}>
-            {jobs.map((j) => <option key={j.id} value={j.id}>#{j.id} {j.title}</option>)}
-          </select>
-        </label>
+        <div className="job-pick">
+          <JobPicker id="candidates-job" jobs={jobs} value={jobId}
+                     onChange={(id) => choose(jobs.find((j) => j.id === id) || null)} />
+        </div>
         <StepTabs active={tab} onPick={pick}
                   counts={{ applications: candidates.length, ...counts }}
                   extra={{ applications: needsLook > 0 ? `${needsLook} need a look` : waiting > 0 ? `${waiting} waiting` : "",

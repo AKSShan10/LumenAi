@@ -80,6 +80,8 @@ class ComparisonRow(BaseModel):
     """One candidate of the job in the comparison table."""
     candidate_id: int
     candidate_name: str
+    job_id: int = 0
+    job_title: str = ""
     interview_ended: bool            # an interview of this candidate has ended
     analysis_done: bool              # its answers have been analysed (needed for the assessment)
     status: str                      # the assessment: not_started | running | done | failed

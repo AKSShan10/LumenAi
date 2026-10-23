@@ -2,8 +2,8 @@
 import { json, put, request } from "../../shared/api/httpClient.js";
 
 export const interviewsApi = {
-  // GET /api/sessions?job_id=...: the interviews of one job
-  list: (jobId) => request(`/api/sessions?job_id=${jobId}`),
+  // GET /api/sessions?job_id=...: the interviews of one job; without a job: of all jobs
+  list: (jobId) => request(jobId ? `/api/sessions?job_id=${jobId}` : "/api/sessions"),
   // GET /api/sessions/{id}: one interview (who, when, call times, analysis score)
   get: (sessionId) => request(`/api/sessions/${sessionId}`),
   // when: {scheduled_at (ISO, UTC), duration_minutes, time_zone}; the backend writes the invitation draft

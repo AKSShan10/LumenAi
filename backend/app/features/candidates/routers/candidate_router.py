@@ -5,6 +5,7 @@
   POST   /api/jobs/{job_id}/applications/fetch    download the new CVs and save one candidate per form answer
   POST   /api/jobs/{job_id}/candidates/upload     manual upload: one CV file becomes one candidate
   GET    /api/jobs/{job_id}/candidates            the candidates of one job, newest first
+  GET    /api/candidates                          the candidates of all jobs, newest first (with the job title)
   GET    /api/candidates/{candidate_id}/cv        the saved CV file of one candidate
   DELETE /api/candidates/{candidate_id}           delete one candidate and the saved CV file
   GET    /api/drive-check                         is the Google Drive access set up? Reads no file
@@ -79,6 +80,18 @@ def list_candidates(job_id: int, session: Session = Depends(get_session)):
 
 
 # GET /api/candidates/{candidate_id}/cv: sends the saved CV file of one candidate (cv_file)
+# GET /api/candidates: everyone who applied to any job, newest first, with the job title (the "All jobs" view)
+@router.get("/candidates", response_model=list[CandidateOut])
+def list_all_candidates(session: Session = Depends(get_session)):
+    from app.features.jobs.models import Job
+    from app.features.screening.models import ScreeningResult
+    titles = {job.id: job.title for job in session.exec(select(Job)).all()}
+    results = {r.candidate_id: r for r in session.exec(select(ScreeningResult)).all()}
+    rows = session.exec(select(Candidate).order_by(Candidate.id.desc())).all()
+    return [candidate_out(row, results.get(row.id)).model_copy(update={"job_title": titles.get(row.job_id, "")})
+            for row in rows]
+
+
 @router.get("/candidates/{candidate_id}/cv")
 def download_cv(candidate_id: int, session: Session = Depends(get_session)):
     candidate = get_candidate_or_404(session, candidate_id)

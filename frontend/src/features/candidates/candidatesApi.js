@@ -4,6 +4,7 @@ import { del, download, openInNewTab, post, request } from "../../shared/api/htt
 export const candidatesApi = {
   // GET /api/jobs/{id}/candidates: the candidates of one job, newest first
   list: (jobId) => request(`/api/jobs/${jobId}/candidates`),
+  listAll: () => request("/api/candidates"),                 // GET /api/candidates: every job, with the job title
   check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // looks only at the answers after the checkpoint
   recheck: (jobId) => request(`/api/jobs/${jobId}/applications/recheck`, post), // moves the checkpoint back to the start
   fetchNew: (jobId) => request(`/api/jobs/${jobId}/applications/fetch`, post), // downloads the new CVs

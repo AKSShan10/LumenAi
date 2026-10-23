@@ -33,6 +33,7 @@ class CandidateOut(BaseModel):
     id: int                          # inside the code and the links only
     number: int                      # the number shown on the page: 1, 2, 3 ... inside this job
     job_id: int
+    job_title: str = ""              # filled in the list of all jobs
     full_name: str
     email: str
     phone: str

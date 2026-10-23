@@ -6,6 +6,7 @@
                                       behind the scores (breakdown)
     decide(session, candidate, ...)   the interviewer records hire, hold or reject (never the AI)
     comparison(session, job)          every interviewed candidate of the job, best overall score first
+    comparison_all(session)           the same for every job, grouped by job (scores are not ranked across jobs)
     set_weight(session, job, weight)  the interviewer changes the CV / interview split; overall scores recalculated
     resume_running()                  after a restart: assessments that were still running start again
 """
@@ -132,7 +133,7 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
         report = session.exec(select(Assessment).where(Assessment.candidate_id == candidate_id)).first()
         kept = session.exec(select(TalentPoolEntry).where(TalentPoolEntry.candidate_id == candidate_id)).first()
         rows.append(ComparisonRow(
-            candidate_id=candidate_id, candidate_name=candidate.full_name,
+            candidate_id=candidate_id, candidate_name=candidate.full_name, job_id=job.id, job_title=job.title,
             interview_ended=any(i.candidate_id == candidate_id and i.status == "ended" for i in interviews),
             analysis_done=analysis is not None, status=report.status if report else "not_started",
             cv_score=report.cv_score if report and report.cv_score is not None
@@ -145,6 +146,13 @@ def comparison(session: Session, job: Job) -> list[ComparisonRow]:
             decision=report.decision if report else "pending"))
     rows.sort(key=lambda r: (r.overall_score is None, -(r.overall_score or 0), r.candidate_name))
     return rows
+
+
+def comparison_all(session: Session) -> list[ComparisonRow]:
+    """Every interviewed candidate of every job: jobs by title, inside a job best overall score first."""
+    job_ids = set(session.exec(select(InterviewSession.job_id)).all())
+    jobs = sorted((j for j in session.exec(select(Job)).all() if j.id in job_ids), key=lambda j: j.title.lower())
+    return [row for job in jobs for row in comparison(session, job)]
 
 
 def set_weight(session: Session, job: Job, cv_weight: int) -> list[ComparisonRow]:

@@ -3,11 +3,14 @@ import { jobsApi } from "./jobsApi.js";
 import CompanyDocumentsPanel from "../job_library/CompanyDocumentsPanel.jsx";
 import ConfirmDialog from "../../shared/utils/ConfirmDialog.jsx";
 import DataTable from "../../shared/utils/DataTable.jsx";
+import JobPicker from "../../shared/utils/JobPicker.jsx";
+import { currentJob } from "../../shared/utils/currentJob.js";
 
 const PLACES = { blogger: "Blogger blog" };
 
 // What is saved in the database: the jobs, their posts and the company documents.
 // This view only shows (and deletes). Writing, changing, approving and posting are done in the chat.
+// "All jobs" lists every saved job; choosing one shows its details. The choice is shared with the other pages.
 export default function JobsPage() {
   const [jobs, setJobs] = useState(null);
   const [jobId, setJobId] = useState(null);
@@ -15,15 +18,18 @@ export default function JobsPage() {
   const [error, setError] = useState("");
   const [askDelete, setAskDelete] = useState(false);   // the yes / no pop-up is open
 
-  // Loads the list again and shows the job with `selectId` (or the newest one).
+  // Loads the list again and shows the job with `selectId`, or the job chosen on another page, or All jobs (null)
   async function load(selectId) {
     try {
       const list = await jobsApi.list();
       setJobs(list);
-      setJobId(list.some((j) => j.id === selectId) ? selectId : list[0]?.id ?? null);
+      setJobId(list.some((j) => j.id === selectId) ? selectId : currentJob.get(list));
     } catch (e) { setError(e.message); }
   }
   useEffect(() => { load(null); }, []);
+
+  // Shows one job (or All jobs) and remembers it for the other pages
+  function showJob(id) { currentJob.set(id); setJobId(id); }
 
   // The posts of the job that is shown
   useEffect(() => {
@@ -37,23 +43,34 @@ export default function JobsPage() {
   // After Yes in the pop-up: deletes the shown job with jobsApi.remove and reloads the list
   async function remove() {
     setAskDelete(false); setError("");
-    try { await jobsApi.remove(job.id); await load(null); } catch (e) { setError(e.message); }
+    try { await jobsApi.remove(job.id); currentJob.set(null); await load(null); } catch (e) { setError(e.message); }
   }
 
   return (
     <>
       <div className="card">
         <h3>Saved jobs <small className="muted">({jobs.length})</small></h3>
-        {!job ? (
+        {jobs.length === 0 ? (
           <p className="muted">No jobs yet. Ask the AI in the chat, for example: "Write a job for a backend developer with Python".</p>
+        ) : !job ? (
+          <>
+            <div className="row-between">
+              <JobPicker id="saved-job" jobs={jobs} value={null} onChange={showJob} showStatus />
+            </div>
+            <DataTable rows={jobs} empty="No jobs yet." columns={[
+              { key: "title", title: "Job", render: (j) => (
+                <button type="button" className="link" onClick={() => showJob(j.id)}><b>#{j.id} {j.title}</b></button>) },
+              { key: "status", title: "Status", className: "small", render: (j) => <span className={`badge ${j.status}`}>{j.status}</span> },
+              { key: "skills", title: "Required", className: "small", render: (j) => j.required_skills.join(", ") },
+              { key: "years", title: "Experience", className: "small", render: (j) => `${j.min_years} years` },
+              { key: "approved", title: "Approved", className: "small",
+                render: (j) => (j.approved_at ? new Date(j.approved_at).toLocaleDateString() : "–") },
+            ]} />
+          </>
         ) : (
           <>
             <div className="row-between">
-              <label className="inline">Job{" "}
-                <select value={job.id} onChange={(e) => setJobId(Number(e.target.value))}>
-                  {jobs.map((j) => <option key={j.id} value={j.id}>#{j.id} {j.title} ({j.status})</option>)}
-                </select>
-              </label>
+              <JobPicker id="saved-job" jobs={jobs} value={job.id} onChange={showJob} showStatus />
               <button className="danger" onClick={() => setAskDelete(true)}>Delete</button>
             </div>
 
