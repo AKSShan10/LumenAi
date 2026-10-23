@@ -17,6 +17,7 @@ from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROM
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
 from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
 from app.graphs.claim_check_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
+from app.graphs.interview_quality_prompts import GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
 from app.graphs.assessment_prompts import (
     AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
@@ -60,6 +61,10 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_claims(data)
     if instructions == COMPARE_PROMPT:
         return _fake_compare(data)
+    if instructions == GRADE_QUESTIONS_PROMPT:
+        return _fake_question_review(data)
+    if instructions == RECOMMEND_PROMPT:
+        return _fake_recommendations(data)
     if instructions == TALENT_INVITE_PROMPT:
         skills = ", ".join(data["fitting_skills"]) or "your skills"
         return {"subject": f"A new opening: {data['new_job']}",
@@ -386,3 +391,31 @@ def _fake_compare(data: dict) -> dict:
             out.append({"n": claim["n"], "status": "not_discussed", "line": 0, "interview_quote": "",
                         "note": "Not mentioned.", "follow_up": f"Could you tell me about: {claim['claim']}"})
     return {"claims": out}
+
+
+# ---------- interview quality (interview_quality_graph.py) ----------
+
+def _fake_question_review(data: dict) -> dict:
+    """A question that names a job requirement is relevant (80), else 40; open when it starts with how/what/tell..."""
+    out = []
+    for q in data["questions"]:
+        text = q["question"].lower()
+        relevant = any(r.lower() in text for r in data["requirements"])
+        open_question = text.startswith(("how", "what", "why", "tell", "describe", "explain", "walk"))
+        out.append({"n": q["n"], "relevance": 80 if relevant else 40, "open": open_question,
+                    "reason": "Names a job requirement. (Fake AI text.)" if relevant else "Not about a requirement. (Fake AI text.)",
+                    "better": "" if open_question else f"Could you describe {q['question'].rstrip('?').lower()}?"})
+    return {"questions": out}
+
+
+def _fake_recommendations(data: dict) -> dict:
+    """One improvement per kind of fact, in a fixed order; the summary names the job."""
+    recs = [{"basis": "requirement", "ref": r, "text": f"Ask about {r} next time. (Fake AI text.)"}
+            for r in data["not_asked"][:2]]
+    recs += [{"basis": "question", "ref": str(q["n"]), "text": f"Ask question {q['n']} in a more open way. (Fake AI text.)"}
+             for q in data["low_signal"][:2]]
+    if not data["talk"]["balanced"]:
+        recs.append({"basis": "talk", "ref": "", "text": "Let the candidate speak more. (Fake AI text.)"})
+    return {"summary": f"The interview for {data['job_title']} was reviewed. (Fake AI text for offline tests.)",
+            "recommendations": recs}
+

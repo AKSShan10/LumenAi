@@ -13,7 +13,7 @@ const tone = (value) => (value === null || value === undefined ? "" : value >= 7
 const BAND = { "0-49": ["weak", "Below 50"], "50-74": ["fair", "50 to 74"], "75-100": ["good", "75 and above"] };
 const STAGE = { cv_screening: "CV screening", shortlist: "Shortlist", hr_decision: "Screening decision",
   invitation: "Interview invitation", interview_analysis: "Q&A analysis", post_interview: "Assessment",
-  talent_invite: "Pool invitation", claim_check: "CV claim check", job_description: "Job description", assistant: "Assistant chat" };
+  talent_invite: "Pool invitation", claim_check: "CV claim check", interview_quality: "Interview quality", job_description: "Job description", assistant: "Assistant chat" };
 const stageName = (stage) => STAGE[stage] || stage.replace(/_/g, " ");
 
 // One number in the top row

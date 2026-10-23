@@ -25,6 +25,7 @@ from app.graphs.job_post_graph import job_post_graph  # noqa: E402
 from app.graphs.qa_analysis_graph import qa_analysis_graph  # noqa: E402
 from app.graphs.assessment_graph import assessment_graph  # noqa: E402
 from app.graphs.claim_check_graph import claim_check_graph  # noqa: E402
+from app.graphs.interview_quality_graph import interview_quality_graph  # noqa: E402
 from app.graphs.talent_invite_graph import talent_invite_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
@@ -47,6 +48,8 @@ WORKFLOWS = [
      assessment_graph),
     ("CV claim verification workflow (after the interview, one run per candidate)",
      "backend/app/graphs/claim_check_graph.py", claim_check_graph),
+    ("Interview quality workflow (after the Q&A analysis, one run per interview)",
+     "backend/app/graphs/interview_quality_graph.py", interview_quality_graph),
     ("Talent pool invitation workflow (one run per person; a person sends)", "backend/app/graphs/talent_invite_graph.py",
      talent_invite_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),

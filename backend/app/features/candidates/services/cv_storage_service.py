@@ -141,7 +141,10 @@ def forget_screening(session: Session, candidate: Candidate) -> None:
         for invite in session.exec(select(TalentInvite).where(TalentInvite.pool_id == entry.id)).all():
             session.delete(invite)
         session.delete(entry)
+    from app.features.interview_quality.models import InterviewQuality         # ... and the interview quality
     for interview in session.exec(select(InterviewSession).where(InterviewSession.candidate_id == candidate.id)).all():
+        for check in session.exec(select(InterviewQuality).where(InterviewQuality.session_id == interview.id)).all():
+            session.delete(check)
         for message in session.exec(select(CallMessage).where(CallMessage.session_id == interview.id)).all():
             session.delete(message)
         for turn in session.exec(select(TranscriptTurn).where(TranscriptTurn.session_id == interview.id)).all():

@@ -5,14 +5,16 @@ import { interviewsApi } from "../interviews/interviewsApi.js";
 import { transcriptsApi } from "../transcripts/transcriptsApi.js";
 import { TurnList, clock } from "../transcripts/LiveTranscript.jsx";
 import { qaAnalysisApi } from "./qaAnalysisApi.js";
+import InterviewQualityTab from "../interview_quality/InterviewQualityTab.jsx";
 
 // The Q&A analysis of one interview, in its own browser tab (/interview-analysis/<id>), opened from the Interviews
 // page. The tab gets a copy of the login from the tab that opened it.
 //   top:   who and when, "Analyse answers" / "Analyse again", the interview score and the requirements shown
-//   tabs:  Marks           every question with its four marks; click a row to see the answer, reasons, quote and a
+//   tabs:  Marks           every question with its six marks; click a row to see the answer, reasons, quote and a
 //                          suggested follow-up question for what the answer missed
 //          By requirement  each job requirement: which questions tested it, the best score, shown or not
 //          Transcript      everything said; "Show in transcript" jumps to the line of a quote
+//          Interview quality  the quality of the interview process itself (F10, InterviewQualityTab.jsx)
 // The AI suggests the marks from the transcript text only. A person decides.
 const LOOK_AGAIN_MS = 3000;            // while the analysis runs, the page asks again every 3 seconds
 const GRADES = [["relevance", "Relevance"], ["accuracy", "Accuracy"], ["completeness", "Completeness"],
@@ -179,7 +181,7 @@ export default function InterviewAnalysisPage({ sessionId }) {
   const query = new URLSearchParams(window.location.search);
   const first = query.get("tab");
   const time = query.get("t");                      // from the assessment report: the transcript line to show
-  const [tab, setTab] = useState(first === "transcript" ? "transcript" : "marks");  // marks | requirements | transcript
+  const [tab, setTab] = useState(["transcript", "quality"].includes(first) ? first : "marks");  // marks | requirements | transcript | quality
   const [interview, setInterview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [turns, setTurns] = useState([]);
@@ -288,6 +290,7 @@ export default function InterviewAnalysisPage({ sessionId }) {
           <button type="button" className={tab === "marks" ? "active" : ""} onClick={() => setTab("marks")}>Marks</button>
           <button type="button" className={tab === "requirements" ? "active" : ""} onClick={() => setTab("requirements")}>By requirement</button>
           <button type="button" className={tab === "transcript" ? "active" : ""} onClick={() => setTab("transcript")}>Transcript</button>
+          <button type="button" className={tab === "quality" ? "active" : ""} onClick={() => setTab("quality")}>Interview quality</button>
         </div>
 
         {tab === "marks" && (status === "done"
@@ -297,6 +300,8 @@ export default function InterviewAnalysisPage({ sessionId }) {
         {tab === "requirements" && (status === "done"
           ? <RequirementsTab analysis={analysis} openQuestion={(n) => { setChosen(n); setTab("marks"); }} />
           : <p className="muted">The requirements appear here after the analysis.</p>)}
+        {tab === "quality" && <InterviewQualityTab sessionId={sessionId} analysisDone={status === "done"}
+                                                    showInTranscript={(time) => { setMarked(time); setTab("transcript"); }} />}
         {tab === "transcript" && (
           <div className="card">
             <div className="row-between">
