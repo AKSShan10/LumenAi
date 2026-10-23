@@ -63,6 +63,7 @@ READABLE = {
     "classDef first fill-opacity:0": "classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434",
     "([<p>__start__</p>])": "([start])",           # the HTML label ignores the text colour; plain text follows it
     "([<p>__end__</p>])": "([end])",
+    "&nbsp;": "",                                    # spaces LangGraph puts around arrow labels; some viewers show the code
 }
 
 

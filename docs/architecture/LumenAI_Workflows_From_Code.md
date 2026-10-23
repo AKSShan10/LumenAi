@@ -195,10 +195,10 @@ graph TD;
 	evaluate_completeness --> merge_evaluation;
 	evaluate_relevance --> merge_evaluation;
 	load_transcript -.-> failed;
-	load_transcript -. &nbsp;go&nbsp; .-> segment_qa_pairs;
-	merge_evaluation -. &nbsp;go&nbsp; .-> detect_requirement_gaps;
+	load_transcript -. go .-> segment_qa_pairs;
+	merge_evaluation -. go .-> detect_requirement_gaps;
 	merge_evaluation -.-> failed;
-	segment_qa_pairs -. &nbsp;go&nbsp; .-> classify_requirements;
+	segment_qa_pairs -. go .-> classify_requirements;
 	segment_qa_pairs -.-> failed;
 	failed --> __end__;
 	save --> __end__;
@@ -238,18 +238,56 @@ graph TD;
 	analyze_weaknesses --> merge_assessment;
 	evidence_gaps --> merge_assessment;
 	generate_report -.-> failed;
-	generate_report -. &nbsp;go&nbsp; .-> save;
+	generate_report -. go .-> save;
 	load_all_results -.-> analyze_strengths;
 	load_all_results -.-> analyze_weaknesses;
 	load_all_results -.-> evidence_gaps;
 	load_all_results -.-> failed;
 	load_all_results -.-> recommended_areas;
 	merge_assessment -.-> failed;
-	merge_assessment -. &nbsp;go&nbsp; .-> validate_traceability;
+	merge_assessment -. go .-> validate_traceability;
 	recommended_areas --> merge_assessment;
 	repair_assessment --> validate_traceability;
 	validate_traceability -.-> generate_report;
 	validate_traceability -.-> repair_assessment;
+	failed --> __end__;
+	save --> __end__;
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
+```
+
+## CV claim verification workflow (after the interview, one run per candidate)
+
+Code: `backend/app/graphs/claim_check_graph.py`
+
+Steps: `load_inputs`, `extract_claims`, `check_cv_quotes`, `compare_claims`, `check_interview_quotes`, `save`, `failed`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([start]):::first
+	load_inputs(load_inputs)
+	extract_claims(extract_claims)
+	check_cv_quotes(check_cv_quotes)
+	compare_claims(compare_claims)
+	check_interview_quotes(check_interview_quotes)
+	save(save)
+	failed(failed)
+	__end__([end]):::last
+	__start__ --> load_inputs;
+	check_cv_quotes --> compare_claims;
+	check_interview_quotes --> save;
+	compare_claims -. go .-> check_interview_quotes;
+	compare_claims -.-> failed;
+	extract_claims -. go .-> check_cv_quotes;
+	extract_claims -.-> failed;
+	load_inputs -. go .-> extract_claims;
+	load_inputs -.-> failed;
 	failed --> __end__;
 	save --> __end__;
 	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
