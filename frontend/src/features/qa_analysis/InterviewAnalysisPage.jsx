@@ -123,7 +123,7 @@ function MarksTab({ items, chosen, setChosen, showInTranscript }) {
                       <div className="small">{item.reasons[key] || "No reason given."}</div></li>
                   ))}
                 </ul>
-                <p><b>Answer score: <Mark value={item.score} /></b> <span className="muted small">(average of the four)</span></p>
+                <p><b>Answer score: <Mark value={item.score} /></b> <span className="muted small">(average of the six grades)</span></p>
                 {item.follow_up && (
                   <p className="follow-up small"><b>Suggested follow-up:</b> {item.follow_up}{" "}
                     <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(item.follow_up)}>Copy</button></p>

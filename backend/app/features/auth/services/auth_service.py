@@ -22,7 +22,6 @@ from sqlmodel import Session, select
 from app.features.auth.models import User
 
 ROUNDS = 200_000                 # how often the scrambling is repeated
-MIN_PASSWORD_CHARS = 8
 
 
 def hash_password(password: str) -> str:

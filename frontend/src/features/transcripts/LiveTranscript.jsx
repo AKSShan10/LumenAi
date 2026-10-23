@@ -31,7 +31,7 @@ export function TurnList({ turns, names = {}, marked = null }) {
 }
 
 // Adds new sentences once each and keeps them in the order they were said
-export function addTurns(old, more) {
+function addTurns(old, more) {
   const known = new Set(old.map((t) => t.id));
   return [...old, ...more.filter((t) => !known.has(t.id))].sort((a, b) => a.start_sec - b.start_sec || a.id - b.id);
 }

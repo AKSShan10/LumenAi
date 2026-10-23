@@ -3,9 +3,6 @@
 LLM_PROVIDER=fake gives a stand-in model that chooses tools with word rules. Everything else is real:
 the agent loop, the MCP servers (started as child processes) and the tools.
 """
-import io
-import json
-
 import pytest
 
 from app.features.assistant.services import assistant_service
