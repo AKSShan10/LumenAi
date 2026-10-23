@@ -6,6 +6,7 @@ from app.features.assistant.models.chat_model import AssistantAction, ChatConver
 from app.features.assessments.models.assessment_model import Assessment
 from app.features.auth.models.user_model import User
 from app.features.candidates.models.candidate_model import Candidate
+from app.features.claims.models.claim_check_model import ClaimCheck
 from app.features.interview_helper.models.helper_message_model import HelperMessage
 from app.features.interviews.models.call_message_model import CallMessage
 from app.features.interviews.models.interview_model import InterviewSession
@@ -20,5 +21,5 @@ from app.features.system.models.workflow_run_model import WorkflowRun
 from app.features.talent_pool.models.talent_pool_model import TalentInvite, TalentPoolEntry
 from app.features.transcripts.models.transcript_model import TranscriptTurn
 
-__all__ = ["AppSetting", "Assessment", "AssistantAction", "CallMessage", "Candidate", "ChatConversation", "ChatMessage", "CompanyDocument",
+__all__ = ["AppSetting", "Assessment", "AssistantAction", "CallMessage", "Candidate", "ClaimCheck", "ChatConversation", "ChatMessage", "CompanyDocument",
            "HelperMessage", "InterviewSession", "Job", "JobPosting", "QaAnalysis", "QaItem", "ScreeningResult", "ShortlistEntry", "TalentInvite", "TalentPoolEntry", "TranscriptTurn", "User", "WorkflowRun"]

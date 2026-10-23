@@ -16,6 +16,7 @@ from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
 from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
+from app.graphs.claim_check_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
 from app.graphs.assessment_prompts import (
     AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
@@ -55,6 +56,10 @@ def fake_answer(instructions: str, data) -> dict:
                   "quote": " ".join(a["answer"].split()[:4])} for a in data["answers"][:1]]}
     if instructions == REPAIR_PROMPT:
         return _fake_repair(data)
+    if instructions == EXTRACT_PROMPT:
+        return _fake_claims(data)
+    if instructions == COMPARE_PROMPT:
+        return _fake_compare(data)
     if instructions == TALENT_INVITE_PROMPT:
         skills = ", ".join(data["fitting_skills"]) or "your skills"
         return {"subject": f"A new opening: {data['new_job']}",
@@ -350,3 +355,34 @@ def _fake_repair(data: dict) -> dict:
     wrong = {p["quote"] for p in data["problems"]}
     return {"strengths": [i for i in data["strengths"] if i["quote"] not in wrong],
             "weaknesses": [i for i in data["weaknesses"] if i["quote"] not in wrong]}
+
+
+# ---------- CV claim verification (claim_check_graph.py) ----------
+
+def _fake_claims(data: dict) -> dict:
+    """The skills line and the experience line of a made-up CV become claims; the quotes are copied from the CV."""
+    claims = []
+    for line in data["cv_text"].splitlines():
+        if line.lower().startswith("skills:"):
+            skills = [s.strip() for s in line.split(":", 1)[1].split(",") if s.strip()][:3]
+            for n, skill in enumerate(skills, 1):          # the quote: "Skills: Python", "Skills: Python, FastAPI" ...
+                claims.append({"claim": f"Works with {skill}.", "cv_quote": "Skills: " + ", ".join(skills[:n])})
+        if line.lower().startswith("experience:"):
+            claims.append({"claim": "Has the stated years of experience.", "cv_quote": line.strip()[:60]})
+    return {"claims": claims}
+
+
+def _fake_compare(data: dict) -> dict:
+    """A claim whose main word is in a candidate line is supported (quote: that line's first words); else not discussed."""
+    out = []
+    for claim in data["claims"]:
+        word = claim["claim"].replace("Works with ", "").rstrip(".").lower()
+        line = next((l for l in data["lines"] if word and word in l["text"].lower()), None)
+        if line:
+            out.append({"n": claim["n"], "status": "supported", "line": line["n"],
+                        "interview_quote": " ".join(line["text"].split()[:4]), "note": "Mentioned in the interview.",
+                        "follow_up": ""})
+        else:
+            out.append({"n": claim["n"], "status": "not_discussed", "line": 0, "interview_quote": "",
+                        "note": "Not mentioned.", "follow_up": f"Could you tell me about: {claim['claim']}"})
+    return {"claims": out}

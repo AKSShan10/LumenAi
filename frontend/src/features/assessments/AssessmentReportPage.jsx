@@ -3,6 +3,7 @@ import { auth } from "../../shared/api/authToken.js";
 import { assessmentsApi } from "./assessmentsApi.js";
 import { clock } from "../transcripts/LiveTranscript.jsx";
 import TalentPoolCard from "../talent_pool/TalentPoolCard.jsx";
+import { claimsApi } from "../claims/claimsApi.js";
 
 // The assessment report of one candidate, in its own browser tab (/assessment-report/<candidate id>), opened from
 // the Reports page. The tab gets a copy of the login from the tab that opened it.
@@ -125,6 +126,75 @@ function Parts({ title, parts }) {
             <td><b className={tone(p.score)}>{p.score ?? "–"}</b></td></tr>)}
         </tbody></table>
       ) : <p className="muted small">Not available.</p>}
+    </div>
+  );
+}
+
+// CV claims compared with the interview (F8): each claim is supported, contradicted, unverified or not discussed.
+// Prompts for the interviewer's follow-up questions; they never change a score or a decision.
+const CLAIM = {
+  contradicted: ["Possible contradiction", "draft", "The candidate's words in the interview do not seem to fit the CV."],
+  unverified: ["Unverified claim", "shortlisted", "The topic came up, but the answer did not back the claim up."],
+  not_discussed: ["Not discussed", "", "The claim never came up in the interview."],
+  supported: ["Supported", "done", "The interview backs the claim up."],
+};
+
+function ClaimsCard({ candidateId, sessionId }) {
+  const [check, setCheck] = useState(null);
+  const [error, setError] = useState("");
+  const running = check?.status === "running";
+
+  // → GET /api/candidates/{id}/claims (again every 3 seconds while it runs)
+  useEffect(() => { claimsApi.get(candidateId).then(setCheck).catch((e) => setError(e.message)); }, [candidateId]);
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = setInterval(() => claimsApi.get(candidateId).then(setCheck).catch((e) => setError(e.message)), LOOK_AGAIN_MS);
+    return () => clearInterval(timer);
+  }, [candidateId, running]);
+
+  // "Check CV claims" / "Check again": → POST /api/candidates/{id}/claims
+  async function start() {
+    setError("");
+    try { setCheck(await claimsApi.start(candidateId)); } catch (e) { setError(e.message); }
+  }
+
+  if (!check) return null;
+  const counts = Object.fromEntries(Object.keys(CLAIM).map((s) => [s, check.claims.filter((c) => c.status === s).length]));
+  return (
+    <div className="card">
+      <div className="row-between">
+        <h3>Claims to follow up</h3>
+        <button type="button" className="secondary no-print" onClick={start} disabled={running}>
+          {running ? "Checking..." : check.status === "not_started" ? "Check CV claims" : "Check again"}</button>
+      </div>
+      <p className="muted small">The CV's concrete claims are compared with what the candidate said in the interview.
+        These are prompts for your follow-up questions, not accusations; they do not change any score or decision.</p>
+      {error && <p className="error small">{error}</p>}
+      {check.status === "not_started" && <p className="muted small">Not checked yet.</p>}
+      {running && <p className="analysis-running">Comparing the CV with the interview. The result appears here by itself.</p>}
+      {check.status === "failed" && <p className="error small">The check failed: {check.error}</p>}
+      {check.status === "done" && check.claims.length === 0 && <p className="muted small">No concrete claims were found in the CV.</p>}
+      {check.claims.length > 0 && (
+        <>
+          <div className="claim-counts">
+            {Object.entries(CLAIM).map(([key, [label, badge]]) => (
+              <span key={key} className={`badge ${badge}`} title={CLAIM[key][2]}>{label} {counts[key]}</span>))}
+          </div>
+          <ul className="claim-list">
+            {check.claims.map((c, n) => (
+              <li key={n} className={`claim ${c.status}`}>
+                <div><span className={`badge ${CLAIM[c.status][1]}`}>{CLAIM[c.status][0]}</span> <b>{c.claim}</b></div>
+                <div className="small muted">CV: "{c.cv_quote}"</div>
+                {c.interview_quote && (
+                  <div className="small muted">Said: "{c.interview_quote}" · <Source item={{ source: "Interview", time: c.time }} sessionId={sessionId} /></div>
+                )}
+                <div className="small">{c.note}</div>
+                {c.follow_up && <div className="small claim-question">Ask: {c.follow_up}</div>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
@@ -304,6 +374,7 @@ export default function AssessmentReportPage({ candidateId }) {
           </>
         )}
 
+        {status === "done" && <ClaimsCard candidateId={report.candidate_id} sessionId={report.session_id} />}
         {status === "done" && <DecisionCard key={report.updated_at} report={report} onSaved={setReport} />}
         {status === "done" && <TalentPoolCard candidateId={report.candidate_id} />}
       </div>

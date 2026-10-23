@@ -133,6 +133,9 @@ def forget_screening(session: Session, candidate: Candidate) -> None:
     from app.features.assessments.models import Assessment                     # ... and the assessment
     for report in session.exec(select(Assessment).where(Assessment.candidate_id == candidate.id)).all():
         session.delete(report)
+    from app.features.claims.models import ClaimCheck                            # ... the CV claim check
+    for check in session.exec(select(ClaimCheck).where(ClaimCheck.candidate_id == candidate.id)).all():
+        session.delete(check)
     from app.features.talent_pool.models import TalentInvite, TalentPoolEntry   # ... and the talent pool entry
     for entry in session.exec(select(TalentPoolEntry).where(TalentPoolEntry.candidate_id == candidate.id)).all():
         for invite in session.exec(select(TalentInvite).where(TalentInvite.pool_id == entry.id)).all():
