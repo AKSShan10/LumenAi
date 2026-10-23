@@ -65,8 +65,8 @@ class QaState(TypedDict):
     required: list           # only the required ones (they count twice in the alignment score)
     lines: list              # the transcript: [{"n", "speaker", "start", "text"}]
     pairs: list              # [{"question", "answer", "answer_lines", "job_related", "split", "requirements"}]
-    # The four graders' answers by pair number: {n: {"grade", "reason", "quote", "sources"}}; None = the AI failed.
-    # Each grader writes only its own key, so the four can run at the same time.
+    # The six graders' answers by pair number: {n: {"grade", "reason", "quote", "sources"}}; None = the AI failed.
+    # Each grader writes only its own key, so the six can run at the same time.
     relevance: Optional[dict]
     accuracy: Optional[dict]
     completeness: Optional[dict]
@@ -219,7 +219,7 @@ def classify_requirements(state: QaState) -> dict:
     return {"pairs": [{**p, "requirements": linked.get(n, [])} for n, p in enumerate(state["pairs"], 1)]}
 
 
-# Workflow steps "evaluate_*": the four graders, run at the same time
+# Workflow steps "evaluate_*": the six graders, run at the same time
 def evaluate_relevance(state: QaState) -> dict:
     return {"relevance": _evaluate(state, "relevance")}
 
