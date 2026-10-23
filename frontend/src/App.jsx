@@ -10,6 +10,7 @@ import CandidatesPage from "./features/candidates/CandidatesPage.jsx";
 import InterviewsPage from "./features/interviews/InterviewsPage.jsx";
 import ReportsPage from "./features/assessments/ReportsPage.jsx";
 import TalentPoolPage from "./features/talent_pool/TalentPoolPage.jsx";
+import DashboardPage from "./features/dashboard/DashboardPage.jsx";
 
 // The sidebar: [page, label, icon, subtitle]
 const MENU = [
@@ -92,6 +93,7 @@ export default function App() {
         </header>
 
         <main>
+          {page === "dashboard" && <DashboardPage onOpen={openPage} />}
           {page === "settings" && <SettingsPage />}
           {page === "jobs" && <JobRequirementsPage />}
           {page === "candidates" && <CandidatesPage />}
@@ -99,7 +101,7 @@ export default function App() {
           {page === "reports" && <ReportsPage />}
           {page === "talent-pool" && <TalentPoolPage />}
           {/* Placeholder: each feature replaces this card with its real page. */}
-          {!["settings", "jobs", "candidates", "interviews", "reports", "talent-pool"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
+          {!["dashboard", "settings", "jobs", "candidates", "interviews", "reports", "talent-pool"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>
 
         <AppFooter appName={appName} />

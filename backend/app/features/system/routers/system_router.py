@@ -6,6 +6,7 @@
   GET /api/email-check     checks the email (SMTP) settings and login; sends nothing
   GET /api/video-check     are the LiveKit settings there, and can a call ticket be made? connects to nothing
   GET /api/stt-check       is speech-to-text set up, and does Deepgram accept the key? sends no sound
+  GET /api/dashboard       the Dashboard numbers (?job_id= for one job); code only, no AI
   GET /api/workflow-runs   the latest runs of the recruitment graph (stage, outcome, error, seconds)
 """
 from fastapi import APIRouter, Depends, Query
@@ -19,7 +20,9 @@ from app.core.security import current_email, require_interviewer
 from app.features.interviews.services.smtp_service import check_email_settings as check_email
 from app.features.transcripts.services.stt_service import stt_check as check_stt
 from app.features.interviews.services.video_service import video_check as check_video
+from app.features.jobs.services.job_service import get_job_or_404
 from app.features.system.models import WorkflowRun
+from app.features.system.services.dashboard_service import dashboard
 
 router = APIRouter(prefix="/api", tags=["System"], dependencies=[Depends(require_interviewer)])
 
@@ -69,3 +72,11 @@ def stt_check():
 def workflow_runs(limit: int = Query(default=20, ge=1, le=200), session: Session = Depends(get_session)):
     rows = session.exec(select(WorkflowRun).order_by(WorkflowRun.id.desc()).limit(limit)).all()
     return [r.model_dump() for r in rows]
+
+
+# GET /api/dashboard?job_id=3: tiles, funnel, scores, what waits, the jobs and the AI health (dashboard_service)
+@router.get("/dashboard")
+def dashboard_numbers(job_id: int | None = None, session: Session = Depends(get_session)):
+    if job_id is not None:
+        get_job_or_404(session, job_id)                    # 404 for an unknown job
+    return dashboard(session, job_id)
