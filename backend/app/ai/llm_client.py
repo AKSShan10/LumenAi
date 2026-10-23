@@ -90,20 +90,23 @@ def llm_json(instructions: str, data) -> dict | None:
     try:
         client = _client()
         options = {} if config.LLM_TEMPERATURE is None else {"temperature": config.LLM_TEMPERATURE}
-        response = client.chat.completions.create(  # → the actual Gemini call (OpenAI-compatible API at LLM_BASE_URL)
-            model=current_model(),
-            messages=[
-                {"role": "system", "content": instructions + "\nReply with one JSON object only."},
-                {"role": "user", "content": data if isinstance(data, str) else json.dumps(data)},
-            ],
-            **options,
-        )
-        answer = _parse_json(response.choices[0].message.content or "")
-        if answer is None:
-            _fail("the AI answered, but not with valid JSON (try again, or try another model)")
-        else:
-            log.info("AI call ok model=%s %.1fs %s", current_model(), time.time() - started, _tokens(response.usage))
-        return answer
+        messages = [{"role": "system", "content": instructions + "\nReply with one JSON object only."},
+                    {"role": "user", "content": data if isinstance(data, str) else json.dumps(data)}]
+        # A model sometimes sends broken JSON (e.g. a quote mark not escaped). Then it is asked once more,
+        # so one bad answer does not stop a whole workflow (the Q&A analysis makes six such calls at once).
+        for attempt in (1, 2):
+            response = client.chat.completions.create(  # → the actual Gemini call (OpenAI-compatible API)
+                model=current_model(), messages=messages, **options)
+            answer = _parse_json(response.choices[0].message.content or "")
+            if answer is not None:
+                log.info("AI call ok model=%s %.1fs %s", current_model(), time.time() - started,
+                         _tokens(response.usage))
+                return answer
+            # finish_reason "length" means the answer was cut off; only the reason is logged, never the text
+            log.warning("AI answer was not valid JSON (attempt %s, finish_reason=%s)", attempt,
+                        response.choices[0].finish_reason)
+        _fail("the AI answered, but not with valid JSON (try again, or try another model)")
+        return None
     except Exception as exc:  # network error, bad key, rate limit...
         name = type(exc).__name__
         _fail(REASONS.get(name, f"{name} from the AI service"))

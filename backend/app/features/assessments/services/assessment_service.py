@@ -56,7 +56,10 @@ def breakdown(session: Session, job: Job | None, candidate_id: int, session_id: 
     items = session.exec(select(QaItem).where(QaItem.session_id == (session_id or 0),
                                               QaItem.job_related.is_(True))).all()
     interview_parts = []
-    for key, label in INTERVIEW_PARTS:
+    if analysis and analysis.scorecard:               # F9: the six scorecard dimensions with their evidence
+        interview_parts = [PartScore(name=d["name"], score=d.get("score"), reason=d.get("reason", ""),
+                                     quote=d.get("quote", ""), time=d.get("time")) for d in analysis.scorecard]
+    for key, label in ([] if interview_parts else INTERVIEW_PARTS):   # analysed before F9: the four grade averages
         grades = [getattr(i, key) for i in items if getattr(i, key) is not None]
         interview_parts.append(PartScore(name=label, score=round(sum(grades) / len(grades), 1) if grades else None))
 

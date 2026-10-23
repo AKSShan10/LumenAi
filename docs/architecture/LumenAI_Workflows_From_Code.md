@@ -161,7 +161,7 @@ graph TD;
 
 Code: `backend/app/graphs/qa_analysis_graph.py`
 
-Steps: `load_transcript`, `segment_qa_pairs`, `classify_requirements`, `evaluate_relevance`, `evaluate_accuracy`, `evaluate_completeness`, `evaluate_articulation`, `merge_evaluation`, `detect_requirement_gaps`, `save`, `failed`
+Steps: `load_transcript`, `segment_qa_pairs`, `classify_requirements`, `evaluate_relevance`, `evaluate_accuracy`, `evaluate_completeness`, `evaluate_articulation`, `evaluate_problem_solving`, `evaluate_depth`, `merge_evaluation`, `detect_requirement_gaps`, `build_scorecard`, `save`, `failed`
 
 ```mermaid
 ---
@@ -178,21 +178,29 @@ graph TD;
 	evaluate_accuracy(evaluate_accuracy)
 	evaluate_completeness(evaluate_completeness)
 	evaluate_articulation(evaluate_articulation)
+	evaluate_problem_solving(evaluate_problem_solving)
+	evaluate_depth(evaluate_depth)
 	merge_evaluation(merge_evaluation)
 	detect_requirement_gaps(detect_requirement_gaps)
+	build_scorecard(build_scorecard)
 	save(save)
 	failed(failed)
 	__end__([end]):::last
 	__start__ --> load_transcript;
+	build_scorecard --> save;
 	classify_requirements -.-> evaluate_accuracy;
 	classify_requirements -.-> evaluate_articulation;
 	classify_requirements -.-> evaluate_completeness;
+	classify_requirements -.-> evaluate_depth;
+	classify_requirements -.-> evaluate_problem_solving;
 	classify_requirements -.-> evaluate_relevance;
 	classify_requirements -.-> failed;
-	detect_requirement_gaps --> save;
+	detect_requirement_gaps --> build_scorecard;
 	evaluate_accuracy --> merge_evaluation;
 	evaluate_articulation --> merge_evaluation;
 	evaluate_completeness --> merge_evaluation;
+	evaluate_depth --> merge_evaluation;
+	evaluate_problem_solving --> merge_evaluation;
 	evaluate_relevance --> merge_evaluation;
 	load_transcript -.-> failed;
 	load_transcript -. go .-> segment_qa_pairs;

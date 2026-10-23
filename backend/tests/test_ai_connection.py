@@ -13,9 +13,14 @@ from app.core import config
 class FakeAIService(BaseHTTPRequestHandler):
     status = 200            # the HTTP status the fake service answers with
     content = '{"ok": true}'
+    replies: list = []      # if set, the next answers in order (then "content" again)
+    calls = 0
 
     def do_POST(self):
         self.rfile.read(int(self.headers["Content-Length"]))
+        FakeAIService.calls += 1
+        if FakeAIService.replies:
+            self.content = FakeAIService.replies.pop(0)
         if self.status == 200:
             body = {"id": "x", "object": "chat.completion", "created": 0, "model": "m", "choices": [
                 {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": self.content}}]}
@@ -41,6 +46,7 @@ def ai_service(monkeypatch):
     monkeypatch.setattr(config, "LLM_MODEL", "gemini-3.5-flash-lite")
     monkeypatch.setattr(config, "LLM_BASE_URL", f"http://127.0.0.1:{server.server_port}/v1beta/openai/")
     FakeAIService.status, FakeAIService.content = 200, '{"ok": true}'
+    FakeAIService.replies, FakeAIService.calls = [], 0
     yield FakeAIService
     server.shutdown()
 
@@ -58,6 +64,13 @@ def test_answer_that_is_not_json(ai_service):
     ai_service.content = "Sorry, I cannot do that."
     assert llm_client.llm_json("Write a title.", "x") is None
     assert "not with valid JSON" in llm_client.last_error()
+    assert ai_service.calls == 2                       # asked once more before giving up
+
+
+def test_broken_json_is_asked_once_more(ai_service):
+    ai_service.replies = ['{"title": "Backend "Engineer"}', '{"title": "Backend Engineer"}']   # 1st: bad quote
+    assert llm_client.llm_json("Write a title.", "x") == {"title": "Backend Engineer"}
+    assert ai_service.calls == 2
 
 
 @pytest.mark.parametrize("status, words", [(401, "API key"), (404, "model name")])

@@ -203,8 +203,10 @@ def test_the_report_shows_the_parts_behind_the_scores(client, anonymous, intervi
     analysis = client.get(f"/api/sessions/{interview['id']}/analysis").json()
     graded = [i for i in analysis["items"] if i["job_related"]]
     parts = {p["name"]: p["score"] for p in report["interview_parts"]}
-    assert list(parts) == ["Relevance", "Accuracy", "Completeness", "Articulation"]
-    assert parts["Accuracy"] == round(sum(i["accuracy"] for i in graded) / len(graded), 1)
+    assert list(parts) == ["Technical competency", "Communication", "Relevance of responses",      # F9 scorecard
+                           "Problem-solving approach", "Depth of experience demonstrated", "Alignment with job requirements"]
+    assert parts["Technical competency"] == round(sum(i["accuracy"] for i in graded) / len(graded), 1)
+    assert all(p["reason"] for p in report["interview_parts"])
     assert {p["name"] for p in report["cv_parts"]} <= {"Skills", "Experience", "Qualifications"} and report["cv_parts"]
     rows = {r["requirement"]: r for r in report["requirements"]}
     for name in analysis["covered"]:

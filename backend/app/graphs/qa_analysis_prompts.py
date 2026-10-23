@@ -31,7 +31,7 @@ exactly as given. A pair may test none, one or several requirements.
 {stt}
 Answer: {{"pairs": [{{"n": 1, "requirements": ["..."]}}]}}""".format(stt=SPEECH_TO_TEXT)
 
-# What each of the four graders looks at (one AI call per criterion, all four run at the same time)
+# What each grader looks at (one AI call per criterion, all six run at the same time)
 CRITERIA = {
     "relevance": "Relevance: does the answer address what was asked?",
     "accuracy": ("Accuracy: is what the candidate says correct? When a company note (\"company_notes\") covers the "
@@ -43,6 +43,11 @@ CRITERIA = {
     "articulation": ("Articulation: are the answer's words clear and well organised in the transcript: on topic, in "
                      "a logical order, easy to follow? This is about the written words only, never about how the "
                      "candidate sounds."),
+    "problem_solving": ("Problem-solving approach: does the answer show how the candidate works through a problem: "
+                        "understanding it, choosing a method, weighing options and checking the result? Judge the "
+                        "reasoning shown in the words, not whether the candidate sounds confident."),
+    "depth": ("Depth of experience demonstrated: does the answer show real, hands-on experience: concrete projects, "
+              "tools, decisions, numbers and lessons learned, beyond textbook definitions?"),
 }
 
 GRADE_PROMPT = """You grade a candidate's answers from a job interview on ONE criterion.

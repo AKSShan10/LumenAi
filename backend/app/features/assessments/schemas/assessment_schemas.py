@@ -25,6 +25,9 @@ class PartScore(BaseModel):
     """One part behind a total score, e.g. CV "Skills" 80 or interview "Accuracy" 62.5."""
     name: str
     score: Optional[float] = None
+    reason: str = ""                 # interview scorecard (F9): why, and the best checked quote with its time
+    quote: str = ""
+    time: Optional[float] = None
 
 
 class RequirementRow(BaseModel):

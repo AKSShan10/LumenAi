@@ -16,7 +16,42 @@ import { qaAnalysisApi } from "./qaAnalysisApi.js";
 // The AI suggests the marks from the transcript text only. A person decides.
 const LOOK_AGAIN_MS = 3000;            // while the analysis runs, the page asks again every 3 seconds
 const GRADES = [["relevance", "Relevance"], ["accuracy", "Accuracy"], ["completeness", "Completeness"],
-  ["articulation", "Articulation"]];
+  ["articulation", "Articulation"], ["problem_solving", "Problem solving"], ["depth", "Depth"]];
+
+// The interview scorecard (F9): six dimensions, each with its score bar, the reason and the best quote the candidate
+// really said (a click shows that line in the transcript). The interview score is the average of the six.
+function Scorecard({ card, score, showInTranscript }) {
+  if (!card.length) {
+    return <p className="muted small">This interview was analysed before the scorecard existed. Click "Analyse again" to
+      see the six dimensions.</p>;
+  }
+  return (
+    <div className="card scorecard">
+      <div className="row-between">
+        <h3>Interview scorecard</h3>
+        <span className="small muted">Interview score <b className={`mark ${tone(score)}`}>{score ?? "–"}</b>
+          {" "}= the average of the six dimensions, separate from the CV score</span>
+      </div>
+      {card.map((d) => (
+        <div key={d.key} className="scorecard-row">
+          <div className="dash-bar" title={`${d.name}: ${d.score ?? "–"}`}>
+            <span className="dash-bar-label">{d.name}</span>
+            <span className="dash-bar-track"><span className={`dash-bar-fill ${tone(d.score)}`}
+                                                   style={{ width: `${d.score ?? 0}%` }} /></span>
+            <span className="dash-bar-value"><b>{d.score ?? "–"}</b></span>
+          </div>
+          <div className="small muted scorecard-why">{d.reason}
+            {d.quote && <> · "{d.quote}" {d.time !== null && d.time !== undefined && (
+              <button type="button" className="link" onClick={() => showInTranscript(d.time)}>Show in transcript</button>)}</>}
+          </div>
+        </div>
+      ))}
+      <p className="small muted">Alignment is counted by code from the job requirements the answers showed. The other
+        dimensions are the averages of the AI's grades, checked by code. Only the words were assessed, never voice or
+        appearance.</p>
+    </div>
+  );
+}
 
 // The colour of a mark: green 75 and above, amber 50 and above, red below 50
 function tone(value) {
@@ -245,6 +280,9 @@ export default function InterviewAnalysisPage({ sessionId }) {
             </div>
           </div>
         )}
+
+        {status === "done" && <Scorecard card={analysis.scorecard || []} score={analysis.interview_score}
+                                         showInTranscript={(time) => { setMarked(time); setTab("transcript"); }} />}
 
         <div className="tabs">
           <button type="button" className={tab === "marks" ? "active" : ""} onClick={() => setTab("marks")}>Marks</button>

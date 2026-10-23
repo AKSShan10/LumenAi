@@ -1,6 +1,7 @@
 """Tables of the Q&A analysis (F5): what the interview showed, made from the transcript after the call.
 
-    qa_analysis   one row per interview: running | done | failed, the interview score, covered / uncovered requirements
+    qa_analysis   one row per interview: running | done | failed, the interview score, covered / uncovered requirements,
+                  the scorecard (F9: six dimensions with score, reason and the best checked quote)
     qa_item       one row per question and answer: the four grades with reasons, the quote with its time, references
 """
 from datetime import datetime, timezone
@@ -16,9 +17,11 @@ class QaAnalysis(SQLModel, table=True):
     session_id: int = Field(index=True, unique=True)  # the interview (interview_session); one analysis each
     status: str = "running"                           # running | done | failed
     error: str = Field(default="", sa_column=Column(Text))    # why it failed, in plain words
-    interview_score: Optional[float] = None           # average score of the job-related answers (0-100)
+    interview_score: Optional[float] = None           # the average of the six scorecard dimensions (0-100)
     covered: list = Field(default_factory=list, sa_column=Column(JSON))     # job requirements the answers showed
     uncovered: list = Field(default_factory=list, sa_column=Column(JSON))   # job requirements they did not show
+    # F9 scorecard: [{"key", "name", "score", "reason", "quote", "time"}] for the six dimensions ([] = analysed before F9)
+    scorecard: list = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -36,6 +39,8 @@ class QaItem(SQLModel, table=True):
     accuracy: Optional[int] = None
     completeness: Optional[int] = None
     articulation: Optional[int] = None                # how clear the answer's words are (never voice or fluency)
+    problem_solving: Optional[int] = None             # how the answer works through a problem (F9)
+    depth: Optional[int] = None                       # hands-on experience shown (F9)
     score: Optional[float] = None                     # the average of the four grades
     reasons: dict = Field(default_factory=dict, sa_column=Column(JSON))     # {"relevance": "one sentence", ...}
     evidence_quote: str = Field(default="", sa_column=Column(Text))         # checked: really in the answer

@@ -36,7 +36,9 @@ function reportHtml(report) {
   const list = (items) => (items.length
     ? `<ul>${items.map((i) => `<li>${safe(i.text)}<div class="quote">"${safe(i.quote)}" · ${safe(where(i))}</div></li>`).join("")}</ul>`
     : "<p class=\"muted\">None proven with a quote.</p>");
-  const parts = (rows) => rows.map((p) => `<tr><td>${safe(p.name)}</td><td>${p.score ?? "–"}</td></tr>`).join("");
+  // F9: an interview part can carry its evidence (the reason and the candidate's own words)
+  const parts = (rows) => rows.map((p) => `<tr><td>${safe(p.name)}${p.reason ? `<br><small class="muted">${safe(p.reason)}` +
+    `${p.quote ? ` "${safe(p.quote)}"` : ""}</small>` : ""}</td><td>${p.score ?? "–"}</td></tr>`).join("");
   const areaBasis = (a) => [a.requirement && `Requirement: ${safe(a.requirement)}`,
     a.quote && `"${safe(a.quote)}" · ${safe(where(a))}`].filter(Boolean).join(" · ");
   const decision = report.decision === "pending" ? "Pending"
@@ -122,7 +124,10 @@ function Parts({ title, parts }) {
     <div className="card"><h3>{title}</h3>
       {parts.length ? (
         <table className="parts-table"><tbody>
-          {parts.map((p) => <tr key={p.name}><td>{p.name}</td>
+          {parts.map((p) => <tr key={p.name}><td>{p.name}
+            {/* F9: the evidence behind an interview part (empty for CV parts and old analyses) */}
+            {p.reason && <div className="muted small">{p.reason}</div>}
+            {p.quote && <div className="small">“{p.quote}”</div>}</td>
             <td><b className={tone(p.score)}>{p.score ?? "–"}</b></td></tr>)}
         </tbody></table>
       ) : <p className="muted small">Not available.</p>}

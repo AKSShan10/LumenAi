@@ -50,13 +50,15 @@ def test_the_answers_are_graded(client, anonymous, interview, livekit):  # noqa:
     assert python["answer"] == CALL[3][1]                                                # the candidate's own words
     assert python["requirements"] == ["Python", "FastAPI"]
     assert [python[c] for c in ("relevance", "accuracy", "completeness", "articulation")] == [75, 75, 75, 75]
-    assert python["score"] == 75 and set(python["reasons"]) == {"relevance", "accuracy", "completeness", "articulation"}
+    assert python["score"] == 75 and set(python["reasons"]) == {"relevance", "accuracy", "completeness", "articulation",
+                                                                "problem_solving", "depth"}
     assert python["evidence_quote"] == "I have used Python" and python["evidence_time"] == 15.0
 
     assert items[2]["score"] == 25 and items[2]["requirements"] == ["PostgreSQL"]
     assert python["follow_up"] == "" and items[2]["follow_up"]                     # a follow-up for a weak answer
     assert items[0]["follow_up"] == ""                                                # small talk gets none
-    assert result["interview_score"] == round((75 + 25 + 25) / 3, 1)                     # job-related answers only
+    card = {d["key"]: d for d in result["scorecard"]}                                    # F9: six dimensions
+    assert result["interview_score"] == round(sum(d["score"] for d in card.values()) / 6, 1)
     assert result["covered"] == ["Python", "FastAPI"] and result["uncovered"] == ["PostgreSQL"]
 
     row = client.get(f"/api/sessions/{interview['id']}").json()                  # the Interviews list shows it
@@ -178,3 +180,30 @@ def test_grades_are_whole_numbers_from_0_to_100():
     grade = qa_analysis_graph._grade
     assert [grade(60), grade("72.6"), grade(120), grade(-5)] == [60, 73, 100, 0]   # kept, rounded or capped
     assert grade("good") is None and grade(None) is None                           # not a number: skipped
+
+
+def test_the_interview_scorecard_has_six_dimensions_with_evidence(client, anonymous, interview, livekit):  # noqa: F811
+    """F9: an interview score distinct from the CV score, six dimensions, each with a reason and checked evidence."""
+    have_the_call(client, anonymous, interview)
+    result = analyse(client, interview)
+    card = {d["key"]: d for d in result["scorecard"]}
+    assert list(card) == ["technical", "communication", "relevance", "problem_solving", "depth", "alignment"]
+    graded = [i for i in result["items"] if i["job_related"]]
+    for key, grade in (("technical", "accuracy"), ("communication", "articulation"), ("relevance", "relevance"),
+                       ("problem_solving", "problem_solving"), ("depth", "depth")):
+        assert card[key]["score"] == round(sum(i[grade] for i in graded) / len(graded), 1)
+        assert card[key]["reason"]
+    best = card["depth"]                                   # the strongest answer's quote, really said, with its time
+    assert best["quote"] == "I have used Python" and best["time"] == 15.0
+    # alignment by code: Python and FastAPI shown, PostgreSQL not; all three are required (weight 2 each)
+    assert card["alignment"]["score"] == round(100 * 4 / 6, 1) and "2 of 3" in card["alignment"]["reason"]
+    assert result["interview_score"] == round(sum(d["score"] for d in card.values()) / 6, 1)
+    assert all(i["problem_solving"] is not None and i["depth"] is not None for i in graded)
+
+
+def test_new_graders_follow_the_fair_rules():
+    from app.graphs.qa_analysis_prompts import CRITERIA
+    assert {"problem_solving", "depth"} <= set(GRADE_PROMPTS)
+    assert "not whether the candidate sounds confident" in CRITERIA["problem_solving"]
+    for prompt in GRADE_PROMPTS.values():
+        assert FAIR in prompt

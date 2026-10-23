@@ -111,7 +111,7 @@ for module in (auth_router,                      # login
                stt_router,                       # the live transcript: each browser sends its own microphone
                transcript_router,                # reading the transcript and the .txt download
                helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
-               qa_analysis_router,               # after the call: the answers graded on four criteria (F5)
+               qa_analysis_router,               # after the call: the graded answers (F5) and the interview scorecard (F9)
                assessment_router,                # the final report, the decision and the comparison (F6)
                claim_router,                     # CV claims compared with the interview: prompts for follow-up (F8)
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
