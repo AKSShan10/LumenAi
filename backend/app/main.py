@@ -26,6 +26,7 @@ from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
 from app.features.claims.routers import claim_router
 from app.features.claims.services.claim_service import resume_running as resume_running_claims
+from app.features.identity.routers import identity_router
 from app.features.interview_helper.routers import helper_router
 from app.features.interview_quality.routers import interview_quality_router
 from app.features.interview_quality.services.interview_quality_service import resume_running as resume_running_quality
@@ -113,6 +114,7 @@ for module in (auth_router,                      # login
                join_router,                      # the candidate's page (public, only with the private link)
                stt_router,                       # the live transcript: each browser sends its own microphone
                transcript_router,                # reading the transcript and the .txt download
+               identity_router,                  # F7: the face in the call compared with the application photo
                helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
                qa_analysis_router,               # after the call: the graded answers (F5) and the interview scorecard (F9)
                assessment_router,                # the final report, the decision and the comparison (F6)

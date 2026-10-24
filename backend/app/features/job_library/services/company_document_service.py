@@ -3,7 +3,7 @@
     add_document()            save a document with its embedding
     find_documents()          the most similar documents of one kind for a text (given to the AI)
     has_document_for_job()    was this approved job already added?
-    document_out()            the list row shown on the Job Requirements page
+    document_out()            the list row shown on the Jobs page
 
 How the search works: every document is stored with an "embedding" (a list of numbers that stands for
 its meaning). The search text gets an embedding too, and the documents whose numbers are closest win.

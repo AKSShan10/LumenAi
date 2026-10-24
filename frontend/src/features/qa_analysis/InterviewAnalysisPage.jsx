@@ -6,8 +6,9 @@ import { transcriptsApi } from "../transcripts/transcriptsApi.js";
 import { TurnList, clock } from "../transcripts/LiveTranscript.jsx";
 import { qaAnalysisApi } from "./qaAnalysisApi.js";
 import InterviewQualityTab from "../interview_quality/InterviewQualityTab.jsx";
+import { navigate } from "../../shared/utils/navigate.js";
 
-// The Q&A analysis of one interview, in its own browser tab (/interview-analysis/<id>), opened from the Interviews
+// The Q&A analysis of one interview, a page inside the app (/interview-analysis/<id>), opened from the Interviews
 // page. The tab gets a copy of the login from the tab that opened it.
 //   top:   who and when, "Analyse answers" / "Analyse again", the interview score and the requirements shown
 //   tabs:  Marks           every question with its six marks; click a row to see the answer, reasons, quote and a
@@ -231,6 +232,11 @@ export default function InterviewAnalysisPage({ sessionId }) {
     try { setAnalysis(await qaAnalysisApi.start(sessionId)); setTab("marks"); } catch (e) { setError(e.message); }
   }
 
+  // "Next: assessment report": ?start=1 creates the report when there is none yet (Reports does the same)
+  function openReport() {
+    navigate(`/assessment-report/${interview.candidate_id}?start=1`);
+  }
+
   // → GET /api/sessions/{id}/transcript.txt: the transcript as a text file
   function saveTranscript() {
     download(`/api/sessions/${sessionId}/transcript.txt`, `interview-${sessionId}-transcript.txt`).catch((e) => setError(e.message));
@@ -249,13 +255,17 @@ export default function InterviewAnalysisPage({ sessionId }) {
     <div className="analysis-page">
       <div className="analysis-bar">
         <div>
-          <b>Q&A analysis · {interview?.candidate_name || "candidate"}</b>
+          <b>{interview?.candidate_name || "Candidate"}</b>
           <div className="muted small">{interview?.job_title}{when && ` · interview on ${when}`}</div>
         </div>
         <div>
           <button type="button" onClick={start} disabled={!analysis || running || interview?.status !== "ended"}>
             {running ? "Analysing..." : status === "done" || status === "failed" ? "Analyse again" : "Analyse answers"}</button>
-          <button type="button" className="secondary" onClick={() => window.close()}>Close tab</button>
+          {status === "done" && interview && (        // the next step of the process: the report (Reports page)
+            <button type="button" className="secondary" onClick={openReport}
+                    title="The assessment report combines this analysis with the CV screening; the decision is recorded there.">
+              Next: assessment report →</button>
+          )}
         </div>
       </div>
 

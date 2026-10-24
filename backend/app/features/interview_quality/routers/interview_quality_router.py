@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/sessions", tags=["Interview quality"], dependenc
 
 @router.post("/{session_id}/quality", response_model=InterviewQualityOut, status_code=202)
 def start_quality_check(session_id: int, background: BackgroundTasks, session: Session = Depends(get_session)):
+    """POST /api/sessions/{id}/quality: starts the check (202); the work runs in the background."""
     started = interview_quality_service.start(session, get_interview_or_404(session, session_id))
     background.add_task(interview_quality_service.run, session_id)    # → runs after the answer is sent
     return started
@@ -25,4 +26,5 @@ def start_quality_check(session_id: int, background: BackgroundTasks, session: S
 
 @router.get("/{session_id}/quality", response_model=InterviewQualityOut)
 def get_quality(session_id: int, session: Session = Depends(get_session)):
+    """GET /api/sessions/{id}/quality: the result and its status."""
     return interview_quality_service.result(session, get_interview_or_404(session, session_id))

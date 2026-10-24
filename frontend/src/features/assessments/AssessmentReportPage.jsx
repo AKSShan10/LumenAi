@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { navigate } from "../../shared/utils/navigate.js";
 import { auth } from "../../shared/api/authToken.js";
 import { assessmentsApi } from "./assessmentsApi.js";
 import { clock } from "../transcripts/LiveTranscript.jsx";
 import TalentPoolCard from "../talent_pool/TalentPoolCard.jsx";
 import { claimsApi } from "../claims/claimsApi.js";
 
-// The assessment report of one candidate, in its own browser tab (/assessment-report/<candidate id>), opened from
+// The assessment report of one candidate, a page inside the app (/assessment-report/<candidate id>), opened from
 // the Reports page. The tab gets a copy of the login from the tab that opened it.
 //   scores (CV, interview, overall) and the parts behind them · summary · strengths and weaknesses with their proof
 //   (CV, or the interview with the time: a link to that line of the transcript) · requirements (CV and interview) ·
@@ -91,12 +92,12 @@ function downloadHtml(report) {
   URL.revokeObjectURL(link.href);
 }
 
-// Where a quote comes from: "CV", or "Interview · 01:05" as a link to that line of the transcript (analysis page,
-// new tab). Printed as plain text.
+// Where a quote comes from: "CV", or "Interview · 01:05" as a link to that line of the transcript (analysis page).
+// Printed as plain text.
 function Source({ item, sessionId }) {
   if (item.source !== "Interview" || item.time === null || item.time === undefined || !sessionId) return item.source;
-  // → opens /interview-analysis/<id>?tab=transcript&t=<seconds>; window.open (inside the click) copies the login
-  const open = () => window.open(`/interview-analysis/${sessionId}?tab=transcript&t=${item.time}`, "_blank");
+  // → opens /interview-analysis/<id>?tab=transcript&t=<seconds> in the app (Back returns to this report)
+  const open = () => navigate(`/interview-analysis/${sessionId}?tab=transcript&t=${item.time}`);
   return (
     <>
       <button type="button" className="link no-print" onClick={open} title="Show in transcript">{where(item)}</button>
@@ -292,7 +293,7 @@ export default function AssessmentReportPage({ candidateId }) {
     <div className="analysis-page report-page">
       <div className="analysis-bar">
         <div>
-          <b>Assessment report · {report?.candidate_name || "candidate"}</b>
+          <b><span className="print-inline">Assessment report · </span>{report?.candidate_name || "Candidate"}</b>
           <div className="muted small">{report?.job_title}{status === "done" && updated && ` · ${updated}`}</div>
         </div>
         <div className="no-print">
@@ -300,7 +301,6 @@ export default function AssessmentReportPage({ candidateId }) {
             {running ? "Assessing..." : status === "not_started" ? "Create assessment" : "Create again"}</button>
           <button type="button" className="secondary" onClick={() => window.print()} disabled={status !== "done"}>Export PDF</button>
           <button type="button" className="secondary" onClick={() => downloadHtml(report)} disabled={status !== "done"}>Download HTML</button>
-          <button type="button" className="secondary" onClick={() => window.close()}>Close tab</button>
         </div>
       </div>
 

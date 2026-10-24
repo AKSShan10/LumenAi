@@ -4,9 +4,11 @@ import { interviewsApi, invitationStatus } from "./interviewsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import JobPicker from "../../shared/utils/JobPicker.jsx";
 import { currentJob } from "../../shared/utils/currentJob.js";
+import ScheduleCard from "./ScheduleCard.jsx";
+import { navigate } from "../../shared/utils/navigate.js";
 
-// The interviews of a job: start the video call, join it again, or end it. Interviews are scheduled from the
-// Shortlist on the Candidates page. The call opens in its own tab (InterviewRoomPage.jsx, /interview-room/<id>).
+// The interviews of a job: schedule the shortlisted candidates (ScheduleCard.jsx, also possible on the Shortlist of the
+// Candidates page), start the video call, join it again, or end it. The call opens in its own tab (InterviewRoomPage.jsx, /interview-room/<id>).
 // The candidate joins with the private link from the invitation, and only while the call is live.
 const CALL = {
   scheduled: { label: "Not started", badge: "" },
@@ -84,12 +86,9 @@ export default function InterviewsPage() {
       .catch(() => setNote({ ok: true, message: row.join_link }));
   }
 
-  // Opens the analysis page of an interview in a new tab ("transcript" opens it on the Transcript tab)
+  // Opens the analysis page of an interview in the app ("transcript" opens it on the Transcript tab)
   function openAnalysis(row, tab = "") {
-    setError("");
-    // → opens /interview-analysis/<id> in a new tab; window.open (inside the click) copies this tab's login
-    const page = window.open(`/interview-analysis/${row.id}${tab ? `?tab=${tab}` : ""}`, "_blank");
-    if (!page) setError("The browser blocked the new tab. Allow pop-ups for this site and click again.");
+    navigate(`/interview-analysis/${row.id}${tab ? `?tab=${tab}` : ""}`);
   }
 
   if (!jobs) return <div className="card"><p className="muted">Loading...</p></div>;
@@ -97,13 +96,14 @@ export default function InterviewsPage() {
 
   return (
     <>
+      {jobId && <ScheduleCard jobId={jobId} sessions={sessions} onScheduled={() => load(jobId)} />}
       <div className="card">
         <div className="row-between">
           <h3>Interviews</h3>
           <JobPicker id="interviews-job" jobs={jobs} value={jobId} onChange={setJobId} />
         </div>
-        <p className="muted small">Schedule interviews from the Shortlist on the Candidates page. Start the call here at the
-          interview time; the candidate can join only while it is live.</p>
+        <p className="muted small">{jobId ? "Schedule the shortlisted candidates above. " : "Choose a job to schedule its shortlisted candidates. "}
+          Start the call here at the interview time; the candidate can join only while it is live.</p>
         {note && <p className={note.ok ? "ok small" : "error small"}>{note.message}</p>}
         {error && <p className="error">{error}</p>}
 

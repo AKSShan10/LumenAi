@@ -2,7 +2,7 @@ import { useState } from "react";
 import AssistantPage from "../assistant/AssistantPage.jsx";
 import JobsPage from "./JobsPage.jsx";
 
-// The Job Requirements page has two views:
+// The Jobs page (menu: Jobs) has two views:
 //   Chat                    everything is done here: the AI stores documents, writes the job and prepares the post
 //   Saved in the database   the jobs, their posts and the company documents (shown only; delete is possible)
 export default function JobRequirementsPage() {

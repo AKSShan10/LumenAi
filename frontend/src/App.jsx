@@ -11,13 +11,17 @@ import InterviewsPage from "./features/interviews/InterviewsPage.jsx";
 import ReportsPage from "./features/assessments/ReportsPage.jsx";
 import TalentPoolPage from "./features/talent_pool/TalentPoolPage.jsx";
 import DashboardPage from "./features/dashboard/DashboardPage.jsx";
+import InterviewAnalysisPage from "./features/qa_analysis/InterviewAnalysisPage.jsx";
+import AssessmentReportPage from "./features/assessments/AssessmentReportPage.jsx";
+import { navigate } from "./shared/utils/navigate.js";
 
-// The sidebar: [page, label, icon, subtitle]
+// The sidebar: [page, label, icon, subtitle], in the order of the hiring process:
+// write and post the job → collect and screen CVs → interview → report and decide → talent pool
 const MENU = [
   ["dashboard", "Dashboard", "home", "Where every job, CV and interview stands."],
+  ["jobs", "Jobs", "document", "Chat with the AI: store documents, write the job, approve it and post it."],
   ["candidates", "Candidates", "people", "Fetch the applications of a job, upload CVs and see who applied."],
-  ["interviews", "Interviews", "calendar", "Invitations, live interviews and transcripts."],
-  ["jobs", "Job Requirements", "document", "Chat with the AI: store documents, write the job, approve it and post it."],
+  ["interviews", "Interviews", "calendar", "Schedule interviews, send invitations, run the calls and read the transcripts."],
   ["reports", "Reports", "chart", "Compare candidates and record the decision."],
   ["talent-pool", "Talent Pool", "star", "Keep good past candidates and invite them to new jobs that fit."],
   ["settings", "Settings", "gear", "Connection checks and the workflow log."],
@@ -27,16 +31,30 @@ const MENU = [
 // The page is read from the address, so refresh, the Back button and bookmarks work. No router library needed:
 // a click writes the address with history.pushState, and Back/Forward ("popstate") reads it again.
 // nginx already sends every address to index.html (try_files in nginx.conf).
-function pageFromAddress() {
+// Two detail pages open inside the app too, under the menu page they belong to (breadcrumb "Interviews › ..."):
+//   /interview-analysis/<interview id>   the Q&A analysis of one interview      (menu: Interviews)
+//   /assessment-report/<candidate id>    the assessment report of one candidate (menu: Reports)
+const DETAILS = [
+  [/^interview-analysis\/(\d+)$/, "interviews", "Q&A analysis"],
+  [/^assessment-report\/(\d+)$/, "reports", "Assessment report"],
+];
+
+// Reads the address: {page, detail} — detail = {kind, id, title} on a detail page, else null
+function routeFromAddress() {
   const key = window.location.pathname.replace(/^\/+|\/+$/g, "");
-  return MENU.some(([page]) => page === key) ? key : "dashboard";    // "/" or an unknown address -> Dashboard
+  for (const [pattern, page, title] of DETAILS) {
+    const found = key.match(pattern);
+    if (found) return { page, detail: { kind: page === "interviews" ? "analysis" : "report", id: Number(found[1]), title } };
+  }
+  return { page: MENU.some(([page]) => page === key) ? key : "dashboard", detail: null };    // "/" or unknown -> Dashboard
 }
 
 // The main interviewer app: login page, or the sidebar with the chosen page; shown by main.jsx
 export default function App() {
   const [appName, setAppName] = useState("LumenAI");
   const [loggedIn, setLoggedIn] = useState(Boolean(auth.get()));
-  const [page, setPage] = useState(pageFromAddress);
+  const [route, setRoute] = useState(routeFromAddress);
+  const { page, detail } = route;
 
   useEffect(() => {
     // → GET /api/health: shows the app name in the sidebar and tab title
@@ -45,17 +63,16 @@ export default function App() {
 
   useEffect(() => {
     // "/" or an unknown address shows the Dashboard: write /dashboard in the address bar too
-    if (window.location.pathname !== `/${page}`) window.history.replaceState(null, "", `/${page}`);
-    // Runs when Back or Forward is pressed: reads the page from the address bar again
-    const onBack = () => setPage(pageFromAddress());
+    if (!detail && window.location.pathname !== `/${page}`) window.history.replaceState(null, "", `/${page}`);
+    // Runs when Back or Forward is pressed (or navigate() is called): reads the page from the address bar again
+    const onBack = () => { setRoute(routeFromAddress()); document.querySelector(".content")?.scrollTo(0, 0); };
     window.addEventListener("popstate", onBack);
     return () => window.removeEventListener("popstate", onBack);
   }, []);
 
   // Opens a sidebar page: writes its address in the address bar (pushState) and shows it
   function openPage(key) {
-    if (key !== page) window.history.pushState(null, "", `/${key}`);
-    setPage(key);
+    if (key !== page || detail) navigate(`/${key}`);
   }
 
   if (!loggedIn) return <LoginPage appName={appName} onDone={() => setLoggedIn(true)} />;
@@ -86,20 +103,32 @@ export default function App() {
       <div className="content">
         {/* header: the page title */}
         <header className="app-header">
-          <div>
-            <h1>{title}</h1>
-            <p className="muted">{subtitle}</p>
-          </div>
+          {detail ? (                                 // a detail page: the breadcrumb leads back to its menu page
+            <div>
+              <nav className="breadcrumb" aria-label="Breadcrumb">
+                <a href={`/${page}`} onClick={(e) => { e.preventDefault(); openPage(page); }}>{title}</a>
+                <span aria-hidden="true">›</span><span>{detail.title}</span>
+              </nav>
+              <h1>{detail.title}</h1>
+            </div>
+          ) : (
+            <div>
+              <h1>{title}</h1>
+              <p className="muted">{subtitle}</p>
+            </div>
+          )}
         </header>
 
         <main>
-          {page === "dashboard" && <DashboardPage onOpen={openPage} />}
-          {page === "settings" && <SettingsPage />}
-          {page === "jobs" && <JobRequirementsPage />}
-          {page === "candidates" && <CandidatesPage />}
-          {page === "interviews" && <InterviewsPage />}
-          {page === "reports" && <ReportsPage />}
-          {page === "talent-pool" && <TalentPoolPage />}
+          {detail?.kind === "analysis" && <InterviewAnalysisPage key={detail.id} sessionId={detail.id} />}
+          {detail?.kind === "report" && <AssessmentReportPage key={detail.id} candidateId={detail.id} />}
+          {!detail && page === "dashboard" && <DashboardPage onOpen={openPage} />}
+          {!detail && page === "settings" && <SettingsPage />}
+          {!detail && page === "jobs" && <JobRequirementsPage />}
+          {!detail && page === "candidates" && <CandidatesPage />}
+          {!detail && page === "interviews" && <InterviewsPage />}
+          {!detail && page === "reports" && <ReportsPage />}
+          {!detail && page === "talent-pool" && <TalentPoolPage />}
           {/* Placeholder: each feature replaces this card with its real page. */}
           {!["dashboard", "settings", "jobs", "candidates", "interviews", "reports", "talent-pool"].includes(page) && <div className="card"><p className="muted">This screen is not built yet.</p></div>}
         </main>

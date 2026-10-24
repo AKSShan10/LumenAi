@@ -38,6 +38,7 @@ export default function CandidatesPage() {
   const [everyone, setEveryone] = useState([]);     // All jobs: every candidate with the job title
   const [person, setPerson] = useState({ fullName: "", email: "", phone: "" });
   const [files, setFiles] = useState([]);
+  const [photo, setPhoto] = useState(null);         // F7: the candidate's photo for the identity check (optional)
   const [uploadNotes, setUploadNotes] = useState([]);
   const [toDelete, setToDelete] = useState(null);   // the candidate the yes / no pop-up asks about
   const [busy, setBusy] = useState("");
@@ -45,6 +46,7 @@ export default function CandidatesPage() {
   const [tab, setTab] = useState(lastTab);           // applications | included | excluded | shortlist
   const [counts, setCounts] = useState({});         // included / excluded / shortlist, told by the ScreeningCard
   const fileInput = useRef(null);
+  const photoInput = useRef(null);
   const busyRef = useRef("");                        // the timer reads this to see whether something is running
   busyRef.current = busy;
 
@@ -107,19 +109,24 @@ export default function CandidatesPage() {
     } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
-  // One request per file, so many files never make one request too large.
+  // On Upload: one CV with the person's name, email, phone and (optional) photo becomes one candidate
   async function upload(event) {
     event.preventDefault();
+    if (!files[0] || !person.fullName.trim() || !person.email.trim() || !person.phone.trim()) {
+      setUploadNotes([{ ok: false, message: "Choose the CV and fill in the full name, email and phone." }]);
+      return;
+    }
     setError(""); setBusy("upload");
     const notes = [];
     try {
-      for (const file of files) {
-        const answer = await candidatesApi.upload(jobId, file, files.length === 1 ? person : {});
-        notes.push(answer);
-      }
+      const answer = await candidatesApi.upload(jobId, files[0], person, photo);   // one person, one CV
+      notes.push(answer);
       setCandidates(await candidatesApi.list(jobId));
-      setFiles([]); setPerson({ fullName: "", email: "", phone: "" });
-      if (fileInput.current) fileInput.current.value = "";
+      if (answer.ok) {
+        setFiles([]); setPhoto(null); setPerson({ fullName: "", email: "", phone: "" });
+        if (fileInput.current) fileInput.current.value = "";
+        if (photoInput.current) photoInput.current.value = "";
+      }
     } catch (e) { setError(e.message); } finally { setUploadNotes(notes); setBusy(""); }
   }
 
@@ -150,7 +157,7 @@ export default function CandidatesPage() {
 
   if (!jobs) return <div className="card">{error ? <p className="error">{error}</p> : <p>Loading...</p>}</div>;
   if (jobs.length === 0) {
-    return <div className="card"><p className="muted">No approved job yet. Write and approve a job in the chat on the Job Requirements page first.</p></div>;
+    return <div className="card"><p className="muted">No approved job yet. Write and approve a job in the chat on the Jobs page first.</p></div>;
   }
   if (!jobId) {                                     // All jobs: an overview; the steps and actions need a job
     return (
@@ -184,6 +191,11 @@ export default function CandidatesPage() {
   const needsLook = candidates.filter((c) => c.screening_state === "needs_review").length;
   const waiting = candidates.filter((c) => c.screening_state === "waiting").length;
 
+  const screening = (
+    <ScreeningCard jobId={jobId} candidates={candidates} view={tab} onCounts={setCounts} onOpen={pick}
+                   onScreened={() => candidatesApi.list(jobId).then(setCandidates).catch((e) => setError(e.message))} />
+  );
+
   return (
     <>
       <div className="card page-top">
@@ -200,10 +212,10 @@ export default function CandidatesPage() {
       {result && <p className={`page-note ${result.ok ? "ok" : "error"}`}>{result.message}</p>}
       {error && <p className="page-note error">{error}</p>}
 
-      {/* Always here, right under the tabs (it keeps watching the screening). On Applications it shows only the
-          screening progress bar; on the other tabs it shows that list. */}
-      <ScreeningCard jobId={jobId} candidates={candidates} view={tab} onCounts={setCounts} onOpen={pick}
-                     onScreened={() => candidatesApi.list(jobId).then(setCandidates).catch((e) => setError(e.message))} />
+      {/* The screening card keeps watching the screening. On Applications it shows only the screening progress, placed
+          after the Fetch and Upload cards (CVs come in first, then they are screened); on the other tabs it shows
+          that list, right under the tabs. */}
+      {tab !== "applications" && screening}
 
       {tab === "applications" && (<>
         <div className="add-grid">
@@ -232,30 +244,35 @@ export default function CandidatesPage() {
           </div>
 
           <div className="card add-card">
-            <h3>Upload CVs by hand <small className="muted">(for CVs received in another way)</small></h3>
+            <h3>Upload a CV by hand <small className="muted">(for CVs received in another way)</small></h3>
             <form onSubmit={upload}>
-              <label>CV files <small>(PDF, DOCX, DOC or TXT, 5 MB each; you can choose several)</small>
-                <input type="file" accept=".pdf,.docx,.doc,.txt" multiple ref={fileInput} onChange={(e) => setFiles([...e.target.files])} />
-              </label>
-              {files.length === 1 && (
-                <div className="two-columns">
-                  <label>Full name <small>(optional)</small>
-                    <input value={person.fullName} onChange={(e) => setPerson({ ...person, fullName: e.target.value })} maxLength="120" />
-                  </label>
-                  <label>Email <small>(optional)</small>
-                    <input value={person.email} onChange={(e) => setPerson({ ...person, email: e.target.value })} maxLength="200" />
-                  </label>
-                  <label>Phone <small>(optional)</small>
-                    <input value={person.phone} onChange={(e) => setPerson({ ...person, phone: e.target.value })} maxLength="40" />
-                  </label>
-                </div>
-              )}
-              {files.length > 1 && <p className="muted small">{files.length} files chosen. Each file becomes one candidate without a name; choose one file at a time to type the name.</p>}
-              <button className="secondary" disabled={files.length === 0 || busy !== ""}>{busy === "upload" ? "Uploading..." : "Upload"}</button>
+              {/* One candidate per upload: the contact details are needed to invite the person */}
+              <div className="two-columns">
+                <label>CV file <small>(PDF, DOCX, DOC or TXT, up to 5 MB)</small>
+                  <input type="file" accept=".pdf,.docx,.doc,.txt" required ref={fileInput}
+                         onChange={(e) => setFiles([...e.target.files].slice(0, 1))} />
+                </label>
+                <label>Photo <small>(JPG or PNG, for the identity check in the interview)</small>
+                  <input type="file" accept=".jpg,.jpeg,.png,.webp,image/*" ref={photoInput}
+                         onChange={(e) => setPhoto(e.target.files[0] || null)} />
+                </label>
+                <label>Full name
+                  <input value={person.fullName} required onChange={(e) => setPerson({ ...person, fullName: e.target.value })} maxLength="120" />
+                </label>
+                <label>Email
+                  <input type="email" value={person.email} required onChange={(e) => setPerson({ ...person, email: e.target.value })} maxLength="200" />
+                </label>
+                <label>Phone
+                  <input type="tel" value={person.phone} required onChange={(e) => setPerson({ ...person, phone: e.target.value })} maxLength="40" />
+                </label>
+              </div>
+              <button className="secondary" disabled={busy !== ""}>{busy === "upload" ? "Uploading..." : "Upload"}</button>
             </form>
             {uploadNotes.map((note) => <p key={note.message} className={note.ok ? "ok" : "error"}>{note.message}</p>)}
           </div>
         </div>
+
+        {screening}
 
         <div className="card section tone-slate">
           <SectionHead step="applications" count={candidates.length}

@@ -102,7 +102,7 @@ export default function InterviewRoomPage({ sessionId }) {
               </Suspense>
             </div>
           </div>
-          <ProfilePanel profile={profile} error={profileError} />
+          <ProfilePanel profile={profile} error={profileError} sessionId={sessionId} />
         </div>
       )}
       {state === "left" && (

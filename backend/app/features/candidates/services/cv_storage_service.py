@@ -2,6 +2,8 @@
 
     next_number()        the next candidate number inside one job (1, 2, 3 ... per job)
     save_cv_file()       writes one CV into the storage folder and returns where it is
+    save_photo_file()    writes the photo from the Google Form (F7 identity check)
+    photo_file()         the saved photo of one candidate (for the identity check)
     cv_file()            the saved file of one candidate (to open or download it)
     delete_candidate()   removes the candidate and the saved file
     add_uploaded_cv()    manual upload: one file becomes one candidate
@@ -10,6 +12,7 @@
 Where files go:
     <STORAGE_DIR>/cvs/job_<job id>/google_form/candidate_<number>_<name>.<ext>     fetched from the Google Form
     <STORAGE_DIR>/cvs/job_<job id>/uploaded/candidate_<number>_<name>.<ext>        uploaded by hand
+    <STORAGE_DIR>/photos/job_<job id>/candidate_<number>.<ext>                     photo for the identity check (F7)
 
 What keeps two CVs apart is the candidate's NUMBER inside the job (candidate.number). Every job counts on its
 own: 1, 2, 3 ... Inside one job no two candidates share a number, and every job has its own folder. So two
@@ -37,6 +40,7 @@ log = logging.getLogger("candidates")
 BACKEND_DIR = Path(__file__).resolve().parents[4]
 MAX_FILE_BYTES = 5 * 1024 * 1024
 ALLOWED = (".pdf", ".docx", ".doc", ".txt")
+PHOTO_TYPES = (".jpg", ".jpeg", ".png", ".webp")          # F7: the photo uploaded with a CV
 FOLDERS = {"google_form": "google_form", "upload": "uploaded"}     # one folder per way a CV arrived
 
 
@@ -69,6 +73,24 @@ def save_cv_file(candidate: Candidate, original_name: str, data: bytes) -> str:
     return relative.as_posix()
 
 
+def save_photo_file(candidate: Candidate, original_name: str, data: bytes) -> str:
+    """Writes the candidate's photo (F7) and returns its place inside the storage folder (candidate.photo_path)."""
+    extension = os.path.splitext(original_name)[1].lower()[:10] or ".jpg"
+    relative = Path("photos") / f"job_{candidate.job_id}" / f"candidate_{candidate.number}{extension}"
+    target = storage_dir() / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return relative.as_posix()
+
+
+def photo_file(candidate: Candidate) -> Path | None:
+    """The saved photo, or None if there is none."""
+    if not candidate.photo_path:
+        return None
+    path = storage_dir() / candidate.photo_path
+    return path if path.is_file() else None
+
+
 def cv_file(candidate: Candidate) -> Path | None:
     """The saved CV, or None if there is none (never downloaded, or the file was removed from the disk)."""
     if not candidate.file_path:
@@ -79,22 +101,28 @@ def cv_file(candidate: Candidate) -> Path | None:
 
 # Deletes the saved CV file, the screening data (forget_screening) and the candidate row
 def delete_candidate(session: Session, candidate: Candidate) -> None:
-    path = cv_file(candidate)
-    if path:
-        path.unlink()                                 # the file in Google Drive is not touched
+    """Deletes the saved CV and photo, all screening and interview data, and the candidate row."""
+    for path in (cv_file(candidate), photo_file(candidate)):
+        if path:
+            path.unlink()                             # the files in Google Drive are not touched
     forget_screening(session, candidate)
     session.delete(candidate)
     session.commit()
 
 
 def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
-                    full_name: str = "", email: str = "", phone: str = "") -> UploadOut:
+                    full_name: str = "", email: str = "", phone: str = "",
+                    photo_name: str = "", photo_data: bytes = b"") -> UploadOut:
     """Manual upload, for a CV the organization received in another way. The name, email and phone are
-    whatever the interviewer typed with this file (they may be empty)."""
+    whatever the interviewer typed with this file (the page asks for all three). photo: optional (F7)."""
     if os.path.splitext(filename)[1].lower() not in ALLOWED:
         return UploadOut(ok=False, message=f"{filename}: only PDF, DOCX, DOC and TXT files can be uploaded.")
     if len(data) > MAX_FILE_BYTES:
         return UploadOut(ok=False, message=f"{filename}: the file is larger than 5 MB.")
+    if photo_data and os.path.splitext(photo_name)[1].lower() not in PHOTO_TYPES:
+        return UploadOut(ok=False, message=f"{photo_name}: the photo must be a JPG, PNG or WEBP picture.")
+    if len(photo_data) > MAX_FILE_BYTES:
+        return UploadOut(ok=False, message=f"{photo_name}: the photo is larger than 5 MB.")
 
     key = "upload:" + hashlib.sha256(data).hexdigest()        # the same file twice for one job is skipped
     if session.exec(select(Candidate).where(Candidate.job_id == job.id, Candidate.source_key == key)).first():
@@ -112,11 +140,20 @@ def add_uploaded_cv(session: Session, job: Job, filename: str, data: bytes,
     session.add(candidate)
     session.flush()                                   # gives the row its id
     candidate.file_path = save_cv_file(candidate, filename, data)
+    if photo_data:                                    # F7: the photo for the identity check in the interview
+        candidate.photo_path = save_photo_file(candidate, photo_name, photo_data)
+        from app.features.identity.services.identity_service import read_photo_face
+        read_photo_face(candidate)                    # the face vector, or why the photo cannot be used
     session.commit()
     log.info("cv uploaded job=%s candidate=%s number=%s status=%s", job.id, candidate.id, candidate.number, candidate.status)
     from app.features.screening.services.screening_worker import start_screening
     start_screening(job.id)                           # the backend screens the new CV by itself, in the background
-    return UploadOut(ok=True, message=f"{filename} was added.", candidate_id=candidate.id)
+    message = f"{filename} was added" + (" with the photo." if candidate.face_status == "ready" else ".")
+    if photo_data and candidate.face_status == "engine_missing":
+        message += " The photo was saved; its face is read when the face models are installed."
+    elif photo_data and candidate.face_status != "ready":
+        message += " The photo was saved, but no single clear face was found in it, so the identity check cannot use it."
+    return UploadOut(ok=True, message=message, candidate_id=candidate.id)
 
 
 def forget_screening(session: Session, candidate: Candidate) -> None:
@@ -176,5 +213,5 @@ def candidate_out(row: Candidate, screening=None) -> CandidateOut:
             warnings = [w for w in warnings if w != row.read_problem]   # the screening could read it after all
     return CandidateOut(screening_state=state, screening_reason=reason, decided=bool(screening and screening.decision),id=row.id, number=row.number, job_id=row.job_id, full_name=row.full_name, email=row.email, phone=row.phone,
                         applied_at=row.applied_at, source=row.source, original_file_name=row.original_file_name,
-                        has_file=cv_file(row) is not None, saved_as=row.file_path, cv_words=len(row.cv_text.split()), text_source=text_source, status=row.status,
+                        has_file=cv_file(row) is not None, has_photo=photo_file(row) is not None, saved_as=row.file_path, cv_words=len(row.cv_text.split()), text_source=text_source, status=row.status,
                         warnings=warnings, created_at=row.created_at)

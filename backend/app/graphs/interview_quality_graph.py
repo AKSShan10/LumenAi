@@ -83,6 +83,7 @@ class QualityState(TypedDict):
 # ---------- helpers ----------
 
 def _number(value) -> Optional[int]:
+    """A whole number from the AI's answer, or None."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -90,6 +91,7 @@ def _number(value) -> Optional[int]:
 
 
 def _grade(value) -> Optional[int]:
+    """A grade from the AI as a whole number from 0 to 100, or None when it is not a number."""
     try:
         return int(round(max(0.0, min(100.0, float(value)))))
     except (TypeError, ValueError):
@@ -97,6 +99,7 @@ def _grade(value) -> Optional[int]:
 
 
 def _average(values: list) -> Optional[float]:
+    """The average of the values that are not None, rounded to one decimal (None when there are none)."""
     values = [v for v in values if v is not None]
     return round(sum(values) / len(values), 1) if values else None
 
@@ -121,6 +124,7 @@ def _talk(turns: list) -> dict:
 
 # 100 when the interviewer speaks at most 40 %, then 2.5 points less per percent (0 at 80 % or more)
 def _balance_score(share: Optional[float]) -> Optional[float]:
+    """The speaking balance score: 100 up to 40 % interviewer talk, then 2.5 points less per percent."""
     if share is None:
         return None
     return round(max(0.0, 100 - max(0.0, share - MAX_INTERVIEWER_SHARE) * 2.5), 1)
@@ -157,6 +161,7 @@ def _code_recommendations(state: QualityState) -> list:
 
 # Workflow step "load_inputs": the job, the finished Q&A analysis, the transcript and the job's other interviews
 def load_inputs(state: QualityState) -> dict:
+    """Workflow step: the job, the finished Q&A analysis, the transcript and the job's other interviews."""
     with Session(engine) as session:
         interview = session.get(InterviewSession, state["session_id"])
         job = session.get(Job, interview.job_id) if interview else None
@@ -203,6 +208,7 @@ def load_inputs(state: QualityState) -> dict:
 
 # Workflow step "grade_questions": the AI reviews every job-related interviewer question
 def grade_questions(state: QualityState) -> dict:
+    """Workflow step (AI): reviews every job-related interviewer question."""
     questions = [{"n": i["n"], "question": i["question"]} for i in state["items"] if i["job_related"]]
     if not questions:
         return {"graded": {}}
@@ -225,11 +231,13 @@ def grade_questions(state: QualityState) -> dict:
 
 # Workflow step "measure_talk_time": who spoke how long (from the transcript times)
 def measure_talk_time(state: QualityState) -> dict:
+    """Workflow step: who spoke how long, from the transcript times."""
     return {"talk": _talk(state["turns"])}
 
 
 # Workflow step "check_coverage": was each job requirement asked, and did the answer show it?
 def check_coverage(state: QualityState) -> dict:
+    """Workflow step: was each job requirement asked, and did the answer show it?"""
     coverage = []
     for name in state["requirements"]:
         asked = [i["n"] for i in state["items"] if i["job_related"] and name in i["requirements"]]
@@ -240,6 +248,7 @@ def check_coverage(state: QualityState) -> dict:
 
 # Workflow step "compare_consistency": the job's interviews side by side (needs at least two)
 def compare_consistency(state: QualityState) -> dict:
+    """Workflow step: the job's analysed interviews side by side (needs at least two)."""
     interviews = state["interviews"]
     if len(interviews) < 2 or not state["requirements"]:
         return {"consistency": {"interviews": interviews, "uneven": [], "score": None}}
@@ -251,6 +260,7 @@ def compare_consistency(state: QualityState) -> dict:
 
 # Workflow step "find_low_signal": questions that gave little information, and the five scores
 def find_low_signal(state: QualityState) -> dict:
+    """Workflow step: questions that gave little information, the five scores and the quality score."""
     if state["graded"] is None:
         return {"error": f"The AI did not review the questions ({last_error()}). Please try again."}
     questions = []
@@ -281,6 +291,7 @@ def find_low_signal(state: QualityState) -> dict:
 
 # Workflow step "recommend_improvements": the AI writes the summary and the improvements from the measured facts
 def recommend_improvements(state: QualityState) -> dict:
+    """Workflow step (AI): the summary and the improvements, from the measured facts only."""
     facts = {"job_title": state["job_title"],
              "not_asked": [c["requirement"] for c in state["coverage"] if c["state"] == "not_asked"],
              "no_signal": [c["requirement"] for c in state["coverage"] if c["state"] == "no_signal"],
@@ -303,6 +314,7 @@ def recommend_improvements(state: QualityState) -> dict:
 
 # Workflow step "check_recommendations": every improvement must rest on a measured fact; no judging words
 def check_recommendations(state: QualityState) -> dict:
+    """Workflow step: keeps only improvements based on a measured fact; no judging words."""
     gaps = {c["requirement"] for c in state["coverage"] if c["state"] != "shown"}
     weak = {str(q["n"]): q for q in state["questions"]
             if q["signal"] == "low" or (q["relevance"] or 0) < LOW_RELEVANCE}
@@ -325,6 +337,7 @@ def check_recommendations(state: QualityState) -> dict:
 
 # Workflow step "save": the result replaces the old one
 def save(state: QualityState) -> dict:
+    """Workflow step: saves the result (it replaces the old one) and one workflow_run row."""
     with Session(engine) as session:
         row = session.exec(select(InterviewQuality).where(InterviewQuality.session_id == state["session_id"])).one()
         row.status, row.error, row.quality_score = "done", "", state["quality_score"]
@@ -341,6 +354,7 @@ def save(state: QualityState) -> dict:
 
 # Workflow step "failed": marked failed with the reason, so the page can show it
 def failed(state: QualityState) -> dict:
+    """Workflow step: marks the check failed with the reason, so the page can show it."""
     with Session(engine) as session:
         row = session.exec(select(InterviewQuality).where(InterviewQuality.session_id == state["session_id"])).first()
         if row:
@@ -355,10 +369,12 @@ def failed(state: QualityState) -> dict:
 
 # After loading: the four parallel steps, or "failed"
 def after_load(state: QualityState):
+    """After loading: the four parallel steps, or "failed"."""
     return "failed" if state["error"] else PARALLEL_STEPS
 
 
 def go_on(state: QualityState) -> str:
+    """After a step: go on, or to "failed" when the step set an error."""
     return "failed" if state["error"] else "go"
 
 

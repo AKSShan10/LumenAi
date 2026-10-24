@@ -49,6 +49,8 @@ LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
 # Downloaded and uploaded CVs are saved here (inside backend/ unless the path starts at the disk root).
 # The folder holds real CVs: it is in .gitignore and must never be committed.
 STORAGE_DIR = os.getenv("STORAGE_DIR", "storage")
+# F7 identity check: where the two face models are (backend/models/face by default; scripts/download_face_models.py)
+FACE_MODEL_DIR = os.getenv("FACE_MODEL_DIR", "models/face")
 # DRIVE_PROVIDER:
 #   google - read the job's Google Form (Forms API) and the CVs from Google Drive (needs the key file)
 #   fake   - read a folder on this computer instead (tests, and demos without a Google account)

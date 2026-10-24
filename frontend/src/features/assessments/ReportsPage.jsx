@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { navigate } from "../../shared/utils/navigate.js";
 import { jobsApi } from "../jobs/jobsApi.js";
 import DataTable from "../../shared/utils/DataTable.jsx";
 import JobPicker from "../../shared/utils/JobPicker.jsx";
@@ -7,7 +8,7 @@ import { assessmentsApi } from "./assessmentsApi.js";
 import { talentPoolApi } from "../talent_pool/talentPoolApi.js";
 
 // The Reports page: the interviewed candidates of a job side by side, best overall score first.
-// "Create assessment" starts the report in the background; "View report" opens it in a new tab
+// "Create assessment" starts the report in the background; "View report" opens it inside the app
 // (AssessmentReportPage.jsx, /assessment-report/<candidate id>) with the decision and Export PDF.
 // The CV / interview weight (40 / 60 by default) can be changed per job; the overall scores are then recalculated
 // by the backend (only maths, no AI), and the table is ranked again.
@@ -54,13 +55,10 @@ export default function ReportsPage() {
   // A click on a job name in the All jobs list: show only that job (and remember it for the other pages)
   function showJob(id) { currentJob.set(id); setJobId(id); }
 
-  // Opens the report of a candidate in a new tab; window.open (inside the click) copies this tab's login.
-  // "Create assessment" opens it with ?start=1: the report tab starts the assessment and shows the progress.
+  // Opens the report of a candidate in the app. "Create assessment" opens it with ?start=1: the report page starts
+  // the assessment and shows the progress.
   function openReport(row, start = false) {
-    setError("");
-    const page = window.open(`/assessment-report/${row.candidate_id}${start ? "?start=1" : ""}`, "_blank");
-    if (!page) setError("The browser blocked the new tab. Allow pop-ups for this site and click again.");
-    else if (start) setTimeout(() => load(), 3000);   // show "Assessing..." here soon
+    navigate(`/assessment-report/${row.candidate_id}${start ? "?start=1" : ""}`);
   }
 
   // "Add to talent pool": → PUT /api/candidates/{id}/talent-pool (status "strong"; the note can be added on the report)

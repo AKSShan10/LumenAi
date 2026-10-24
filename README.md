@@ -73,6 +73,7 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 
 | # | Feature | What it does |
 |---|---|---|
+| F7 | Candidate identification | In the interviewer's room, **Check identity** takes one picture from the candidate's camera and compares the face with the photo the candidate sent with the Google Form, and with the other candidates' photos. It runs on the server with OpenCV (YuNet + SFace), with no AI service. The result is *confident match*, *low confidence*, *no match* or *no face found*, and the interviewer always confirms or rejects. The job posting tells candidates that the photo they upload is used for this check. The camera picture is never saved, and the photo is deleted with the candidate. |
 | F8 | CV claim verification | On the assessment report, **Check CV claims** compares the CV's concrete claims with what the candidate said in the interview. Each claim is marked *possible contradiction*, *unverified claim*, *not discussed* or *supported*, with the CV quote, the candidate's own words and their time, and a neutral follow-up question. A contradiction always needs the candidate's own words; flags never change a score or a decision. |
 | F9 | Comprehensive interview scoring | The Q&A analysis gives an **interview scorecard** with six dimensions: technical competency, communication, relevance, problem-solving approach, depth of experience and alignment with the job requirements. Each dimension shows its score, the reason and the candidate's own words with a link to the transcript. The interview score is the average of the six and is kept separate from the CV score. Only the words are assessed, never voice or appearance. |
 | F10 | Interview quality assessment | The **Interview quality** tab of the analysis page assesses the interview process itself. Code measures the speaking time of each side, which job requirements were asked and shown, which questions produced little signal, and how consistent the job's interviews were. The AI reviews each question's relevance and suggests a clearer wording, and writes 3-5 improvements; code keeps only those based on a measured fact. It is for the interviewer only and never changes a score or a decision. |
@@ -194,6 +195,7 @@ Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted
 | `qa_analysis` | Grading of each interview answer (F5) and the interview scorecard (F9) |
 | `assessments` | Final report, decision and candidate comparison (F6) |
 | `claims` | CV claims compared with the interview (F8) |
+| `identity` | Face check of the person in the call against the application photo (F7) |
 | `interview_quality` | The quality of the interview process itself (F10) |
 | `talent_pool` | Talent pool, matching for new jobs, invitations and the unsubscribe link (F11) |
 
@@ -252,6 +254,7 @@ API keys are needed for the outside services; see [Configuration](#configuration
    venv\Scripts\activate                    # macOS / Linux: source venv/bin/activate
    pip install -r backend/requirements.txt
    cd backend
+   python scripts/download_face_models.py   # once: the two face models of the identity check (F7, 37 MB)
    uvicorn app.main:app --reload --port 8010
    ```
    Database migrations are applied automatically at start-up.
@@ -341,6 +344,7 @@ All keys and passwords are read from environment variables in `.env` (copied fro
 | **Gemini** | Create a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → `LLM_API_KEY`. |
 | **Deepgram** | Create a key at [console.deepgram.com](https://console.deepgram.com) → API Keys → `STT_PROVIDER=deepgram`, `DEEPGRAM_API_KEY`. |
 | **Google Drive / Forms** | Create a service account in Google Cloud, download its key to `secrets/google-drive.json`, and share each job's Drive folder (form, response sheet, uploaded files) with the service account as Viewer. |
+| **Identity check (F7)** | Add a **file upload** question with "photo" in its title to the job's Google Form (e.g. *Upload a photo of your face*; images only, 1 file), and say in the job posting that the photo is used to confirm the candidate's identity in the interview. The face models come with the Docker image (or `python scripts/download_face_models.py`). |
 | **Blogger** | Create an OAuth client in Google Cloud → `BLOGGER_CLIENT_ID`, `BLOGGER_CLIENT_SECRET`, `BLOGGER_BLOG_ID`; then run `python scripts/blogger_login.py` (in `backend`) and copy the printed `BLOGGER_REFRESH_TOKEN` into `.env`. |
 | **Email (Gmail)** | `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, your address in `SMTP_USER` / `SMTP_FROM`, and an app password (Google account → Security → App passwords) in `SMTP_PASSWORD`. |
 | **LiveKit Cloud** | Create a project at [cloud.livekit.io](https://cloud.livekit.io) → Settings → Keys → `LIVEKIT_URL=wss://<project>.livekit.cloud`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. |
@@ -349,7 +353,7 @@ After any `.env` change, recreate the backend (`docker compose up -d --force-rec
 
 ## Usage walkthrough
 
-1. **Job Requirements:** describe the job in the Assistant chat. Review the draft, save it, approve it (the chat asks for your Yes), and post it to Blogger (again only after your Yes).
+1. **Jobs:** describe the job in the Assistant chat. Review the draft, save it, approve it (the chat asks for your Yes), and post it to Blogger (again only after your Yes).
 2. **Candidates:** fetch the applications from the job's Google Form, or upload CVs. Screening runs by itself; review the ranking, the requirement matches with quotes and the scores, and include or exclude candidates.
 3. **Shortlist and schedule:** choose candidates, plan interview times, check the AI-written invitation and send it.
 4. **Interviews:** start the call at the interview time (it opens in a new tab). The candidate joins with the private link. Use the **Live Transcript**, **AI Helper** and **Chat** tabs during the call, then end it for both.
@@ -376,6 +380,7 @@ The complete, interactive documentation is generated by FastAPI at **http://loca
 | Assessment | `POST` / `GET /api/candidates/{id}/assessment`, `PUT .../assessment/decision`, `GET /api/jobs/{id}/comparison`, `GET /api/comparison` (all jobs, grouped by job) |
 | CV claim verification | `POST` / `GET /api/candidates/{id}/claims` |
 | Interview quality | `POST` / `GET /api/sessions/{id}/quality` |
+| Candidate identification | `GET /api/sessions/{id}/identity`, `POST .../identity/check` (one camera picture), `PUT .../identity/decision`, `GET /api/candidates/{id}/photo` |
 | Talent pool | `GET` / `PUT` / `DELETE /api/candidates/{id}/talent-pool`, `GET /api/talent-pool`, `GET /api/jobs/{id}/talent-matches`, `POST .../talent-invites/draft`, `POST .../talent-invites/send`, `/api/unsubscribe/{token}` (public) |
 | Dashboard | `GET /api/dashboard?job_id=` (tiles, hiring funnel, scores, items waiting, jobs, AI workflow health; counted by code) |
 | System | `/api/health`, `/api/llm-check`, `/api/posting-check`, `/api/drive-check`, `/api/email-check`, `/api/video-check`, `/api/stt-check`, `/api/workflow-runs` |
@@ -415,7 +420,8 @@ The result is saved to `docs/architecture/LumenAI_Workflows_From_Code.md`. VS Co
 - **Job-relevant criteria only.** Prompts forbid judging voice, accent, confidence, appearance, age, gender, family, religion, nationality or health.
 - **People make every decision.** The AI cannot approve, post or decide on its own.
 - **Talent pool emails** always contain an unsubscribe link; someone who unsubscribes is not suggested or invited until an interviewer adds them back (only when the person asks; this needs a confirmation and creates a new unsubscribe link). In a real deployment, the application form should tell candidates their CV may be kept for future openings.
-- **Deleting a candidate** deletes their CV, screening, interviews, transcript, chat, helper messages, analysis, assessment and talent pool entry.
+- **Identity check (F7).** The job posting tells candidates that the photo they upload is used to confirm their identity. The face is compared on this server (OpenCV), never sent to an AI service. The camera picture is compared in memory and never saved; only a face vector of the application photo is stored. Nothing about age, gender, mood or looks is measured, and the interviewer always makes the final decision.
+- **Deleting a candidate** deletes their CV, photo, screening, interviews, transcript, chat, helper messages, analysis, assessment and talent pool entry.
 
 ### What each outside service receives
 
@@ -450,6 +456,7 @@ The result is saved to `docs/architecture/LumenAI_Workflows_From_Code.md`. VS Co
 - **Quick tunnel address changes** on every restart; a named tunnel is needed for a fixed address.
 - **English interviews.** Speech-to-text is configured for English (`DEEPGRAM_LANGUAGE=en`).
 - **Speech-to-text errors.** Misheard words can reach the analysis; the prompts tell the AI to read by meaning and not to penalise them, but very poor audio still lowers quality.
+- **Face recognition accuracy.** It is less reliable in poor light, at an angle, with an old photo, and for some groups of people. The result is only a suggestion; the interviewer confirms or rejects, and "low confidence" or "no match" is shown openly instead of guessing.
 - **AI availability.** Gemini can be temporarily overloaded (503); the affected step fails with a clear message and can be retried.
 
 ## Branching and commits

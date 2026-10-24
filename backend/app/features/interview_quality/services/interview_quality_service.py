@@ -24,10 +24,12 @@ log = logging.getLogger("interview_quality")
 
 
 def _row(session: Session, session_id: int) -> InterviewQuality | None:
+    """The interview_quality row of one interview, or None."""
     return session.exec(select(InterviewQuality).where(InterviewQuality.session_id == session_id)).first()
 
 
 def start(session: Session, interview: InterviewSession) -> InterviewQualityOut:
+    """"Check interview quality": needs the finished Q&A analysis; marks the check running."""
     analysis = session.exec(select(QaAnalysis).where(QaAnalysis.session_id == interview.id)).first()
     if not analysis or analysis.status != "done":
         raise HTTPException(409, "Analyse the answers first. The interview quality uses the Q&A analysis.")
@@ -42,10 +44,12 @@ def start(session: Session, interview: InterviewSession) -> InterviewQualityOut:
 
 
 def run(session_id: int) -> None:
+    """Runs the workflow (graphs/interview_quality_graph.py); called as a background task."""
     assess_interview(session_id)                      # → the LangGraph workflow; it saves the result itself
 
 
 def result(session: Session, interview: InterviewSession) -> InterviewQualityOut:
+    """The result for the analysis page (status not_started when nobody started it)."""
     row = _row(session, interview.id)
     if not row:
         return InterviewQualityOut(session_id=interview.id, status="not_started")

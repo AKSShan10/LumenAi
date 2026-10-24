@@ -1,5 +1,5 @@
 // The job chosen on one page is opened on every page (Candidates, Interviews, Reports, Talent Pool, Dashboard,
-// Job Requirements). Kept in this browser tab (sessionStorage): a refresh keeps it, logging out clears it.
+// Jobs). Kept in this browser tab (sessionStorage): a refresh keeps it, logging out clears it.
 // null = "All jobs". The browser may block storage, so every read and write is in try/catch.
 const KEY = "lumenai_job";
 
