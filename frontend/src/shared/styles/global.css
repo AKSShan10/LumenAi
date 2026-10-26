@@ -377,6 +377,9 @@ button.link.to-shortlist { color: #1d4ed8; font-weight: 700; }
 /* step ② of "Schedule all": the one invitation for everyone */
 .template-box { background: #fff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 16px; margin-top: 12px; }
 .template-box textarea { width: 100%; font: inherit; font-weight: normal; padding: 8px 10px; margin-top: 4px; border: 1px solid #c9ced8; border-radius: 8px; }
+.rewrite-box { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.rewrite-box input { flex: 1; min-width: 240px; margin: 0; }
+.rewrite-box button { margin: 0; width: auto; }
 .placeholder { display: inline-block; font-family: ui-monospace, monospace; font-size: 12px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; padding: 1px 6px; margin: 2px 4px 2px 0; }
 .template-preview summary { cursor: pointer; color: var(--blue); font-size: 13px; }
 .template-preview pre { white-space: pre-wrap; font: inherit; font-size: 13px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }

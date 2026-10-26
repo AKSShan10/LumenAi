@@ -171,6 +171,26 @@ def test_write_again_with_ai(client, job, people):
     assert "The AI wrote the invitation" in again["message"]
 
 
+def test_write_again_with_a_change_improves_the_text_on_the_page(client, job, people, monkeypatch):
+    session = schedule(client, people["Karima Akter"]).json()
+    seen = []
+    real = invitation_graph.llm_json
+    prompts = []
+    monkeypatch.setattr(invitation_graph, "llm_json",
+                        lambda prompt, facts: prompts.append(prompt) or seen.append(facts) or real(prompt, facts))
+    edited = session["invitation_body"] + "\nPS: parking is free."                      # edited by hand on the page
+    again = client.post(f"/api/sessions/{session['id']}/invitation",
+                        json={"change_request": "Make it shorter", "subject": session["invitation_subject"],
+                              "body": edited}).json()
+    previous = seen[0]["previous_draft"]
+    assert prompts[0] == invitation_graph.INVITATION_CHANGE_PROMPT and "main task" in prompts[0]   # the change comes first
+    assert seen[0]["change_request"] == "Make it shorter" and "parking is free" in previous["body"]
+    assert session["join_link"] not in previous["body"] and "{join_link}" in previous["body"]   # the AI never sees it
+    assert len(again["invitation_body"].split()) < len(session["invitation_body"].split())       # shorter
+    assert session["join_link"] in again["invitation_body"] and again["invitation_status"] == ""
+    assert "@" not in str(seen[0])                                                   # never an email address
+
+
 def test_the_candidate_page_shows_only_their_interview(client, anonymous, job, people):
     session = schedule(client, people["Karima Akter"]).json()
     token = session["join_link"].rsplit("/", 1)[1]

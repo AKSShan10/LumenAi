@@ -73,9 +73,13 @@ class PlanRowOut(BaseModel):
 
 
 class TemplateIn(BaseModel):
-    """ "Write the invitation": the AI writes ONE invitation for the shortlist of this job."""
+    """ "Write the invitation": the AI writes ONE invitation for the shortlist of this job.
+    "Write again" with a change: the text on the page is sent too, and the AI improves it as asked."""
     job_id: int
     duration_minutes: int = Field(default=45, ge=15, le=180)
+    change_request: str = Field(default="", max_length=300)     # e.g. "shorter", "friendlier"
+    previous_subject: str = Field(default="", max_length=200)
+    previous_body: str = Field(default="", max_length=8000)
 
 
 class TemplateText(BaseModel):
@@ -91,6 +95,14 @@ class ScheduleManyIn(BaseModel):
     template = the invitation the interviewer checked (no AI call per candidate); None = the AI writes each one."""
     items: list[ScheduleIn] = Field(min_length=1, max_length=50)
     template: Optional[TemplateText] = None
+
+
+class RewriteIn(BaseModel):
+    """ "Write again with AI" for one invitation. Without a change: a new draft. With a change ("shorter"): the AI
+    improves the text as it is now on the page."""
+    change_request: str = Field(default="", max_length=300)
+    subject: str = Field(default="", max_length=200)
+    body: str = Field(default="", max_length=8000)
 
 
 class InvitationIn(BaseModel):

@@ -12,7 +12,8 @@ from app.utils.skill_names import find_skill
 
 from app.features.interview_helper.services.helper_service import CHAT_PROMPT, QUESTIONS_PROMPT
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
-from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
+from app.graphs.invitation_prompts import (
+    INVITATION_CHANGE_PROMPT, INVITATION_PROMPT, INVITATION_TEMPLATE_CHANGE_PROMPT, INVITATION_TEMPLATE_PROMPT)
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
 from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
@@ -34,7 +35,8 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_section_scores(data)
     if instructions == ATS_KEYWORDS_PROMPT:
         return _fake_ats_keywords(data)
-    if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT):
+    if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT, INVITATION_CHANGE_PROMPT,
+                        INVITATION_TEMPLATE_CHANGE_PROMPT):
         return _fake_invitation(data)
     if instructions == QUESTIONS_PROMPT:
         return _fake_questions(data)
@@ -250,6 +252,10 @@ def fake_embedding(text: str, size: int = 64) -> list[float]:
 
 def _fake_invitation(data: dict) -> dict:
     """A short invitation from the data, with the {join_link} placeholder (code puts the real link in)."""
+    if data.get("previous_draft") and "short" in data.get("change_request", "").lower():   # "Write again: shorter"
+        return {"subject": data["previous_draft"]["subject"] or f"Interview invitation: {data['job_title']}",
+                "body": f"Dear {data['candidate_name']},\n\nPlease join our online interview for {data['job_title']} on "
+                        f"{data['date']} at {data['time']}:\n{{join_link}}\n\nKind regards,\n{data['interviewer_name']}"}
     body = (f"Dear {data['candidate_name']},\n\nThank you for applying for the {data['job_title']} position. "
             f"We would like to invite you to an online video interview on {data['date']} at {data['time']} "
             f"(about {data['length_minutes']} minutes).\n\nJoin with your personal link:\n{{join_link}}\n\n"

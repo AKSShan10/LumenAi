@@ -10,7 +10,8 @@ export const interviewsApi = {
   schedule: (candidateId, when) => request("/api/sessions", json({ candidate_id: candidateId, ...when })),
   // POST /api/sessions/plan: suggested times for the whole shortlist (nothing is saved)
   plan: (settings) => request("/api/sessions/plan", json(settings)),
-  // POST /api/sessions/template: the AI writes ONE invitation for the shortlist, to check ({subject, body, message})
+  // POST /api/sessions/template: the AI writes ONE invitation for the shortlist, to check ({subject, body, message});
+  // with change_request, previous_subject and previous_body the AI improves the text on the page
   template: (settings) => request("/api/sessions/template", json(settings)),
   // POST /api/sessions/bulk: schedules many candidates at once with the checked invitation; nothing is sent
   scheduleMany: (items, template) => request("/api/sessions/bulk", json({ items, template })),
@@ -18,8 +19,10 @@ export const interviewsApi = {
   sendAll: (jobId) => request(`/api/sessions/send-all?job_id=${jobId}`, { method: "POST" }),
   // PUT /api/sessions/{id}/time: changes the interview time (the backend writes the email again)
   changeTime: (sessionId, when) => request(`/api/sessions/${sessionId}/time`, put(when)),
-  // POST /api/sessions/{id}/invitation: asks the AI to write the invitation email again
-  writeAgain: (sessionId) => request(`/api/sessions/${sessionId}/invitation`, { method: "POST" }),
+  // POST /api/sessions/{id}/invitation: asks the AI to write the invitation email again; with a change ("shorter")
+  // the text on the page is sent too, and the AI improves it
+  writeAgain: (sessionId, change = "", subject = "", body = "") =>
+    request(`/api/sessions/${sessionId}/invitation`, json({ change_request: change, subject, body })),
   // PUT /api/sessions/{id}/invitation: sends the checked invitation email to the candidate
   send: (sessionId, to, subject, body) => request(`/api/sessions/${sessionId}/invitation`, put({ to, subject, body })),
   joinInfo: (token) => request(`/api/join/${token}`),      // public: the candidate's page

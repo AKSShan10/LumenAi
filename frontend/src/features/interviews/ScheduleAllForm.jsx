@@ -1,4 +1,5 @@
 import { useState } from "react";
+import RewriteBox from "./RewriteBox.jsx";
 import { interviewsApi } from "./interviewsApi.js";
 import { forInput, ZONE } from "./InvitationEditor.jsx";
 
@@ -77,11 +78,15 @@ export default function ScheduleAllForm({ jobId, onDone, onClose }) {
   // The candidates that will be scheduled now: no interview yet, and a time is filled in
   const toSchedule = (rows || []).filter((row) => !row.session_id && row.when);
 
-  // Step 2, "Write the invitation": the AI writes ONE email for everyone, to check and edit here
-  async function writeInvitation() {
+  // Step 2, "Write the invitation": the AI writes ONE email for everyone, to check and edit here.
+  // "Write again" with a change ("shorter"): the email as it is now is sent too, and the AI improves it.
+  async function writeInvitation(change = "") {
     setBusy("write"); setError("");
-    try { setInvitation(await interviewsApi.template({ job_id: jobId, duration_minutes: Number(settings.minutes) })); }
-    catch (e) { setError(e.message); } finally { setBusy(""); }
+    const previous = change && invitation ? { previous_subject: invitation.subject, previous_body: invitation.body } : {};
+    try {
+      setInvitation(await interviewsApi.template({ job_id: jobId, duration_minutes: Number(settings.minutes),
+                                                   change_request: change, ...previous }));
+    } catch (e) { setError(e.message); } finally { setBusy(""); }
   }
 
   // Step 3, "Save and schedule": every candidate gets an interview with the checked email filled in; nothing is sent
@@ -166,7 +171,7 @@ export default function ScheduleAllForm({ jobId, onDone, onClose }) {
 
       {rows && toSchedule.length > 0 && !invitation && (
         <div className="schedule-actions">
-          <button type="button" onClick={writeInvitation} disabled={busy !== ""}>
+          <button type="button" onClick={() => writeInvitation()} disabled={busy !== ""}>
             {busy === "write" ? "Writing the invitation..." : "② Write the invitation"}</button>
           <span className="muted small">The AI writes one email for everyone; you check it before anything is saved.</span>
         </div>
@@ -174,11 +179,7 @@ export default function ScheduleAllForm({ jobId, onDone, onClose }) {
 
       {invitation && (
         <div className="template-box">
-          <div className="row-between">
-            <b>② Check the invitation</b>
-            <button type="button" className="link" onClick={writeInvitation} disabled={busy !== ""}>
-              {busy === "write" ? "Writing..." : "Write again with AI"}</button>
-          </div>
+          <b>② Check the invitation</b>
           {invitation.message && <p className="muted small">{invitation.message}</p>}
           <p className="small">These are filled in for each candidate:{" "}
             {PLACEHOLDERS.map(([code, meaning]) => <span key={code} className="placeholder" title={meaning}>{code}</span>)}
@@ -190,6 +191,7 @@ export default function ScheduleAllForm({ jobId, onDone, onClose }) {
           <label>Email
             <textarea rows="12" value={invitation.body} onChange={(e) => setInvitation({ ...invitation, body: e.target.value })} />
           </label>
+          <RewriteBox busy={busy !== ""} writing={busy === "write"} onRewrite={writeInvitation} />
           {toSchedule[0] && (
             <details className="template-preview">
               <summary>Preview for {toSchedule[0].full_name}</summary>

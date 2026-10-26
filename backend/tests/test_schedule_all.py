@@ -207,6 +207,17 @@ def test_one_invitation_is_written_with_placeholders(client, shortlist):
     assert answer["message"].startswith("The AI wrote the invitation")
 
 
+def test_write_again_with_a_change_improves_the_invitation_for_everyone(client, shortlist):
+    job_id = shortlist["job"]["id"]
+    first = client.post("/api/sessions/template", json={"job_id": job_id, "duration_minutes": 45}).json()
+    again = client.post("/api/sessions/template", json={
+        "job_id": job_id, "duration_minutes": 45, "change_request": "Make it shorter",
+        "previous_subject": first["subject"], "previous_body": first["body"]}).json()
+    assert len(again["body"].split()) < len(first["body"].split())                    # shorter
+    assert "{candidate_name}" in again["body"] and "{join_link}" in again["body"]       # still one text for everyone
+    assert again["message"].startswith("The AI wrote the invitation")
+
+
 def test_schedule_all_with_the_checked_invitation_makes_no_ai_call(client, shortlist, fake_smtp, monkeypatch):
     from app.graphs import invitation_graph
     template = {"subject": "Your interview", "body": "Dear {candidate_name},\n\nSee you on {date} at {time} for "
