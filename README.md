@@ -486,7 +486,7 @@ All endpoints except login, health and the candidate's join page require the int
 | Job description | `graphs/job_description_graph.py` | retrieve company documents (RAG) → write the draft → check it → revise (at most once) |
 | Job posting | `graphs/job_post_graph.py` | prepare the post → **pause for the interviewer's Yes / No** → publish through the Blogger MCP tool |
 | CV screening | `graphs/cv_screening_graph.py` | parse → validate (OCR retry) → extract profile → match requirements → score sections → check quotes → rank → pause for the interviewer's decision |
-| Interview invitation | `graphs/invitation_graph.py` | write the email → pause until the interviewer sends it → send with a calendar invite |
+| Interview invitation | `graphs/invitation_graph.py` | write the email → pause until the interviewer sends it → send with a calendar invite; "Write again" (with an optional change, e.g. "shorter") loops back to write the email |
 | Q&A analysis | `graphs/qa_analysis_graph.py` | pair questions and answers → link requirements → **six graders in parallel** (accuracy with RAG, problem solving, depth) → verify quotes → requirement coverage → `build_scorecard` (six dimensions, code only) |
 | Assessment | `graphs/assessment_graph.py` | strengths, weaknesses, evidence gaps and areas **in parallel** → verify every quote ⇄ repair (at most twice) → overall score → summary |
 | CV claim verification (plain Python, no LangGraph) | `features/claims/services/claim_service.py` | load the CV and the candidate's lines → extract claims → check CV quotes → compare with the interview → check the candidate's quotes (no proof = not discussed) and neutral wording → save |

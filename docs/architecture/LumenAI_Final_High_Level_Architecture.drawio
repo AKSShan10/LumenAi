@@ -1,5 +1,5 @@
 <mxfile host="LumenAI">
-  <diagram name="LumenAI Final High-Level Architecture" id="958525">
+  <diagram name="LumenAI Final High-Level Architecture" id="24724820">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1470" pageHeight="788" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
@@ -35,7 +35,7 @@
         <mxCell id="lghr" value="" style="rounded=1;arcSize=12;fillColor=#dbeafe;strokeColor=#2563eb;strokeWidth=1.3;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=center;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="44" y="698" width="22" height="18" as="geometry"/></mxCell>
         <mxCell id="lglhr" value="HR / interviewer" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=left;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="72" y="695" width="230" height="24" as="geometry"/></mxCell>
         <mxCell id="lgai" value="" style="rounded=1;arcSize=12;fillColor=#ede9fe;strokeColor=#7c3aed;strokeWidth=1.3;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=center;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="314" y="698" width="22" height="18" as="geometry"/></mxCell>
-        <mxCell id="lglai" value="AI (LangGraph + Gemini)" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=left;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="342" y="695" width="230" height="24" as="geometry"/></mxCell>
+        <mxCell id="lglai" value="AI (Gemini)" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=left;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="342" y="695" width="230" height="24" as="geometry"/></mxCell>
         <mxCell id="lgsys" value="" style="rounded=1;arcSize=12;fillColor=#dcfce7;strokeColor=#16a34a;strokeWidth=1.3;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=center;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="44" y="726" width="22" height="18" as="geometry"/></mxCell>
         <mxCell id="lglsys" value="System (backend code)" style="text;strokeColor=none;fillColor=none;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=left;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="72" y="723" width="230" height="24" as="geometry"/></mxCell>
         <mxCell id="lgcand" value="" style="rounded=1;arcSize=12;fillColor=#ffedd5;strokeColor=#ea580c;strokeWidth=1.3;html=1;whiteSpace=wrap;fontSize=12;fontColor=#1f2937;align=center;verticalAlign=middle;spacing=6;fontFamily=Helvetica;" vertex="1" parent="1"><mxGeometry x="314" y="726" width="22" height="18" as="geometry"/></mxCell>
