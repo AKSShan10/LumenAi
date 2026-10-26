@@ -4,6 +4,7 @@ Read and delete only: documents are added in the chat (typed, or as an attached 
   GET    /api/company-documents                    list the documents
   DELETE /api/company-documents/{document_id}      remove one
   GET    /api/company-documents/search?q=...       try the search: which documents would the AI get?
+  GET    /api/company-documents/{document_id}      one document with its whole text ("View")
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -11,9 +12,9 @@ from sqlmodel import Session, select
 from app.core.database import get_session
 from app.core.security import require_interviewer
 from app.features.job_library.models import CompanyDocument
-from app.features.job_library.schemas import DocumentHit, DocumentOut
+from app.features.job_library.schemas import DocumentHit, DocumentOut, DocumentText
 from app.features.job_library.services.company_document_service import (
-    MIN_EXAMPLE_SIMILARITY, TOP_EXAMPLES, TOP_POLICIES, document_out, find_documents)
+    MIN_EXAMPLE_SIMILARITY, TOP_EXAMPLES, TOP_POLICIES, document_out, document_text, find_documents)
 
 router = APIRouter(prefix="/api/company-documents", tags=["Company documents"],
                    dependencies=[Depends(require_interviewer)])
@@ -32,6 +33,15 @@ def try_search(q: str, session: Session = Depends(get_session)):
     hits = (find_documents(session, q, "job_description", TOP_EXAMPLES, MIN_EXAMPLE_SIMILARITY)
             + find_documents(session, q, "policy", TOP_POLICIES))
     return [DocumentHit(**{key: hit[key] for key in ("id", "kind", "title", "similarity")}) for hit in hits]
+
+
+# GET /api/company-documents/{document_id}: one document with its whole text (the "View" button)
+@router.get("/{document_id}", response_model=DocumentText)
+def read_one(document_id: int, session: Session = Depends(get_session)):
+    row = session.get(CompanyDocument, document_id)
+    if not row:
+        raise HTTPException(404, "Document not found")
+    return document_text(row)
 
 
 # DELETE /api/company-documents/{document_id}: deletes one company document
