@@ -235,6 +235,11 @@ def test_token_counts_for_the_log():
     assert _tokens(usage) == "tokens in=1430 out=310 thinking=120"
     assert _tokens(SimpleNamespace(prompt_tokens=10, completion_tokens=5, completion_tokens_details=None)) == \
         "tokens in=10 out=5 thinking=0"
+    # Gemini: no reasoning_tokens, but total_tokens includes the thinking
+    assert _tokens(SimpleNamespace(prompt_tokens=1430, completion_tokens=310, total_tokens=2240,
+                                   completion_tokens_details=None)) == "tokens in=1430 out=310 thinking=500"
+    assert _tokens(SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15,
+                                   completion_tokens_details=None)) == "tokens in=10 out=5 thinking=0"
     assert _tokens(None) == "tokens in=? out=?"
 
 

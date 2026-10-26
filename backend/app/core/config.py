@@ -44,6 +44,8 @@ TOKEN_HOURS = int(os.getenv("TOKEN_HOURS", "10"))
 # ---------------- Log file ----------------
 # Every API call, AI call and job post is written here (see core/logging_setup.py). Empty = terminal only.
 LOG_FILE = os.getenv("LOG_FILE", "logs/lumenai.log")
+# The time shown in the log lines (the database keeps UTC). Bangladesh time by default.
+LOG_TIME_ZONE = os.getenv("LOG_TIME_ZONE", "Asia/Dhaka")
 
 # ---------------- CV files and Google Drive ----------------
 # Downloaded and uploaded CVs are saved here (inside backend/ unless the path starts at the disk root).

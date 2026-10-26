@@ -42,7 +42,7 @@ from app.features.talent_pool.routers import talent_pool_router, unsubscribe_rou
 from app.features.transcripts.routers import stt_router, transcript_router
 
 # Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
-setup_logging(config.LOG_FILE)
+setup_logging(config.LOG_FILE, config.LOG_TIME_ZONE)
 log = logging.getLogger("app")
 api_log = logging.getLogger("api")               # one line for every API call
 

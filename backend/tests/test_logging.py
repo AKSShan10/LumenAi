@@ -57,3 +57,18 @@ def test_log_lines_are_saved_in_a_file(tmp_path):
             if getattr(handler, "baseFilename", "") == str(log_file):
                 root.removeHandler(handler)
                 handler.close()
+
+
+def test_log_time_is_shown_in_bangladesh_time():
+    """A container runs on UTC; the log shows the time of LOG_TIME_ZONE (Bangladesh = UTC+6)."""
+    from app.core.logging_setup import use_time_zone
+    old = logging.Formatter.__dict__["converter"]                  # as stored (a staticmethod), so it can be put back
+    try:
+        use_time_zone("Asia/Dhaka")
+        record = logging.makeLogRecord({"msg": "x"})
+        record.created = 1793000000.0                              # 2026-10-26 07:33:20 UTC
+        assert logging.Formatter("%(asctime)s").format(record).startswith("2026-10-26 13:33:20")
+        use_time_zone("Mars/Base")                                 # unknown: nothing changes, no crash
+        assert logging.Formatter("%(asctime)s").format(record).startswith("2026-10-26 13:33:20")
+    finally:
+        logging.Formatter.converter = old

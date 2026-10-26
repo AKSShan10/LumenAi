@@ -11,17 +11,28 @@ from app.core import config
 
 
 class FakeAIService(BaseHTTPRequestHandler):
+    """Answers like Gemini's own address (".../models/<model>:generateContent") or the OpenAI-style one."""
     status = 200            # the HTTP status the fake service answers with
     content = '{"ok": true}'
     replies: list = []      # if set, the next answers in order (then "content" again)
+    statuses: list = []     # if set, the HTTP status of the next answers in order (then "status" again)
+    usage = {"promptTokenCount": 120, "candidatesTokenCount": 30, "thoughtsTokenCount": 45, "totalTokenCount": 195}
     calls = 0
+    paths: list = []
 
     def do_POST(self):
         self.rfile.read(int(self.headers["Content-Length"]))
         FakeAIService.calls += 1
+        FakeAIService.paths.append(self.path)
         if FakeAIService.replies:
             self.content = FakeAIService.replies.pop(0)
-        if self.status == 200:
+        if FakeAIService.statuses:
+            self.status = FakeAIService.statuses.pop(0)
+        if self.status == 200 and self.path.endswith(":generateContent"):
+            body = {"candidates": [{"finishReason": "STOP", "content": {"role": "model", "parts": [
+                {"text": "Let me think about the title.", "thought": True},     # a thinking note: not the answer
+                {"text": self.content}]}}], "usageMetadata": self.usage}
+        elif self.status == 200:
             body = {"id": "x", "object": "chat.completion", "created": 0, "model": "m", "choices": [
                 {"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": self.content}}]}
         else:
@@ -45,8 +56,9 @@ def ai_service(monkeypatch):
     monkeypatch.setattr(config, "LLM_API_KEY", "test-key")
     monkeypatch.setattr(config, "LLM_MODEL", "gemini-3.5-flash-lite")
     monkeypatch.setattr(config, "LLM_BASE_URL", f"http://127.0.0.1:{server.server_port}/v1beta/openai/")
+    monkeypatch.setattr(llm_client, "RETRY_WAITS", (0, 0, 0, 0))     # no real waiting in tests
     FakeAIService.status, FakeAIService.content = 200, '{"ok": true}'
-    FakeAIService.replies, FakeAIService.calls = [], 0
+    FakeAIService.replies, FakeAIService.statuses, FakeAIService.calls, FakeAIService.paths = [], [], 0, []
     yield FakeAIService
     server.shutdown()
 
@@ -78,6 +90,28 @@ def test_failure_reason_is_shown(ai_service, status, words):
     ai_service.status = status
     result = llm_client.check_connection()
     assert result["ok"] is False and words in result["message"]
+
+
+def test_gemini_uses_its_own_address_and_logs_the_thinking(ai_service, caplog):
+    caplog.set_level("INFO", logger="llm")
+    ai_service.content = '{"title": "Backend Engineer"}'
+    assert llm_client.llm_json("Write a title.", "x") == {"title": "Backend Engineer"}   # the thinking note is skipped
+    assert ai_service.paths == ["/v1beta/models/gemini-3.5-flash-lite:generateContent"]
+    assert "tokens in=120 out=30 thinking=45" in caplog.text
+
+
+def test_too_many_requests_waits_and_tries_again(ai_service):
+    ai_service.statuses = [429, 503]                   # busy twice, then a normal answer
+    ai_service.content = '{"title": "Backend Engineer"}'
+    assert llm_client.llm_json("Write a title.", "x") == {"title": "Backend Engineer"}
+    assert ai_service.calls == 3
+
+
+def test_other_providers_keep_the_openai_address(ai_service, monkeypatch):
+    monkeypatch.setattr(config, "LLM_PROVIDER", "openai")
+    ai_service.content = '{"title": "Backend Engineer"}'
+    assert llm_client.llm_json("Write a title.", "x") == {"title": "Backend Engineer"}
+    assert ai_service.paths == ["/v1beta/openai/chat/completions"]
 
 
 def test_placeholder_key_is_caught(monkeypatch):
