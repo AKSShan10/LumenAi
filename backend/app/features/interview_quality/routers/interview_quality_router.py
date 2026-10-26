@@ -1,5 +1,5 @@
-"""Interview quality assessment (F10), interviewer only. The work is in services/interview_quality_service.py and
-graphs/interview_quality_graph.py.
+"""Interview quality assessment (F10), interviewer only. The work is in
+services/interview_quality_service.py.
 
   POST /api/sessions/{id}/quality   "Check interview quality": answers 202 at once, the work runs in the background
   GET  /api/sessions/{id}/quality   the result and its status; the page asks every 3 seconds while "running"

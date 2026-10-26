@@ -65,6 +65,8 @@ class MatchesOut(BaseModel):
 class DraftIn(BaseModel):
     pool_ids: list[int] = Field(min_length=1, max_length=20)
     instruction: str = Field(default="", max_length=300)    # "Write again" with a wish, e.g. "shorter"
+    previous_subject: str = Field(default="", max_length=200)   # "Write again" for one person: the draft on the page,
+    previous_body: str = Field(default="", max_length=4000)     # so the AI improves it instead of starting again
 
 
 class InviteDraft(BaseModel):

@@ -1,4 +1,4 @@
-"""CV claim verification (F8), interviewer only. The work is in services/claim_service.py and graphs/claim_check_graph.py.
+"""CV claim verification (F8), interviewer only. The work is in services/claim_service.py.
 
   POST /api/candidates/{id}/claims   "Check CV claims": answers 202 at once, the work runs in the background
   GET  /api/candidates/{id}/claims   the claims and their status; the page asks every 3 seconds while "running"

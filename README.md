@@ -26,15 +26,16 @@
 6. [Repository structure](#repository-structure)
 7. [Getting started](#getting-started)
 8. [Configuration](#configuration)
-9. [Usage walkthrough](#usage-walkthrough)
-10. [API reference](#api-reference)
-11. [AI workflows](#ai-workflows)
-12. [Privacy and security](#privacy-and-security)
-13. [Troubleshooting](#troubleshooting)
-14. [Known limitations](#known-limitations)
-15. [Branching and commits](#branching-and-commits)
-16. [Documentation](#documentation)
-17. [Author](#author)
+9. [Commands reference](#commands-reference)
+10. [Usage walkthrough](#usage-walkthrough)
+11. [API reference](#api-reference)
+12. [AI workflows](#ai-workflows)
+13. [Privacy and security](#privacy-and-security)
+14. [Troubleshooting](#troubleshooting)
+15. [Known limitations](#known-limitations)
+16. [Branching and commits](#branching-and-commits)
+17. [Documentation](#documentation)
+18. [Author](#author)
 
 ---
 
@@ -66,7 +67,7 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 | F2 | Candidate scoring | Skills, experience and qualifications are rated and combined into a weighted CV score, using weights set per job. |
 | F3 | Video interview | Shortlist, scheduling, an AI-written invitation with a calendar invite and a private join link, and a live video call (LiveKit) with chat and screen sharing. An **AI Helper** suggests questions with model answers and answers the interviewer's questions during the call. |
 | F4 | Live transcript | Each participant's microphone is transcribed live (Deepgram) with the speaker and the time of every sentence. |
-| F5 | Interview answer analysis | Each question and answer is found in the transcript and graded on relevance, accuracy, completeness and articulation, with a verified quote, the company document used, and a suggested follow-up question. Answers are mapped to job requirements. |
+| F5 | Interview answer analysis | Each question and answer is found in the transcript and graded by six graders (relevance, accuracy, completeness, articulation, problem solving, depth), with a verified quote, the company document used, and a suggested follow-up question. Answers are mapped to job requirements. |
 | F6 | Consolidated assessment | One final report per candidate: CV score, interview score and overall score, strengths and weaknesses with quotes, evidence gaps and areas to explore. Includes a ranked comparison of candidates, the hiring decision, and PDF / HTML export. |
 
 ### Stretch
@@ -90,8 +91,8 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
  JD  →  Job post  →  CV collection  →  Screening  →  Selection  →  Interview  →  Analysis  →  Final report
  │        │             │                 │             │             │             │             │
  Assistant Blogger       Google Form +     AI reads      Shortlist,    LiveKit call, Q&A grading   Assessment,
- chat +    (MCP, after   Drive (service    each CV,      schedule,     live          on 4         comparison,
- RAG       a person's    account)          checks every  AI-written    transcript,   criteria,    decision,
+ chat +    (MCP, after   Drive (service    each CV,      schedule,     live          by six       comparison,
+ RAG       a person's    account)          checks every  AI-written    transcript,   graders,     decision,
            Yes)                            requirement   invitation    AI Helper     requirements PDF / HTML
 ```
 
@@ -107,20 +108,21 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 
 The steps of the hiring flow and who carries out each one.
 
-![High-level system diagram](docs/architecture/LumenAI_High_Level_Diagram.svg)
+![High-level architecture](docs/architecture/LumenAI_Final_High_Level_Architecture.svg)
 
 ### Detailed architecture
 
 Each step with the page, backend service, workflow, outside service and database table that carry it out.
 
-![Detailed architecture diagram](docs/architecture/Details%20Diagram.drawio.svg)
+![Detailed architecture](docs/architecture/LumenAI_Final_Detailed_Architecture.svg)
 
 ### LangGraph design
 
-The multi-step AI work runs as LangGraph workflows with parallel branches, retries and repair loops. Single AI calls (for example the AI Helper) are plain functions.
+The multi-step AI work runs as LangGraph workflows with parallel branches, retries and repair loops. Single AI calls (for example the AI Helper) and straight lines of steps (the CV claim check and the interview quality check) are plain Python.
 
-![LangGraph workflows](docs/architecture/LumenAI_LangGraph_Workflows.svg)
+![LangGraph workflows](docs/architecture/LumenAI_Final_LangGraph_Workflows.svg)
 
+Each diagram also has an editable `.drawio` file. Earlier versions (v1 and `_v2`) are kept in the same folder.
 The diagrams generated directly from the code are in [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) (see [AI workflows](#ai-workflows)).
 
 ### Request flow inside the backend
@@ -170,8 +172,8 @@ Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
-│       ├── main.jsx           chooses the page by address (app, candidate page, call, analysis, report)
-│       ├── App.jsx            sidebar layout and pages
+│       ├── main.jsx           chooses the page by address (app, candidate page, interview room, unsubscribe)
+│       ├── App.jsx            sidebar layout, pages, Q&A analysis and assessment report pages
 │       ├── shared/            HTTP client, login token, styles, shared components
 │       └── features/          one folder per feature
 ├── docs/architecture/         diagrams (.svg and .drawio) and workflows generated from the code
@@ -272,7 +274,8 @@ API keys are needed for the outside services; see [Configuration](#configuration
 |---|---|
 | Build and run | `docker compose up --build` |
 | Run in the background | `docker compose up -d --build` |
-| Apply a `.env` change to the backend | `docker compose up -d --force-recreate api` |
+| Apply a `.env` change to the backend | `docker compose up -d --force-recreate api blogger-mcp recruitment-mcp` |
+| Apply a code change (the code is copied into the images) | `docker compose up -d --build api blogger-mcp recruitment-mcp web` |
 | Follow the backend log | `docker compose logs -f api` |
 | Stop | `docker compose down` |
 | Reset (delete all data) | `docker compose down -v` |
@@ -335,7 +338,7 @@ All keys and passwords are read from environment variables in `.env` (copied fro
 | MCP servers | `MCP_BLOGGER_URL`, `MCP_RECRUITMENT_URL` | set by Docker; empty = started as child processes |
 | Assessment | `ASSESSMENT_CV_WEIGHT` (default 40) | overall score = CV × weight % + interview × (100 − weight) % |
 | Talent pool | `POOL_KEEP_DAYS` (default 365), `POOL_MIN_MATCH` (default 50) | how long a past candidate is kept; the starting minimum match % on the Talent Pool page |
-| Logging | `LOG_FILE` | log of API calls, AI calls (with token counts) and posts |
+| Logging | `LOG_FILE`, `LOG_TIME_ZONE` (default `Asia/Dhaka`) | one log file for the backend and both MCP servers: API calls, AI calls with token counts (input, output, thinking) and posts; times in `LOG_TIME_ZONE` |
 
 ### Setting up the outside services
 
@@ -349,11 +352,100 @@ All keys and passwords are read from environment variables in `.env` (copied fro
 | **Email (Gmail)** | `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, your address in `SMTP_USER` / `SMTP_FROM`, and an app password (Google account → Security → App passwords) in `SMTP_PASSWORD`. |
 | **LiveKit Cloud** | Create a project at [cloud.livekit.io](https://cloud.livekit.io) → Settings → Keys → `LIVEKIT_URL=wss://<project>.livekit.cloud`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. |
 
-After any `.env` change, recreate the backend (`docker compose up -d --force-recreate api`) and use the test buttons on the **Settings** page.
+After any `.env` change, recreate the backend services (`docker compose up -d --force-recreate api blogger-mcp recruitment-mcp`) and use the test buttons on the **Settings** page.
+
+## Commands reference
+
+All commands for Windows (PowerShell or Command Prompt) from the repository folder, unless a folder is named. macOS / Linux use the same commands with `/` paths and `source venv/bin/activate`.
+
+### First-time setup
+
+| Action | Command |
+|---|---|
+| Create the configuration file | `copy .env.example .env` |
+| Make a value for `SECRET_KEY` (paste it into `.env`) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| Python environment for scripts and local runs | `python -m venv venv` then `venv\Scripts\activate` then `pip install -r backend/requirements.txt` |
+| Face models for the identity check (local runs only; Docker downloads them) | `cd backend` then `python scripts/download_face_models.py` |
+| Frontend packages (local runs only) | `cd frontend` then `npm install` |
+
+### Keys and tokens
+
+Keys are only ever written into `.env` (or `secrets/`) by you; never commit them.
+
+| Key | How to get it |
+|---|---|
+| `SECRET_KEY` | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `BLOGGER_REFRESH_TOKEN` | Put `BLOGGER_CLIENT_ID` and `BLOGGER_CLIENT_SECRET` in `.env` first. Then, on your own computer (not in Docker, it opens the browser), with the venv active: `cd backend` and `python scripts/blogger_login.py`. Click **Allow**; copy the printed `BLOGGER_REFRESH_TOKEN=...` line into `.env`; then `docker compose up -d --force-recreate api blogger-mcp`. Run it again whenever posting fails with `invalid_grant` |
+| `BLOGGER_CLIENT_ID`, `BLOGGER_CLIENT_SECRET` | Google Cloud Console → APIs & Services → Credentials → OAuth client (Desktop app); enable the Blogger API. Publish the consent screen (*In production*) so the refresh token does not expire after 7 days |
+| `BLOGGER_BLOG_ID` | The number in the blog's address on blogger.com (Settings or the dashboard URL) |
+| `LLM_API_KEY` (Gemini) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `DEEPGRAM_API_KEY` | [console.deepgram.com](https://console.deepgram.com) → API Keys |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | [cloud.livekit.io](https://cloud.livekit.io) → your project → Settings → Keys |
+| `SMTP_PASSWORD` (Gmail) | Google account → Security → 2-Step Verification → App passwords |
+| `secrets/google-drive.json` | Google Cloud Console → IAM → Service accounts → Keys → Add key (JSON); enable the Drive and Forms APIs and share the job's form and CV folder with the service account |
+
+After changing keys, check them on the **Settings** page (Test AI connection, email, speech-to-text, video, Google Drive, Blogger).
+
+### Run with Docker
+
+| Action | Command |
+|---|---|
+| Build and start everything | `docker compose up -d --build` |
+| After a code change | `docker compose up -d --build api blogger-mcp recruitment-mcp web` |
+| After a `.env` change | `docker compose up -d --force-recreate api blogger-mcp recruitment-mcp` |
+| See what is running | `docker compose ps` |
+| Follow the log of a service | `docker compose logs -f api` (or `recruitment-mcp`, `blogger-mcp`, `web`, `db`) |
+| Open the database | `docker compose exec db psql -U recruit -d recruit` |
+| Stop / stop and delete all data | `docker compose down` / `docker compose down -v` |
+| Public https address for a candidate | `docker compose --profile tunnel up -d --force-recreate tunnel` (see [the tunnel steps](#a-candidate-on-another-device-https-tunnel)) |
+
+### Run locally (without Docker for the app)
+
+| Action | Command |
+|---|---|
+| Database only | `docker compose up -d db` (in `.env`: `POSTGRES_HOST=localhost`, `POSTGRES_PORT=5433`) |
+| Backend | `cd backend` then `uvicorn app.main:app --reload --port 8010` |
+| Frontend | `cd frontend` then `npm run dev` (http://localhost:5173) |
+
+### Logs and AI token use
+
+| Action | Command |
+|---|---|
+| The log file (backend and both MCP servers) | `backend\logs\lumenai.log` (times in `LOG_TIME_ZONE`, Bangladesh time by default) |
+| Every AI call with its tokens | `findstr "tokens in=" backend\logs\lumenai.log` (PowerShell: `Select-String -Path backend\logs\lumenai.log -Pattern "tokens in="`) |
+| Only the Assistant chat's token use | `findstr "assistant AI" backend\logs\lumenai.log` |
+| Live, while you click | `docker compose logs -f api` |
+
+Each AI line shows the model, the time taken and `tokens in=… out=… thinking=…`. The workflow log (every LangGraph run) is on **Settings → Workflow log**.
+
+### Tests and checks
+
+| Action | Command |
+|---|---|
+| All backend tests (offline: fake AI, SQLite, no keys) | `python -m pytest -q` (from the repository folder, venv active) |
+| One test file | `python -m pytest -q backend/tests/test_screening.py` |
+| Tests on PostgreSQL: make a fresh test database first (also before every rerun) | `docker compose exec db psql -U recruit -d recruit -c "DROP DATABASE IF EXISTS recruit_test;" -c "CREATE DATABASE recruit_test;"` |
+| … then run them against it | `set TEST_DATABASE_URL=postgresql+psycopg://recruit:recruit@localhost:5433/recruit_test` then `python -m pytest -q` (PowerShell: `$env:TEST_DATABASE_URL="..."`) |
+| Frontend production build | `cd frontend` then `npm run build` |
+
+### Database migrations (in `backend`, venv active)
+
+| Action | Command |
+|---|---|
+| Apply all migrations (also done at start-up) | `alembic upgrade head` |
+| New migration after changing a model | `alembic revision --autogenerate -m "what changed"` |
+| Show the current version | `alembic current` |
+
+### Diagrams
+
+| Action | Command |
+|---|---|
+| Draw every LangGraph workflow from the code | `cd backend` then `python scripts/print_workflows.py` → `docs/architecture/LumenAI_Workflows_From_Code.md` |
+| The same inside Docker | `docker compose exec api python scripts/print_workflows.py` then `docker compose cp api:/docs/architecture/LumenAI_Workflows_From_Code.md docs/architecture/` |
 
 ## Usage walkthrough
 
-1. **Jobs:** describe the job in the Assistant chat. Review the draft, save it, approve it (the chat asks for your Yes), and post it to Blogger (again only after your Yes).
+1. **Jobs:** store company documents in the **Knowledge base** (attach a file in the chat), then describe the job in the **Chat with the AI** tab. Review the draft, save it, approve it (the chat asks for your Yes), and post it to Blogger (again only after your Yes).
 2. **Candidates:** fetch the applications from the job's Google Form, or upload CVs. Screening runs by itself; review the ranking, the requirement matches with quotes and the scores, and include or exclude candidates.
 3. **Shortlist and schedule:** choose candidates, plan interview times, check the AI-written invitation and send it.
 4. **Interviews:** start the call at the interview time (it opens in a new tab). The candidate joins with the private link. Use the **Live Transcript**, **AI Helper** and **Chat** tabs during the call, then end it for both.
@@ -397,9 +489,9 @@ All endpoints except login, health and the candidate's join page require the int
 | Interview invitation | `graphs/invitation_graph.py` | write the email → pause until the interviewer sends it → send with a calendar invite |
 | Q&A analysis | `graphs/qa_analysis_graph.py` | pair questions and answers → link requirements → **six graders in parallel** (accuracy with RAG, problem solving, depth) → verify quotes → requirement coverage → `build_scorecard` (six dimensions, code only) |
 | Assessment | `graphs/assessment_graph.py` | strengths, weaknesses, evidence gaps and areas **in parallel** → verify every quote ⇄ repair (at most twice) → overall score → summary |
-| CV claim verification | `graphs/claim_check_graph.py` | load the CV and the candidate's lines → extract claims → check CV quotes → compare with the interview → check the candidate's quotes (no proof = not discussed) and neutral wording → save |
-| Interview quality | `graphs/interview_quality_graph.py` | load the Q&A analysis, transcript and the job's other interviews → **four steps in parallel** (review questions with AI, speaking time, coverage, consistency) → find low-signal questions and the scores → recommend improvements (AI) → keep only those based on a measured fact → save |
-| Talent pool invitation | `graphs/talent_invite_graph.py` | load the facts (only skills that fit) → write the email → check it (name, job, no links, scores, decisions, promises or skills the CV lacks) ⇄ write again (once) → standard text if needed; a person sends |
+| CV claim verification (plain Python, no LangGraph) | `features/claims/services/claim_service.py` | load the CV and the candidate's lines → extract claims → check CV quotes → compare with the interview → check the candidate's quotes (no proof = not discussed) and neutral wording → save |
+| Interview quality (plain Python, no LangGraph) | `features/interview_quality/services/interview_quality_service.py` | load the Q&A analysis, transcript and the job's other interviews → review questions (AI) → speaking time, coverage, consistency (code) → find low-signal questions and the scores → recommend improvements (AI) → keep only those based on a measured fact → save |
+| Talent pool invitation | `graphs/talent_invite_graph.py` | load the facts (only skills that fit) → write the email → check it (name, job, no links, scores, decisions, promises or skills the CV lacks) ⇄ write again (once) → standard text if needed; "Write again" (or the quick "Shorter" / "Very short") improves the draft on the page; a person sends |
 | Assistant agent | `graphs/assistant_agent.py` | ReAct agent: the AI chooses MCP tools; approval and posting only through a person's confirmation |
 
 To draw every workflow from the code (Mermaid diagrams):
@@ -439,7 +531,8 @@ The result is saved to `docs/architecture/LumenAI_Workflows_From_Code.md`. VS Co
 | Problem | Cause and fix |
 |---|---|
 | Docker says "port is already allocated" | Change `API_PORT`, `WEB_PORT` or `DB_HOST_PORT` in `.env`. |
-| A `.env` change has no effect | Recreate the backend: `docker compose up -d --force-recreate api` (`restart` does not reload `.env`). |
+| A `.env` change has no effect | Recreate the backend services: `docker compose up -d --force-recreate api blogger-mcp recruitment-mcp` (`restart` does not reload `.env`). |
+| A code change has no effect in Docker | The code is copied into the image: rebuild with `docker compose up -d --build api blogger-mcp recruitment-mcp web`. |
 | Job post fails with `invalid_grant` | The Blogger login expired (Google apps in *Testing* mode expire after 7 days). Run `python scripts/blogger_login.py`, update `BLOGGER_REFRESH_TOKEN`, recreate `api` and `blogger-mcp`. Publishing the OAuth app to *In production* avoids the weekly expiry. |
 | "The AI did not answer … 503 / high demand" | A temporary overload at Google. Wait a minute and try again. |
 | "Too many requests" from Gemini | The free quota's per-minute limit; screening waits `SCREENING_RATE_LIMIT_WAIT` seconds and continues. |
@@ -486,6 +579,7 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 |---|---|
 | Architecture diagrams (high level, detailed, LangGraph) | [`docs/architecture/`](docs/architecture/) |
 | Workflows generated from the code | [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) |
+| LangGraph slides: one image per workflow and a presentation guide | [`docs/presentation/langgraph/`](docs/presentation/langgraph/) |
 | Interactive API documentation | http://localhost:8010/docs (when running) |
 | Clarification document, WBS, SRS, innovation rationale | _to be added by the author_ |
 

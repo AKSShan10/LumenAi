@@ -14,6 +14,9 @@ import { POOL_STATUS, talentPoolApi } from "./talentPoolApi.js";
 // The apply link and the unsubscribe link are added below every email by the backend.
 const day = (value) => new Date(value).toLocaleDateString([], { dateStyle: "medium" });
 const STATE = { active: ["Active", "done"], unsubscribed: ["Unsubscribed", "failed"], expired: ["Expired", ""] };
+// Quick "Write again" options that make the draft shorter (the check still needs 30-200 words)
+const SHORTER = [["Shorter", "Make it shorter, about 60 words. Keep the main points."],
+                 ["Very short", "Make it very short, about 40 words: greeting, the new job, invite to apply."]];
 
 export default function TalentPoolPage() {
   const [jobs, setJobs] = useState([]);
@@ -68,11 +71,13 @@ export default function TalentPoolPage() {
     finally { setBusy(false); }
   }
 
-  // "Write again" for one person: → POST .../talent-invites/draft with that person and the wish
-  async function writeAgain(poolId) {
+  // "Write again" for one person: → POST .../talent-invites/draft with that person, the wish and the draft as it is
+  // now on the page (the AI improves it). The quick buttons ("Shorter", "Very short") send a ready-made wish.
+  async function writeAgain(poolId, wish = wishes[poolId] || "") {
+    const current = drafts.find((d) => d.pool_id === poolId);
     setRewriting(poolId); setError("");
     try {
-      const [fresh] = await talentPoolApi.draft(jobId, [poolId], wishes[poolId] || "");
+      const [fresh] = await talentPoolApi.draft(jobId, [poolId], wish, { subject: current.subject, body: current.body });
       setDrafts((old) => old.map((d) => (d.pool_id === poolId ? fresh : d)));
     } catch (e) { setError(e.message); }
     finally { setRewriting(null); }
@@ -165,7 +170,7 @@ export default function TalentPoolPage() {
             <h3>Check the emails</h3>
             <p className="muted small">Each email was checked by code: it is formal, names the person and the job, has no links,
               scores, earlier results or promises, and names only skills shown in the CV. Edit it, or write it again
-              with a wish.</p>
+              with a wish: the AI then improves the text you see (for example "Shorter").</p>
             {drafts.map((d, n) => (
               <div key={d.pool_id} className="pool-draft">
                 <b>{d.name}</b> <span className="muted small">{d.email}</span>
@@ -177,6 +182,13 @@ export default function TalentPoolPage() {
                          value={wishes[d.pool_id] || ""} onChange={(e) => setWishes({ ...wishes, [d.pool_id]: e.target.value })} />
                   <button type="button" className="secondary" onClick={() => writeAgain(d.pool_id)}
                           disabled={busy || rewriting !== null}>{rewriting === d.pool_id ? "Writing..." : "Write again"}</button>
+                </div>
+                <div className="pool-filters">
+                  <span className="muted small">Quick:</span>
+                  {SHORTER.map(([label, wish]) => (
+                    <button key={label} type="button" className="secondary small" onClick={() => writeAgain(d.pool_id, wish)}
+                            disabled={busy || rewriting !== null}>{label}</button>
+                  ))}
                 </div>
               </div>
             ))}

@@ -1,8 +1,8 @@
 """CV claim verification (F8): CV claims compared with what the candidate said. Flags are prompts for follow-up
 questions, never accusations or decisions. The fake AI is used (no key). Made-up data only."""
 from app.ai.fake_llm import fake_answer
-from app.graphs import claim_check_graph
-from app.graphs.claim_check_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
+from app.features.claims.services import claim_service
+from app.features.claims.services.claim_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
 from tests.test_qa_analysis import have_the_call
 from tests.test_video_call import interview, livekit  # noqa: F401  (a scheduled interview and LiveKit settings)
 
@@ -48,13 +48,13 @@ def test_a_contradiction_needs_the_candidates_own_words(client, anonymous, inter
              "note": "Different.", "follow_up": "Can you explain?"},
             {"n": 3, "status": "unverified", "line": 3, "interview_quote": "PostgreSQL is a database",
              "note": "Only a short answer.", "follow_up": "How did you use PostgreSQL?"}]}
-    monkeypatch.setattr(claim_check_graph, "llm_json", compare)
+    monkeypatch.setattr(claim_service, "llm_json", compare)
     claims = check(client, candidate)["claims"]
     first, second, third = (next(c for c in claims if c["claim"] == name) for name in
                             ("Works with Python.", "Works with FastAPI.", "Works with PostgreSQL."))
     assert first["status"] == "contradicted" and first["time"] == 15.0          # proven by the candidate's words
     assert "lied" not in first["note"] and "fake" not in first["follow_up"]      # accusing words replaced
-    assert first["note"] == claim_check_graph.NEUTRAL_NOTE["contradicted"]
+    assert first["note"] == claim_service.NEUTRAL_NOTE["contradicted"]
     assert second["status"] == "not_discussed" and second["interview_quote"] == ""   # no proof: no contradiction
     assert third["status"] == "unverified" and third["time"] == 25.0
     assert claims[0]["status"] == "contradicted"
@@ -70,10 +70,10 @@ def test_made_up_cv_quotes_are_dropped_and_failures_are_explained(client, anonym
             return {"claims": [{"claim": "Led a team of ten.", "cv_quote": "led a team of ten engineers"},
                                {"claim": "Works with Python.", "cv_quote": "Skills: Python"}]}
         return fake_answer(prompt, facts)
-    monkeypatch.setattr(claim_check_graph, "llm_json", extract)
+    monkeypatch.setattr(claim_service, "llm_json", extract)
     assert [c["claim"] for c in check(client, candidate)["claims"]] == ["Works with Python."]
 
-    monkeypatch.setattr(claim_check_graph, "llm_json", lambda prompt, facts: None)
+    monkeypatch.setattr(claim_service, "llm_json", lambda prompt, facts: None)
     failed = check(client, candidate)
     assert failed["status"] == "failed" and "did not answer" in failed["error"]
 

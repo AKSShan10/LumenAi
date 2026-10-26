@@ -1,8 +1,8 @@
 """Interview quality assessment (F10): the quality of the interview process itself, not of the candidate.
 The fake AI is used (no key). Code measures the facts; every recommendation must rest on one. Made-up data only."""
 from app.ai.fake_llm import fake_answer
-from app.graphs import interview_quality_graph as quality_graph
-from app.graphs.interview_quality_prompts import FAIR, GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
+from app.features.interview_quality.services import interview_quality_service as quality
+from app.features.interview_quality.services.interview_quality_prompts import FAIR, GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
 from tests.test_qa_analysis import analyse, have_the_call
 from tests.test_video_call import interview, livekit  # noqa: F401  (a scheduled interview and LiveKit settings)
 
@@ -67,11 +67,11 @@ def test_every_recommendation_needs_a_measured_fact(client, anonymous, interview
             {"basis": "question", "ref": "2", "text": "Improve question 2."},                # question 2 was fine
             {"basis": "talk", "ref": "", "text": "Your voice sounded nervous."},              # judges a person
             {"basis": "question", "ref": "3", "text": "Ask how PostgreSQL was used."}]}       # a real fact
-    monkeypatch.setattr(quality_graph, "llm_json", invented)
+    monkeypatch.setattr(quality, "llm_json", invented)
     result = check(client, interview)
     assert [(r["basis"], r["ref"]) for r in result["recommendations"]] == [("question", "3")]
 
-    monkeypatch.setattr(quality_graph, "llm_json", lambda i, d: fake_answer(i, d) if i != RECOMMEND_PROMPT else None)
+    monkeypatch.setattr(quality, "llm_json", lambda i, d: fake_answer(i, d) if i != RECOMMEND_PROMPT else None)
     fallback = check(client, interview)                                # the AI failed: code writes them from the facts
     assert fallback["status"] == "done"
     assert {r["basis"] for r in fallback["recommendations"]} == {"requirement", "question", "talk"}
@@ -81,7 +81,7 @@ def test_every_recommendation_needs_a_measured_fact(client, anonymous, interview
 def test_when_the_question_review_fails_the_reason_is_shown(client, anonymous, interview, livekit, monkeypatch):  # noqa: F811
     have_the_call(client, anonymous, interview)
     analyse(client, interview)
-    monkeypatch.setattr(quality_graph, "llm_json", lambda i, d: None if i == GRADE_QUESTIONS_PROMPT else fake_answer(i, d))
+    monkeypatch.setattr(quality, "llm_json", lambda i, d: None if i == GRADE_QUESTIONS_PROMPT else fake_answer(i, d))
     result = check(client, interview)
     assert result["status"] == "failed" and "did not review the questions" in result["error"]
 
@@ -89,16 +89,16 @@ def test_when_the_question_review_fails_the_reason_is_shown(client, anonymous, i
 def test_talk_time_and_consistency_are_counted_by_code():
     turns = [{"speaker": "interviewer", "start": 0, "end": 10}, {"speaker": "interviewer", "start": 10, "end": 30},
              {"speaker": "candidate", "start": 30, "end": 40}]
-    talk = quality_graph._talk(turns)
+    talk = quality._talk(turns)
     assert talk["interviewer_share"] == 75 and talk["longest_interviewer_sec"] == 30   # two lines without a break
-    assert quality_graph._balance_score(30) == 100 and quality_graph._balance_score(80) == 0
+    assert quality._balance_score(30) == 100 and quality._balance_score(80) == 0
 
     state = {"requirements": ["Python", "Docker", "SQL"],
              "interviews": [{"asked": ["Python", "Docker"]}, {"asked": ["Python"]}, {"asked": ["Python", "Docker"]}]}
-    consistency = quality_graph.compare_consistency(state)["consistency"]
+    consistency = quality.compare_consistency(state)["consistency"]
     assert consistency["uneven"] == ["Docker"]                          # SQL was asked in none: treated the same
     assert consistency["score"] == round(100 * 2 / 3, 1)
-    assert quality_graph.compare_consistency({**state, "interviews": state["interviews"][:1]})["consistency"]["score"] is None
+    assert quality.compare_consistency({**state, "interviews": state["interviews"][:1]})["consistency"]["score"] is None
 
 
 def test_access_privacy_and_fair_rules(client, anonymous, interview, livekit):  # noqa: F811

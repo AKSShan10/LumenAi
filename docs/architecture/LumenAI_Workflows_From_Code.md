@@ -66,7 +66,7 @@ graph TD;
 	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
-## CV screening workflow (pre-interview subgraph, one run per CV)
+## CV screening workflow (one run per CV; pauses for the interviewer's decision)
 
 Code: `backend/app/graphs/cv_screening_graph.py`
 
@@ -258,90 +258,6 @@ graph TD;
 	repair_assessment --> validate_traceability;
 	validate_traceability -.-> generate_report;
 	validate_traceability -.-> repair_assessment;
-	failed --> __end__;
-	save --> __end__;
-	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
-	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
-	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
-```
-
-## CV claim verification workflow (after the interview, one run per candidate)
-
-Code: `backend/app/graphs/claim_check_graph.py`
-
-Steps: `load_inputs`, `extract_claims`, `check_cv_quotes`, `compare_claims`, `check_interview_quotes`, `save`, `failed`
-
-```mermaid
----
-config:
-  flowchart:
-    curve: linear
----
-graph TD;
-	__start__([start]):::first
-	load_inputs(load_inputs)
-	extract_claims(extract_claims)
-	check_cv_quotes(check_cv_quotes)
-	compare_claims(compare_claims)
-	check_interview_quotes(check_interview_quotes)
-	save(save)
-	failed(failed)
-	__end__([end]):::last
-	__start__ --> load_inputs;
-	check_cv_quotes --> compare_claims;
-	check_interview_quotes --> save;
-	compare_claims -. go .-> check_interview_quotes;
-	compare_claims -.-> failed;
-	extract_claims -. go .-> check_cv_quotes;
-	extract_claims -.-> failed;
-	load_inputs -. go .-> extract_claims;
-	load_inputs -.-> failed;
-	failed --> __end__;
-	save --> __end__;
-	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
-	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
-	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
-```
-
-## Interview quality workflow (after the Q&A analysis, one run per interview)
-
-Code: `backend/app/graphs/interview_quality_graph.py`
-
-Steps: `load_inputs`, `grade_questions`, `measure_talk_time`, `check_coverage`, `compare_consistency`, `find_low_signal`, `recommend_improvements`, `check_recommendations`, `save`, `failed`
-
-```mermaid
----
-config:
-  flowchart:
-    curve: linear
----
-graph TD;
-	__start__([start]):::first
-	load_inputs(load_inputs)
-	grade_questions(grade_questions)
-	measure_talk_time(measure_talk_time)
-	check_coverage(check_coverage)
-	compare_consistency(compare_consistency)
-	find_low_signal(find_low_signal)
-	recommend_improvements(recommend_improvements)
-	check_recommendations(check_recommendations)
-	save(save)
-	failed(failed)
-	__end__([end]):::last
-	__start__ --> load_inputs;
-	check_coverage --> find_low_signal;
-	check_recommendations --> save;
-	compare_consistency --> find_low_signal;
-	find_low_signal -.-> failed;
-	find_low_signal -. go .-> recommend_improvements;
-	grade_questions --> find_low_signal;
-	load_inputs -.-> check_coverage;
-	load_inputs -.-> compare_consistency;
-	load_inputs -.-> failed;
-	load_inputs -.-> grade_questions;
-	load_inputs -.-> measure_talk_time;
-	measure_talk_time --> find_low_signal;
-	recommend_improvements --> check_recommendations;
 	failed --> __end__;
 	save --> __end__;
 	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2

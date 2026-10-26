@@ -5,6 +5,7 @@ from datetime import timedelta
 import pytest
 from sqlmodel import Session
 
+from app.ai.fake_llm import fake_answer
 from app.core.database import engine
 from app.features.jobs.models import Job
 from app.features.talent_pool.models import TalentPoolEntry
@@ -280,6 +281,28 @@ def test_write_again_for_one_person_with_a_wish(client, pool):
     assert "/unsubscribe/" in again[0]["footer"] and "https://forms.gle/made-up" in again[0]["footer"]
     too_long = {"pool_ids": [pool_id], "instruction": "x" * 301}
     assert client.post(f"/api/jobs/{job}/talent-invites/draft", json=too_long).status_code == 422
+
+
+def test_write_again_improves_the_previous_draft(client, pool, monkeypatch):
+    job, pool_id = pool["new"]["id"], entry_of(pool["candidate"]).id
+    first = client.post(f"/api/jobs/{job}/talent-invites/draft", json={"pool_ids": [pool_id]}).json()[0]
+    calls = []
+
+    def remember(prompt, facts):
+        calls.append(facts)
+        return fake_answer(prompt, facts)
+    monkeypatch.setattr(talent_invite_graph, "llm_json", remember)
+    edited = first["body"] + "\nCall me on +880 1711 000000 or see https://example.com"     # typed on the page
+    again = client.post(f"/api/jobs/{job}/talent-invites/draft",
+                        json={"pool_ids": [pool_id], "instruction": "Make it shorter",
+                              "previous_subject": first["subject"], "previous_body": edited}).json()[0]
+    previous = calls[0]["previous_draft"]
+    assert previous["subject"] == first["subject"] and "Best regards" not in previous["body"]   # signature removed
+    assert "https://" not in previous["body"] and "1711" not in previous["body"]               # links and numbers too
+    assert len(again["body"].split()) < len(first["body"].split())                              # shorter
+    assert again["body"].startswith("Dear Karima") and again["body"].count("Best regards") == 1
+    two = {"pool_ids": [pool_id, pool_id + 1], "previous_body": "Dear Karima, ..."}
+    assert client.post(f"/api/jobs/{job}/talent-invites/draft", json=two).status_code == 409
 
 
 def test_the_subject_always_shows_the_job_title(client, pool, monkeypatch):

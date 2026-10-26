@@ -16,8 +16,8 @@ from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
 from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
-from app.graphs.claim_check_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
-from app.graphs.interview_quality_prompts import GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
+from app.features.claims.services.claim_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
+from app.features.interview_quality.services.interview_quality_prompts import GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
 from app.graphs.assessment_prompts import (
     AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
@@ -67,6 +67,11 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_recommendations(data)
     if instructions == TALENT_INVITE_PROMPT:
         skills = ", ".join(data["fitting_skills"]) or "your skills"
+        if data.get("previous_draft") and "short" in data["instruction"].lower():     # "Write again": a shorter text
+            return {"subject": data["previous_draft"]["subject"] or f"A new opening: {data['new_job']}",
+                    "body": f"Dear {data['first_name']},\n\nThank you for your earlier application. We have a new "
+                            f"opening for {data['new_job']}, and your experience with {skills} may fit it. We would be "
+                            f"glad if you applied. (Fake AI text.)"}
         return {"subject": f"A new opening: {data['new_job']}",
                 "body": f"Dear {data['first_name']},\n\nThank you again for your earlier application for "
                         f"{data['earlier_job']}. We now have a new opening for {data['new_job']}, and your experience "
@@ -362,7 +367,7 @@ def _fake_repair(data: dict) -> dict:
             "weaknesses": [i for i in data["weaknesses"] if i["quote"] not in wrong]}
 
 
-# ---------- CV claim verification (claim_check_graph.py) ----------
+# ---------- CV claim verification (claim_service.py) ----------
 
 def _fake_claims(data: dict) -> dict:
     """The skills line and the experience line of a made-up CV become claims; the quotes are copied from the CV."""
@@ -393,7 +398,7 @@ def _fake_compare(data: dict) -> dict:
     return {"claims": out}
 
 
-# ---------- interview quality (interview_quality_graph.py) ----------
+# ---------- interview quality (interview_quality_service.py) ----------
 
 def _fake_question_review(data: dict) -> dict:
     """A question that names a job requirement is relevant (80), else 40; open when it starts with how/what/tell..."""

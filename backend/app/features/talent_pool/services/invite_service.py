@@ -1,7 +1,8 @@
 """Invitations to a new job for pool candidates. The AI drafts, the interviewer checks and clicks Send.
 
     drafts(session, job, body, by)        one checked draft per chosen person (graphs/talent_invite_graph.py);
-                                          also "Write again" for one person, with a wish (always formal)
+                                          also "Write again" for one person, with a wish (always formal); then the
+                                          draft on the page is improved, e.g. made shorter, instead of a new one
     send(session, job, invites, by)       sends the checked emails (SMTP) and records them; refuses anyone who
                                           unsubscribed, expired or already applied
 Code adds the apply link and the unsubscribe link below every email, so they are never missing.
@@ -35,12 +36,19 @@ def drafts(session: Session, job: Job, body: DraftIn, by: str) -> list[InviteDra
     """Only people who fit this job can be drafted (code decided who fits; the page's filters do not matter here)."""
     fitting = {m.pool_id: m for m in matches(session, job, min_match=0)}
     signature = f"\n\nBest regards,\n{interviewer_name(session, by)}"
+    previous = {}
+    if body.previous_body.strip():                                      # "Write again": improve the draft on the page
+        if len(set(body.pool_ids)) != 1:
+            raise HTTPException(409, "Write again works for one person at a time.")
+        text = body.previous_body.strip()
+        text = text.replace(signature.strip(), "").strip()               # the signature is added again below
+        previous = {"subject": body.previous_subject.strip(), "body": text}
     result = []
     for pool_id in dict.fromkeys(body.pool_ids):
         match = fitting.get(pool_id)
         if not match:
             raise HTTPException(409, "Someone you chose is not in the list of past candidates for this job any more.")
-        draft = draft_invite(pool_id, job.id, body.instruction.strip())     # → the LangGraph workflow
+        draft = draft_invite(pool_id, job.id, body.instruction.strip(), previous)   # → the LangGraph workflow
         candidate, entry = session.get(Candidate, match.candidate_id), session.get(TalentPoolEntry, pool_id)
         result.append(InviteDraft(pool_id=pool_id, name=candidate.full_name, email=candidate.email,
                                   subject=draft["subject"][:200], body=(draft["body"] + signature)[:4000],

@@ -4,7 +4,8 @@
                                 ^              |
                                 '-- problems --'  (once; after that: standard_text -> finish)
 
-    load_facts     PYTHON+DB  first name, earlier job, new job, the skills that fit (from the code match), wish
+    load_facts     PYTHON+DB  first name, earlier job, new job, the skills that fit (from the code match), wish,
+                              and on "Write again" the previous draft (links, addresses and numbers removed)
     write_draft    AI         Gemini writes the subject and the text (it never sees scores, decisions or the address)
     check_draft    PYTHON     the subject always has the job title (code adds it if missing); a formal greeting ("Dear ...");
                               names the person and the new job; no links, emails or phone numbers; no scores, %,
@@ -13,7 +14,8 @@
     finish         PYTHON+DB  one workflow_run row (Settings → workflow log)
 
 The AI writes; code checks; a person edits and clicks Send (invite_service.send). Nothing is sent here.
-Started by invite_service.drafts() for every chosen person, and again on "Write again".
+Started by invite_service.drafts() for every chosen person, and again on "Write again" (then the AI improves the
+previous draft as asked, e.g. "shorter", and the same checks run on the new text).
 """
 import logging
 import re
@@ -52,6 +54,7 @@ class InviteState(TypedDict):
     pool_id: int
     job_id: int
     instruction: str                # the interviewer's wish on "Write again" ("" = none)
+    previous: dict                  # the draft to improve on "Write again": {"subject", "body"} ({} = a new draft)
     facts: dict                     # what the AI gets
     other_skills: list              # the job's skills the CV does NOT show: the email must not name them
     subject: str
@@ -60,6 +63,14 @@ class InviteState(TypedDict):
     tries: int
     outcome: str                    # ai | standard_text
     started: float
+
+
+# The previous draft may have been edited by hand: links, email addresses and phone numbers are removed before the AI
+# sees it (the AI never gets the person's address)
+def _clean(text: str) -> str:
+    for pattern in list(NOT_ALLOWED)[:3]:                              # web address, email address, phone number
+        text = re.sub(pattern, "", text, flags=re.IGNORECASE)
+    return text.strip()
 
 
 # Workflow step "load_facts": only what the email needs; never scores, decisions, email address or phone
@@ -74,6 +85,9 @@ def load_facts(state: InviteState) -> dict:
     facts = {"first_name": (candidate.full_name.split() or ["there"])[0], "earlier_job": earlier.title if earlier else "",
              "new_job": job.title, "new_job_description": (job.description or "")[:1500],
              "fitting_skills": fit["matched"], "instruction": state["instruction"]}
+    if state["previous"].get("body"):
+        facts["previous_draft"] = {"subject": _clean(state["previous"].get("subject", ""))[:200],
+                                   "body": _clean(state["previous"]["body"])[:4000]}
     return {"facts": facts, "other_skills": fit["missing"]}
 
 
@@ -170,8 +184,10 @@ graph.add_edge("finish", END)
 talent_invite_graph = graph.compile()
 
 
-def draft_invite(pool_id: int, job_id: int, instruction: str = "") -> InviteState:
-    """Runs the workflow for one person and returns the state with the checked subject and body."""
+def draft_invite(pool_id: int, job_id: int, instruction: str = "", previous: dict | None = None) -> InviteState:
+    """Runs the workflow for one person and returns the state with the checked subject and body.
+    previous: the draft to improve on "Write again" ({"subject", "body"}); None = write a new one."""
     return talent_invite_graph.invoke({"pool_id": pool_id, "job_id": job_id, "instruction": instruction,
+                                       "previous": previous or {},
                                        "facts": {}, "other_skills": [], "subject": "", "body": "", "problems": [],
                                        "tries": 0, "outcome": "", "started": time.time()})

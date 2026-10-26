@@ -1,4 +1,4 @@
-"""Prompts of the interview quality workflow (interview_quality_graph.py, F10)."""
+"""Prompts of the interview quality assessment (interview_quality_service.py, F10)."""
 from app.graphs.qa_analysis_prompts import SPEECH_TO_TEXT
 
 FAIR = ("You assess the interview process and the interviewer's questions, never a person's worth. Use only the facts "

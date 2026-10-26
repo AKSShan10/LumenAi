@@ -1,4 +1,4 @@
-"""Prompts of the CV claim verification workflow (claim_check_graph.py)."""
+"""Prompts of the CV claim verification (claim_service.py)."""
 from app.graphs.qa_analysis_prompts import SPEECH_TO_TEXT
 
 FAIR = ("Use only the CV text and the candidate's interview lines you are given. Be neutral and respectful: these are "

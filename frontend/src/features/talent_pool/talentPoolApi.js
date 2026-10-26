@@ -19,9 +19,10 @@ export const talentPoolApi = {
     return request(`/api/jobs/${jobId}/talent-matches?${query}`);
   },
   // POST /api/jobs/{id}/talent-invites/draft: the workflow drafts one checked email per person (nothing is sent);
-  // also "Write again" for one person, with a wish (the emails are always formal)
-  draft: (jobId, poolIds, instruction = "") => request(`/api/jobs/${jobId}/talent-invites/draft`,
-    json({ pool_ids: poolIds, instruction })),
+  // also "Write again" for one person, with a wish and the draft on the page, so the AI improves that draft
+  // (e.g. shorter) instead of starting again (the emails are always formal)
+  draft: (jobId, poolIds, instruction = "", previous = null) => request(`/api/jobs/${jobId}/talent-invites/draft`,
+    json({ pool_ids: poolIds, instruction, previous_subject: previous?.subject || "", previous_body: previous?.body || "" })),
   // POST /api/jobs/{id}/talent-invites/send: sends the emails as the interviewer checked them
   send: (jobId, invites) => request(`/api/jobs/${jobId}/talent-invites/send`, json({ invites })),
   // GET / POST /api/unsubscribe/{token}: the public "no more emails" page (no login)
