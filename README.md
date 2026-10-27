@@ -81,6 +81,8 @@ LumenAI supports the recruiter through the whole hiring flow, from writing the j
 
 ### Innovation (F11)
 
+Why it was built, why it matters and how it works: [`docs/innovation/README.md`](docs/innovation/README.md).
+
 | Feature | What it does |
 |---|---|
 | Talent pool and rediscovery | The interviewer keeps strong past candidates from their assessment report. When a new job is approved, code finds pool candidates whose CV shows its skills (match %; required skills count twice; other names of a skill count the same). The interviewer filters the list (minimum match, all required skills, earlier score, status, already invited). A LangGraph workflow drafts and checks a personal invitation; the interviewer edits it or writes it again with a wish, then sends it. The match uses only job skills and CV text, and counterfactual tests prove that name, gender, age, nationality and address do not change it. Every email has an apply link and an unsubscribe link; entries expire after `POOL_KEEP_DAYS`. |
@@ -122,7 +124,7 @@ The multi-step AI work runs as LangGraph workflows with parallel branches, retri
 
 ![LangGraph workflows](docs/architecture/LumenAI_Final_LangGraph_Workflows.svg)
 
-Each diagram also has an editable `.drawio` file. Earlier versions (v1 and `_v2`) are kept in the same folder.
+Each diagram also has an editable `.drawio` file. The high-level and detailed diagrams also have a high-resolution `.jpg` export for slides and documents.
 The diagrams generated directly from the code are in [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) (see [AI workflows](#ai-workflows)).
 
 ### Request flow inside the backend
@@ -167,7 +169,7 @@ Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted
 │   │   ├── utils/             shared helpers
 │   │   └── features/          one folder per feature: models/ schemas/ services/ routers/
 │   ├── migrations/            Alembic database migrations
-│   ├── scripts/               blogger_login.py, print_workflows.py
+│   ├── scripts/               blogger_login.py, print_workflows.py, download_face_models.py
 │   ├── tests/                 automated tests
 │   └── requirements.txt
 ├── frontend/
@@ -176,7 +178,10 @@ Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted
 │       ├── App.jsx            sidebar layout, pages, Q&A analysis and assessment report pages
 │       ├── shared/            HTTP client, login token, styles, shared components
 │       └── features/          one folder per feature
-├── docs/architecture/         diagrams (.svg and .drawio) and workflows generated from the code
+├── docs/
+│   ├── architecture/          diagrams (.drawio, .svg, .jpg) and workflows generated from the code
+│   ├── innovation/            the innovation feature (F11): why it was built and how it works
+│   └── *.docx, *.xlsx         SRS, prompt documentation, AI token report
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
@@ -209,7 +214,7 @@ Long-running AI work (screening, Q&A analysis, assessment) answers `202 Accepted
 |---|---|---|
 | Docker Desktop (with Compose) | recent | running the full application |
 | Git | any | cloning the repository |
-| Python | 3.11 | local backend development and tests (optional with Docker) |
+| Python | 3.12 (the Docker image uses 3.11) | local backend development and tests (optional with Docker) |
 | Node.js | 22 | local frontend development (optional with Docker) |
 
 API keys are needed for the outside services; see [Configuration](#configuration). Without keys, the app can run with the offline fake providers (`LLM_PROVIDER=fake`, `STT_PROVIDER=fake`, `DRIVE_PROVIDER=fake`, `BLOGGER_PROVIDER=fake`).
@@ -558,7 +563,7 @@ The result is saved to `docs/architecture/LumenAI_Workflows_From_Code.md`. VS Co
 |---|---|
 | `main` | Stable branch: project skeleton and architecture documents. |
 | `dev` | Integration branch for the application code. |
-| `m2` … `m5` | One branch per module of the build plan; each WBS task is one commit. |
+| `m2` … `m7` | One branch per module of the build plan; each WBS task is one commit. |
 
 Commit messages follow the conventional format `type(scope): summary` (at most 50 characters), with bullet points in the body and the Redmine reference in the footer:
 
@@ -579,9 +584,12 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 |---|---|
 | Architecture diagrams (high level, detailed, LangGraph) | [`docs/architecture/`](docs/architecture/) |
 | Workflows generated from the code | [`docs/architecture/LumenAI_Workflows_From_Code.md`](docs/architecture/LumenAI_Workflows_From_Code.md) |
-| LangGraph slides: one image per workflow and a presentation guide | [`docs/presentation/langgraph/`](docs/presentation/langgraph/) |
+| Software Requirements Specification (SRS) | [`docs/LumenAI_SRS_30229.docx`](docs/LumenAI_SRS_30229.docx) |
+| Innovation feature (F11): why it was built and how it works | [`docs/innovation/README.md`](docs/innovation/README.md) |
+| Prompts: LangGraph system prompts, parent prompt and child prompts | [`docs/LumenAI_Prompts.docx`](docs/LumenAI_Prompts.docx) |
+| AI token consumption (by model, workflow and day) | [`docs/LumenAI_API_Cost_Report.xlsx`](docs/LumenAI_API_Cost_Report.xlsx) |
 | Interactive API documentation | http://localhost:8010/docs (when running) |
-| Clarification document, WBS, SRS, innovation rationale | _to be added by the author_ |
+| Clarification document, WBS | _to be added by the author_ |
 
 ## Author
 
