@@ -21,12 +21,14 @@ const EXAMPLES = [
   "Write a job for a backend developer with Python and FastAPI, 3 years experience",
   "Search the company documents for hybrid work",
   "List the jobs",
+  "Store the attached file as a company policy",
 ];
 
 // The assistant: a chat where the AI chooses the tools.
 // It can store documents, write and save jobs, and prepare the post.
 // It cannot approve a job or post by itself: it asks, and you answer Yes or No here.
-export default function AssistantPage() {
+// draft = {text}: a message put in the box by a button on the Jobs or Knowledge base tab (nothing is sent by itself).
+export default function AssistantPage({ draft }) {
   const [chat, setChat] = useState(null);
   const [text, setText] = useState("");
   const [file, setFile] = useState(null);
@@ -38,6 +40,7 @@ export default function AssistantPage() {
 
   useEffect(() => { assistantApi.chat().then(setChat).catch((e) => setError(e.message)); }, []);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chat, sent]);
+  useEffect(() => { if (draft?.text) setText(draft.text); }, [draft]);
 
   // Runs one assistant API call, shows the chat it returns, and handles the busy and error states
   async function run(action) {
@@ -60,9 +63,9 @@ export default function AssistantPage() {
 
   return (
     <div className="card chat">
-      <div className="row-between">
-        <p className="muted small">The AI chooses what to do. Approving a job and posting it always wait for your Yes.</p>
-        <div>
+      <div className="row-between chat-head">
+        <p className="info-bar">ⓘ The AI chooses what to do. Approving a job and posting it always wait for your Yes.</p>
+        <div className="chat-tools">
           {/* Every chat is kept in the database. Pick one to read it; "Continue this chat" lets you write in it again. */}
           {chat.chats.length > 1 && (
             <select value={chat.chat_id} disabled={busy} title="Your chats"
@@ -74,7 +77,7 @@ export default function AssistantPage() {
               ))}
             </select>
           )}
-          <button className="link" onClick={() => run(assistantApi.newChat)} disabled={busy || (chat.is_current && chat.messages.length === 0)}>New chat</button>
+          <button className="secondary" onClick={() => run(assistantApi.newChat)} disabled={busy || (chat.is_current && chat.messages.length === 0)}>+ New chat</button>
         </div>
       </div>
       {!chat.is_current && (
@@ -86,9 +89,12 @@ export default function AssistantPage() {
 
       <div className="chat-messages">
         {chat.messages.length === 0 && !sent && (
-          <div className="muted">
-            <p>Ask me to store a company document, write a job description, or post a job. For example:</p>
-            {EXAMPLES.map((example) => <p key={example}><button className="link" onClick={() => setText(example)}>{example}</button></p>)}
+          <div className="chat-welcome">
+            <h3>What would you like to do?</h3>
+            <p className="muted">Store a company document, write a job description, or post a job. Click an example to put it in the box.</p>
+            <div className="suggestions">
+              {EXAMPLES.map((example) => <button key={example} type="button" onClick={() => setText(example)}>{example}</button>)}
+            </div>
           </div>
         )}
         {chat.messages.map((message) => (
@@ -129,6 +135,13 @@ export default function AssistantPage() {
       </div>
 
       {error && <p className="error">{error}</p>}
+      {chat.is_current && file && (
+        <p className="file-chip-row">
+          <span className="file-chip"><Icon name="clip" size={14} /> {file.name}
+            <button type="button" className="link" title="Remove the file" onClick={() => { setFile(null); fileInput.current.value = ""; }}>✕</button></span>
+          <span className="muted small">PDF, DOCX or TXT, up to 5 MB</span>
+        </p>
+      )}
       {chat.is_current && (
       <form onSubmit={send} className="chat-input">
         <label className="attach" title="Attach a PDF, DOCX or TXT file">
@@ -140,7 +153,6 @@ export default function AssistantPage() {
         <button disabled={busy || (!text.trim() && !file)}><Icon name="send" size={16} /> Send</button>
       </form>
       )}
-      {file && <p className="muted small">Attached: {file.name} <button type="button" className="link" onClick={() => { setFile(null); fileInput.current.value = ""; }}>remove</button></p>}
     </div>
   );
 }

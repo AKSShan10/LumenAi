@@ -32,8 +32,8 @@ from app.ai.llm_client import llm_json
 from app.features.interviews.schemas import (BulkOut, BulkProblem, PlanIn, PlanRowOut, ScheduleIn, SessionOut,
                                              TemplateText, TicketOut)
 from app.features.interviews.services.invitation_service import (
-    as_utc, interviewer_name, join_link, standard_text, template_facts, template_problems)
-from app.graphs.invitation_prompts import INVITATION_TEMPLATE_PROMPT
+    PLACEHOLDER, as_utc, interviewer_name, join_link, standard_text, template_facts, template_problems)
+from app.graphs.invitation_prompts import INVITATION_TEMPLATE_CHANGE_PROMPT, INVITATION_TEMPLATE_PROMPT
 from app.features.interviews.services.slot_service import WorkingHours, hours_problem, plan_slots
 from app.features.interviews.services.video_service import make_ticket, video_problem
 from app.features.jobs.models import Job
@@ -115,9 +115,16 @@ def reschedule(session: Session, interview: InterviewSession, start: datetime, m
 
 
 # Resumes the paused invitation graph with 'write_again' so the AI writes a new draft (answer)
-def rewrite(session: Session, interview: InterviewSession, by: str) -> SessionOut:
+def rewrite(session: Session, interview: InterviewSession, by: str, change_request: str = "", subject: str = "",
+            body: str = "") -> SessionOut:
+    """ "Write again with AI": a new draft. With a change ("shorter") the AI improves the text as it is on the page;
+    the real join link goes back to {join_link} first, so the AI never sees or writes the link."""
+    reply = {"action": "write_again"}
+    if change_request.strip() and body.strip():
+        reply.update(change_request=change_request.strip(), subject=subject.strip(),
+                     body=body.strip().replace(join_link(interview), PLACEHOLDER))
     # → resumes the paused invitation graph: write a new draft (invitation_graph)
-    message = answer(interview, {"action": "write_again"}, interviewer_name(session, by))
+    message = answer(interview, reply, interviewer_name(session, by))
     return session_out(session, _fresh(session, interview), message)
 
 
@@ -172,14 +179,20 @@ def plan_times(session: Session, body: PlanIn, by: str) -> list[PlanRowOut]:
     return answer
 
 
-def write_template(session: Session, job_id: int, minutes: int, by: str) -> TemplateText:
+def write_template(session: Session, job_id: int, minutes: int, by: str, change_request: str = "",
+                   previous: dict | None = None) -> TemplateText:
     """ONE invitation for the whole shortlist, for the interviewer to check: the AI writes it with {candidate_name},
-    {date} and {time} as placeholders. If the AI fails or breaks a rule, the standard text is used. Nothing is saved."""
+    {date} and {time} as placeholders. With a change ("shorter") and the text on the page, the AI improves that text.
+    If the AI fails or breaks a rule, the standard text is used. Nothing is saved."""
     job = session.get(Job, job_id)
     if not job:
         raise HTTPException(404, "Job not found")
     facts = template_facts(job.title, minutes, interviewer_name(session, by))
-    answer = llm_json(INVITATION_TEMPLATE_PROMPT, facts)        # → Gemini: one email, never a real name or address
+    if change_request.strip() and previous and previous.get("body", "").strip():
+        facts["change_request"] = change_request.strip()
+        facts["previous_draft"] = {"subject": previous.get("subject", "").strip(), "body": previous["body"].strip()}
+    prompt = INVITATION_TEMPLATE_CHANGE_PROMPT if facts.get("change_request") else INVITATION_TEMPLATE_PROMPT
+    answer = llm_json(prompt, facts)        # → Gemini: one email, never a real name or address
     if isinstance(answer, dict):
         subject, body = str(answer.get("subject") or "").strip()[:200], str(answer.get("body") or "").strip()[:7000]
         problems = template_problems(subject, body)

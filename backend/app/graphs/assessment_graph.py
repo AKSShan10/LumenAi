@@ -13,9 +13,10 @@
     analyze_strengths      AI: 2-5 strengths, each with a quote from the CV or the interview
     analyze_weaknesses     AI: 2-5 weaknesses, each with a quote
     evidence_gaps          Python: job requirements with no proof in the CV or the interview
-    recommended_areas      AI: 2-4 areas to explore in a next interview or reference check
+    recommended_areas      AI: 2-4 areas to explore, each linked to a job requirement or a quote (checked by code)
     merge_assessment       Python: checks that the three AI steps answered
-    validate_traceability  Python: is every quote really in the CV or the candidate's answers?
+    validate_traceability  Python: is every quote really in the CV or the candidate's answers? Interview quotes get
+                           the time they were said, so the report links to that part of the transcript
     repair_assessment      AI: fixes the items whose quote was not found
     generate_report        Python: overall score (CV x 40 % + interview x 60 %); AI: the summary, written last
     save / failed          Python + database: the report (or the reason it failed) and one workflow_run row
@@ -60,6 +61,7 @@ class AssessmentState(TypedDict):
     facts: dict                        # what every AI call gets: job, CV text, CV matches, graded answers, scores
     cv_text: str                       # the CV (without email and phone), for the quote check
     answers_text: str                  # everything the candidate said, for the quote check
+    said: list                         # the candidate's transcript sentences [{"start", "text"}], for the quote time
     requirements: list                 # the job's required and preferred skills
     cv_proof: list                     # requirements the CV met or partly met
     covered: list                      # requirements the interview showed (from the Q&A analysis)
@@ -96,6 +98,25 @@ def _found_in(quote: str, state: AssessmentState) -> str:
     if wanted in _plain(state["answers_text"]):
         return "Interview"
     return ""
+
+
+# When an interview quote was said (seconds from the interview start): the sentence that has it, or the first of
+# two sentences in a row when the quote runs over both. None when it is not in one place.
+def _said_at(quote: str, said: list) -> Optional[float]:
+    wanted = _plain(quote)
+    for line in said:                                  # first: one sentence that has the whole quote
+        if wanted in _plain(line["text"]):
+            return line["start"]
+    for line, after in zip(said, said[1:]):            # then: two sentences in a row
+        if wanted in _plain(line["text"] + " " + after["text"]):
+            return line["start"]
+    return None
+
+
+# The proof of one quote: where it is ("CV", "Interview" or "") and, for the interview, when it was said
+def _proof(quote: str, state: AssessmentState) -> tuple[str, Optional[float]]:
+    source = _found_in(quote, state)
+    return source, (_said_at(quote, state["said"]) if source == "Interview" else None)
 
 
 # Cleans a list of strengths or weaknesses from the AI: text and quote only, trimmed, at most MAX_ITEMS
@@ -144,8 +165,9 @@ def load_all_results(state: AssessmentState) -> dict:
         session_id = analysis.session_id if analysis else 0
         items = session.exec(select(QaItem).where(QaItem.session_id == session_id, QaItem.job_related.is_(True))
                              .order_by(QaItem.position)).all()
-        said = session.exec(select(TranscriptTurn.text).where(TranscriptTurn.session_id == session_id,
-                                                              TranscriptTurn.speaker == "candidate")).all()
+        said = session.exec(select(TranscriptTurn).where(TranscriptTurn.session_id == session_id,
+                                                         TranscriptTurn.speaker == "candidate")
+                            .order_by(TranscriptTurn.start_sec, TranscriptTurn.id)).all()
     if not job:
         return {"error": "The candidate or the job was not found."}
     if not screening or screening.weighted_score is None:
@@ -168,7 +190,8 @@ def load_all_results(state: AssessmentState) -> dict:
              "answers": answers,
              "cv_score": screening.weighted_score, "interview_score": analysis.interview_score}
     return {"job_id": job.id, "session_id": analysis.session_id, "facts": facts, "cv_text": cv_text,
-            "answers_text": " ".join(list(said) + [i.answer for i in items]),
+            "answers_text": " ".join([t.text for t in said] + [i.answer for i in items]),
+            "said": [{"start": t.start_sec, "text": t.text} for t in said],
             "requirements": requirements,
             "cv_proof": [m.get("requirement") for m in matches if m.get("status") in ("met", "partial")],
             "covered": analysis.covered or [], "cv_score": screening.weighted_score,
@@ -192,8 +215,20 @@ def recommended_areas(state: AssessmentState) -> dict:
     answer = llm_json(AREAS_PROMPT, {**state["facts"], "evidence_gaps": _gaps(state)})       # → AI call
     if not isinstance(answer, dict):
         return {"areas": None}
-    areas = [{"area": str(a.get("area") or "").strip()[:120], "why": str(a.get("why") or "").strip()[:300]}
-             for a in answer.get("areas") or [] if isinstance(a, dict) and str(a.get("area") or "").strip()]
+    known = {r.lower(): r for r in state["requirements"]}       # only the job's own requirement names count
+    areas = []
+    for item in answer.get("areas") or []:
+        if not isinstance(item, dict) or not str(item.get("area") or "").strip():
+            continue
+        requirement = known.get(str(item.get("requirement") or "").strip().lower(), "")
+        quote = str(item.get("quote") or "").strip()[:300]
+        source, time_said = _proof(quote, state)
+        if not source:
+            quote = ""                                   # a quote that is not in the CV or the answers is removed
+        if not requirement and not quote:
+            continue                                     # no basis at all: left out
+        areas.append({"area": str(item["area"]).strip()[:120], "why": str(item.get("why") or "").strip()[:300],
+                      "requirement": requirement, "quote": quote, "source": source, "time": time_said})
     return {"areas": areas[:4]}
 
 
@@ -210,8 +245,8 @@ def validate_traceability(state: AssessmentState) -> dict:
     problems, strengths, weaknesses = [], [], []
     for key, checked in (("strengths", strengths), ("weaknesses", weaknesses)):
         for item in state[key]:
-            source = _found_in(item["quote"], state)
-            checked.append({**item, "source": source or item["source"]})
+            source, time_said = _proof(item["quote"], state)
+            checked.append({**item, "source": source or item["source"], "time": time_said})
             if not source:
                 problems.append({"list": key, "text": item["text"], "quote": item["quote"],
                                  "problem": "this quote is not in the CV text or the candidate's answers"})
@@ -330,7 +365,7 @@ assessment_graph = graph.compile()
 def assess_candidate(candidate_id: int) -> AssessmentState:
     """Runs the workflow for one candidate. The assessment row must exist (status running). Never raises."""
     state: AssessmentState = {"candidate_id": candidate_id, "job_id": 0, "session_id": None, "facts": {},
-                              "cv_text": "", "answers_text": "", "requirements": [], "cv_proof": [], "covered": [],
+                              "cv_text": "", "answers_text": "", "said": [], "requirements": [], "cv_proof": [], "covered": [],
                               "cv_score": None, "interview_score": None, "strengths": [], "weaknesses": [],
                               "gaps": [], "areas": [], "problems": [], "repair_rounds": 0, "summary": "", "cv_weight": 0,
                               "overall_score": None, "error": "", "started": time.time()}

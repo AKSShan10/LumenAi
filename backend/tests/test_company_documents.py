@@ -15,6 +15,19 @@ def test_add_list_and_remove(client, add_doc):
     assert client.delete(f"/api/company-documents/{document['id']}").status_code == 404
 
 
+def test_card_preview_and_the_whole_text(client, add_doc):
+    """The Knowledge base card shows the first words; "View" reads the whole text."""
+    long_text = POLICY + " " + POLICY                                      # more words than the card shows
+    document = add_doc("policy", "Hiring policy", long_text)
+    card = next(d for d in client.get("/api/company-documents").json() if d["id"] == document["id"])
+    assert card["preview"].startswith("Hiring policy. Every job description") and card["preview"].endswith(" ...")
+    assert len(card["preview"].split()) == 31                              # 30 words and the "..."
+    whole = client.get(f"/api/company-documents/{document['id']}").json()
+    assert whole["text"] == long_text and whole["title"] == "Hiring policy"
+    client.delete(f"/api/company-documents/{document['id']}")
+    assert client.get(f"/api/company-documents/{document['id']}").status_code == 404
+
+
 def test_documents_are_only_read_and_removed_through_the_api(client):
     """Documents are added in the chat (typed or as an attached file). The old form endpoints are gone."""
     assert client.post("/api/company-documents", json={"kind": "policy", "title": "Policy", "text": POLICY}).status_code == 405

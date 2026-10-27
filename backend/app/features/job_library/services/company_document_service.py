@@ -3,7 +3,8 @@
     add_document()            save a document with its embedding
     find_documents()          the most similar documents of one kind for a text (given to the AI)
     has_document_for_job()    was this approved job already added?
-    document_out()            the list row shown on the Job Requirements page
+    document_out()            the card shown on the Knowledge base tab (with the first words of the text)
+    document_text()           one document with its whole text (the "View" button)
 
 How the search works: every document is stored with an "embedding" (a list of numbers that stands for
 its meaning). The search text gets an embedding too, and the documents whose numbers are closest win.
@@ -13,10 +14,11 @@ from sqlmodel import Session, select
 
 from app.ai.llm_client import embed_texts
 from app.features.job_library.models import CompanyDocument
-from app.features.job_library.schemas import DocumentOut
+from app.features.job_library.schemas import DocumentOut, DocumentText
 from app.utils.search_utils import cosine, word_overlap
 
 MAX_WORDS = 400                  # long documents are cut before they go to the AI
+PREVIEW_WORDS = 30               # how many words the Knowledge base card shows
 
 # How many documents the AI gets for one job
 TOP_EXAMPLES = 2                 # the most similar past job descriptions
@@ -62,7 +64,14 @@ def has_document_for_job(session: Session, job_id: int) -> bool:
                                                       CompanyDocument.source == "approved job")).first() is not None
 
 
-# Turns a document row into the list row for the page (with its word count)
+# Turns a document row into the card for the Knowledge base tab (word count and the first words of the text)
 def document_out(row: CompanyDocument) -> DocumentOut:
+    words = row.text.split()
+    preview = " ".join(words[:PREVIEW_WORDS]) + (" ..." if len(words) > PREVIEW_WORDS else "")
     return DocumentOut(id=row.id, kind=row.kind, title=row.title, source=row.source, job_id=row.job_id,
-                       words=len(row.text.split()), created_at=row.created_at)
+                       words=len(words), preview=preview, created_at=row.created_at)
+
+
+# One document with its whole text, for the "View" button
+def document_text(row: CompanyDocument) -> DocumentText:
+    return DocumentText(**document_out(row).model_dump(), text=row.text)

@@ -87,3 +87,25 @@ def test_the_assistant_gets_its_tools_from_the_http_services(monkeypatch):
         for process in (recruitment, blogger):
             process.terminate()
             process.wait(timeout=10)
+
+
+
+def test_the_mcp_servers_write_to_the_same_log_file(tmp_path):
+    """One log file: the backend rotates it; an MCP server only adds lines and follows the file after a rotation."""
+    import logging
+    from logging.handlers import RotatingFileHandler, WatchedFileHandler
+    from app.core.logging_setup import setup_logging
+    log_file = tmp_path / "lumenai.log"
+    root = logging.getLogger()
+    setup_logging(str(log_file), rotate=False)                       # how serve() sets it up
+    try:
+        mine = [h for h in root.handlers if getattr(h, "baseFilename", "") == str(log_file)]
+        assert len(mine) == 1 and isinstance(mine[0], WatchedFileHandler)
+        assert not isinstance(mine[0], RotatingFileHandler)
+        logging.getLogger("llm").info("AI call ok model=m 1.0s tokens in=1 out=1 thinking=0")
+        assert "tokens in=1" in log_file.read_text(encoding="utf-8")
+    finally:
+        for handler in list(root.handlers):
+            if getattr(handler, "baseFilename", "") == str(log_file):
+                root.removeHandler(handler)
+                handler.close()

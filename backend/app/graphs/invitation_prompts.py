@@ -24,3 +24,14 @@ INVITATION_TEMPLATE_PROMPT = INVITATION_PROMPT + (
     " The candidate's name, the date and the time are placeholders in curly brackets, like {candidate_name}, {date} "
     "and {time}: copy each placeholder exactly as written, because code fills them in for every candidate."
 )
+
+# "Write again" with a change (one candidate or Schedule all): the recruiter's change comes first. A small model
+# ignored the change when it was one sentence among the rules, so these prompts make it the main task.
+CHANGE_RULE = (
+    " IMPORTANT: the recruiter wants the earlier draft (\"previous_draft\") changed. Your main task is to apply "
+    "\"change_request\" exactly, so that the change is clearly visible in the new text: add, remove or reword what it "
+    "asks. Keep the rest of the previous draft as it was. If the change asks for something the rules above do not "
+    "allow (a web link, an email address, a different date), leave that part out and follow the rules."
+)
+INVITATION_CHANGE_PROMPT = INVITATION_PROMPT + CHANGE_RULE
+INVITATION_TEMPLATE_CHANGE_PROMPT = INVITATION_TEMPLATE_PROMPT + CHANGE_RULE

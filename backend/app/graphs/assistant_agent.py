@@ -98,7 +98,8 @@ def chat_model():
         return FakeToolChatModel()
     from langchain_google_genai import ChatGoogleGenerativeAI
     # → the Gemini chat model that chooses the tools in the assistant
-    return ChatGoogleGenerativeAI(model=config.LLM_MODEL, google_api_key=config.LLM_API_KEY)
+    from app.ai.model_choice import current_model
+    return ChatGoogleGenerativeAI(model=current_model(), google_api_key=config.LLM_API_KEY)
 
 
 # ---------- running it ----------
@@ -135,7 +136,30 @@ async def _run(messages: list[dict], thread_id: str) -> dict:
         result = await asyncio.wait_for(agent.ainvoke({"messages": messages}, settings), TIMEOUT_SEC)
     new = result["messages"][before + len(messages):]              # what the agent added in this turn
     used = [call["name"] for message in new for call in (getattr(message, "tool_calls", None) or [])]
+    log.info("assistant AI %s", usage_text(new))      # → e.g. "assistant AI ai_calls=2 tokens in=5120 out=340 thinking=0"
     return {"answer": _text(new[-1].content) if new else "", "tools": used, "error": ""}
+
+
+def usage_text(messages: list) -> str:
+    """The tokens of the AI's turns in this chat message, for the log (the chat model does not go through llm_client).
+    LangChain gives each AI answer usage_metadata: input_tokens, output_tokens, total_tokens and, when the model
+    sends it, output_token_details.reasoning (the thinking). Without it, thinking = total - input - output."""
+    calls = tokens_in = tokens_out = thinking = 0
+    for message in messages:
+        usage = getattr(message, "usage_metadata", None)
+        if not usage:
+            continue                                  # a tool answer or a model that sends no counts
+        calls += 1
+        tokens_in += usage.get("input_tokens") or 0
+        tokens_out += usage.get("output_tokens") or 0
+        reasoning = (usage.get("output_token_details") or {}).get("reasoning")
+        if not reasoning:
+            reasoning = max(0, (usage.get("total_tokens") or 0) - (usage.get("input_tokens") or 0)
+                            - (usage.get("output_tokens") or 0))
+        thinking += reasoning
+    if not calls:
+        return "tokens in=? out=?"
+    return f"ai_calls={calls} tokens in={tokens_in} out={tokens_out} thinking={thinking}"
 
 
 # Turns an agent error into a short safe message for the screen (rate limit, bad key, too many steps)

@@ -163,3 +163,54 @@ def test_the_interviewer_changes_the_weight_of_a_job(client, anonymous, intervie
         assert client.put(f"/api/jobs/{report['job_id']}/assessment-weight", json={"cv_weight": wrong}).status_code == 422
     assert anonymous.put(f"/api/jobs/{report['job_id']}/assessment-weight", json={"cv_weight": 50}).status_code == 401
     assert client.put("/api/jobs/999999/assessment-weight", json={"cv_weight": 50}).status_code == 404
+
+
+def test_interview_quotes_link_to_the_transcript(client, anonymous, interview, livekit):  # noqa: F811
+    candidate = ready(client, anonymous, interview)
+    report = assess(client, candidate)
+    turns = client.get(f"/api/sessions/{interview['id']}/transcript").json()
+    items = report["strengths"] + report["weaknesses"]
+    assert any(i["source"] == "Interview" for i in items) and any(i["source"] == "CV" for i in items)
+    for item in items:
+        if item["source"] == "CV":
+            assert item["time"] is None                                          # a CV quote has no time
+        else:                                                                    # the sentence that has the quote
+            said = next(t for t in turns if t["start_sec"] == item["time"])
+            assert said["speaker"] == "candidate" and item["quote"].split()[0] in said["text"]
+
+
+def test_every_area_to_explore_has_a_checked_basis(client, anonymous, interview, livekit, monkeypatch):  # noqa: F811
+    candidate = ready(client, anonymous, interview)
+
+    def areas(prompt, facts):
+        if prompt != AREAS_PROMPT:
+            return fake_answer(prompt, facts)
+        python = facts["job"]["required_skills"][0]
+        return {"areas": [
+            {"area": "Depth", "why": "Short answer.", "requirement": python.upper(), "quote": "words never said"},
+            {"area": "Database design", "why": "Weak answer.", "requirement": "", "quote": "PostgreSQL is a database"},
+            {"area": "Leadership", "why": "Not discussed.", "requirement": "Leadership", "quote": ""}]}  # no basis
+    monkeypatch.setattr(assessment_graph, "llm_json", areas)
+    found = assess(client, candidate)["recommended_areas"]
+    assert [a["area"] for a in found] == ["Depth", "Database design"]            # the one with no basis is left out
+    assert found[0]["requirement"] and found[0]["quote"] == "" and found[0]["source"] == ""   # job name, quote removed
+    assert found[1]["source"] == "Interview" and found[1]["time"] == 25.0        # the transcript line it was said
+
+
+def test_the_report_shows_the_parts_behind_the_scores(client, anonymous, interview, livekit):  # noqa: F811
+    candidate = ready(client, anonymous, interview)
+    report = assess(client, candidate)
+    analysis = client.get(f"/api/sessions/{interview['id']}/analysis").json()
+    graded = [i for i in analysis["items"] if i["job_related"]]
+    parts = {p["name"]: p["score"] for p in report["interview_parts"]}
+    assert list(parts) == ["Technical competency", "Communication", "Relevance of responses",      # F9 scorecard
+                           "Problem-solving approach", "Depth of experience demonstrated", "Alignment with job requirements"]
+    assert parts["Technical competency"] == round(sum(i["accuracy"] for i in graded) / len(graded), 1)
+    assert all(p["reason"] for p in report["interview_parts"])
+    assert {p["name"] for p in report["cv_parts"]} <= {"Skills", "Experience", "Qualifications"} and report["cv_parts"]
+    rows = {r["requirement"]: r for r in report["requirements"]}
+    for name in analysis["covered"]:
+        assert rows[name]["interview"] is True                                   # shown in the interview
+    for name in analysis["uncovered"]:
+        assert rows[name]["interview"] is False
+    assert all(r["cv"] in ("met", "partial", "unmet", "unchecked") for r in rows.values())

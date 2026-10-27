@@ -2,7 +2,7 @@ import Icon from "../../shared/utils/Icon.jsx";
 
 // The steps of the Candidates page, in hiring order. Each step has its own color (tone) and icon,
 // so Included, Excluded and Shortlist never look the same.
-export const STEPS = [
+const STEPS = [
   { key: "applications", step: "Step 1", title: "Applications", icon: "people", tone: "slate" },
   { key: "included", step: "Step 2", title: "Included", icon: "check", tone: "green" },
   { key: "excluded", step: "Step 2", title: "Excluded", icon: "cross", tone: "red" },

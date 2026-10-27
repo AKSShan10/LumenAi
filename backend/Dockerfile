@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends antiword && rm 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# F7 identity check: the two face models (37 MB, checked by SHA-256), downloaded once when the image is built
+COPY scripts ./scripts
+RUN python scripts/download_face_models.py
+
 COPY app ./app
 COPY alembic.ini .
 COPY migrations ./migrations

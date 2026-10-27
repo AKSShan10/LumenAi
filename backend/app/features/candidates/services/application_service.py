@@ -15,6 +15,10 @@ The checkpoint: job.form_checkpoint_row is the last answer row that is finished.
 the answers AFTER it. The checkpoint moves forward over every answer that is done (fetched, or empty). If answers
 were deleted in the form, use "Check every answer again".
 
+F7 identity check: when the form has a photo question, the photo of each answer is downloaded too (the job posting
+tells candidates what it is used for). The face vector is worked out at once (face_service); the photo is never
+shown to the candidate and is deleted with the candidate.
+
 How a person stays with their own CV: Google keeps one form answer together: the name, the email, the phone
 number and the uploaded CV (its Google Drive id). We take all of them from the same answer and download exactly
 that file (by its Drive id). A file name is never used to decide whose CV it is.
@@ -30,7 +34,7 @@ from sqlmodel import Session, select
 
 from app.features.candidates.models import Candidate
 from app.features.candidates.schemas import CheckOut, FetchOut
-from app.features.candidates.services.cv_storage_service import next_number, save_cv_file
+from app.features.candidates.services.cv_storage_service import next_number, save_cv_file, save_photo_file
 from app.features.candidates.services import drive_service
 from app.features.candidates.services.drive_service import DriveError, file_id_from
 from app.features.jobs.models import Job, JobPosting
@@ -45,6 +49,8 @@ NAME_WORDS = ("name",)
 EMAIL_WORDS = ("email", "e-mail")
 PHONE_WORDS = ("phone", "mobile", "contact")
 CV_WORDS = ("cv", "resume", "résumé", "curriculum", "upload", "file")
+# F7: the photo for the identity check (singular or plural, e.g. "Pictures")
+PHOTO_WORDS = ("photo", "photos", "picture", "pictures", "selfie", "selfies", "headshot", "headshots")
 
 
 @dataclass
@@ -57,11 +63,14 @@ class Application:
     submitted: str
     file_id: str                 # "" if the row has no usable CV link
     warnings: list = field(default_factory=list)
+    photo_id: str = ""           # F7: the Drive id of the photo ("" if none)
+    has_photo_question: bool = False
 
     # Gives a unique key for this form answer (the CV's Drive id) so it is never saved twice
     @property
     def key(self) -> str:
         # Normally the CV's Drive id. A row without a file still needs a key so it is not added twice.
+        """A unique key for this form answer (the CV's Drive id), so it is never saved twice."""
         return self.file_id or f"row:{self.submitted}:{self.email or self.name}"
 
 
@@ -83,7 +92,10 @@ def read_applications(rows: list[list[str]], first_row: int = 2) -> list[Applica
         raise FormProblem("The form has no questions.")
     headers = [str(cell).strip() for cell in rows[0]]
     name_col, email_col = _column(headers, NAME_WORDS), _column(headers, EMAIL_WORDS)
-    phone_col, cv_col = _column(headers, PHONE_WORDS), _column(headers, CV_WORDS)
+    photo_col = _column(headers, PHOTO_WORDS)
+    # the photo question ("Upload a photo") also says "upload": it must never be taken for the CV question
+    phone_col, cv_col = _column(headers, PHONE_WORDS), _column([h if i != photo_col else ""
+                                                                for i, h in enumerate(headers)], CV_WORDS)
     if name_col < 0 or cv_col < 0:
         raise FormProblem("The form needs one question with \"name\" in its title and one with \"CV\" in its title. "
                            f"Its questions are: {', '.join(h for h in headers[1:] if h) or 'none'}.")
@@ -104,6 +116,10 @@ def read_applications(rows: list[list[str]], first_row: int = 2) -> list[Applica
             application.warnings.append("No CV file was attached to this form answer")
         if len(file_ids) > 1:
             application.warnings.append(f"{len(file_ids)} files were uploaded; only the first one was fetched")
+        if photo_col >= 0:                            # F7: the photo for the identity check
+            application.has_photo_question = True
+            photos = [file_id_from(link) for link in re.split(r"[,\s]+", cell(photo_col)) if link]
+            application.photo_id = next((photo for photo in photos if photo), "")
         if not name:
             application.warnings.append("No name was given in this form answer")
         if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
@@ -126,12 +142,13 @@ def form_link(session: Session, job: Job) -> str:
     return ((posted or posts)[0].apply_url if posts else "").strip()
 
 
-def _new_after_checkpoint(session: Session, job: Job) -> tuple[list[Application], int, str]:
-    """Reads only the answers after the job's checkpoint. Returns (new applications, last row read, problem)."""
+def _new_after_checkpoint(session: Session, job: Job) -> tuple[list[Application], int, str, bool]:
+    """Reads only the answers after the job's checkpoint.
+    Returns (new applications, last row read, problem, does the form have a photo question)."""
     link = form_link(session, job)
     if not link:
         return [], 0, ("Post this job first, with its Google Form link (in the Assistant chat). "
-                       "The applications are read from that form.")
+                       "The applications are read from that form."), False
     if link != job.google_form_link:                  # a new form: find its id again and start at its first answer
         job.google_form_link, job.google_form_id, job.form_checkpoint_row = link, "", 1
     first_row = job.form_checkpoint_row + 1
@@ -140,16 +157,16 @@ def _new_after_checkpoint(session: Session, job: Job) -> tuple[list[Application]
         header, rows, job.google_form_id = drive_service.read_form_rows(link, first_row, job.google_form_id)
         applications = read_applications([header] + rows, first_row)
     except DriveError as problem:
-        return [], 0, f"The answers of the Google Form could not be read: {problem}"
+        return [], 0, f"The answers of the Google Form could not be read: {problem}", False
     except FormProblem as problem:
-        return [], 0, str(problem)
+        return [], 0, str(problem), False
     finally:
         session.add(job)                              # keeps the form's id, so it is not looked up again
         session.commit()
     # An answer that is already saved is skipped by its key, so nobody is added twice, whatever the checkpoint says.
     saved_keys = set(session.exec(select(Candidate.source_key).where(Candidate.job_id == job.id)).all())
     new = [application for application in applications if application.key not in saved_keys]
-    return new, job.form_checkpoint_row + len(rows), ""
+    return new, job.form_checkpoint_row + len(rows), "", _column(header, PHOTO_WORDS) >= 0
 
 
 def _move_checkpoint(session: Session, job: Job, still_new: list[Application], last_row_read: int) -> None:
@@ -163,7 +180,7 @@ def _move_checkpoint(session: Session, job: Job, still_new: list[Application], l
 
 def check_applications(session: Session, job: Job) -> CheckOut:
     """Counts the form answers after the checkpoint that are not fetched yet. No CV is downloaded."""
-    new, last_row_read, problem = _new_after_checkpoint(session, job)
+    new, last_row_read, problem, _ = _new_after_checkpoint(session, job)
     if problem:
         return CheckOut(ok=False, message=problem, checkpoint_row=job.form_checkpoint_row, form_link=form_link(session, job))
     rows_read = last_row_read - job.form_checkpoint_row
@@ -187,7 +204,8 @@ def reset_checkpoint(session: Session, job: Job) -> CheckOut:
 # Downloads the CVs of new form answers, saves one candidate each, then calls start_screening
 def fetch_applications(session: Session, job: Job) -> FetchOut:
     # 1. only the answers after the checkpoint, and of those only the ones that are not saved yet
-    new, last_row_read, problem = _new_after_checkpoint(session, job)
+    """Downloads the CVs (and photos) of new form answers, saves one candidate each, starts the screening."""
+    new, last_row_read, problem, photo_question = _new_after_checkpoint(session, job)
     if problem:
         return FetchOut(ok=False, message=problem)
     now, later = new[:MAX_PER_CLICK], new[MAX_PER_CLICK:]
@@ -216,6 +234,17 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
             warnings.append("This email address applied more than once")
         emails.add(application.email.lower())
 
+        photo_name, photo_data, face_status = "", b"", ""
+        if application.has_photo_question:            # F7: the photo for the identity check
+            face_status = "" if application.photo_id else "no_photo"
+            if not face_status:
+                try:
+                    # → drive_service.download_file: downloads this answer's photo from Google Drive
+                    photo_name, photo_data = drive_service.download_file(application.photo_id)
+                except (DriveError, OSError) as problem:
+                    face_status = "download_failed"
+                    warnings.append(f"The photo could not be downloaded: {problem}")
+
         candidate = Candidate(job_id=job.id, number=next_number(session, job.id), full_name=application.name, email=application.email,
                               phone=application.phone, applied_at=application.submitted, source="google_form",
                               source_key=application.key, drive_file_id=application.file_id,
@@ -227,6 +256,11 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
         session.flush()                               # saves the row now, so the next candidate gets the next number
         if data:
             candidate.file_path = save_cv_file(candidate, file_name, data)
+        candidate.face_status = face_status
+        if photo_data:
+            candidate.photo_path = save_photo_file(candidate, photo_name, photo_data)
+            from app.features.identity.services.identity_service import read_photo_face
+            read_photo_face(candidate)                # the face vector (or why the photo cannot be used)
         needs_review += candidate.status == "needs_review"
     session.commit()
     _move_checkpoint(session, job, later, last_row_read)          # 3. the fetched answers are finished
@@ -236,6 +270,8 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
     log.info("applications job=%s added=%d needs_review=%d left=%d checkpoint_row=%d", job.id, len(now), needs_review,
              len(later), job.form_checkpoint_row)
 
+    # F7: photos of answers saved before the form had its photo question (only read when the form has one)
+    photos = _fill_missing_photos(session, job) if photo_question else 0
     if not now:
         message = "No new applications since the checkpoint."
     else:
@@ -244,9 +280,50 @@ def fetch_applications(session: Session, job: Job) -> FetchOut:
             message += f" {needs_review} need(s) a look."
         if later:
             message += f" {len(later)} more are waiting: click Fetch new applications again."
+    if photos:
+        message += f" {photos} photo(s) of earlier applications were added."
     return FetchOut(ok=True, message=message, added=len(now), needs_review=needs_review, left_for_next_time=len(later))
+
+
+def _fill_missing_photos(session: Session, job: Job) -> int:
+    """F7: candidates saved before the form had a photo question (face_status "") get their photo now, once.
+    Reads every answer of the form, matches each saved candidate by its own answer (source_key, never by name) and
+    downloads that answer's photo. Returns how many photos were added."""
+    waiting = session.exec(select(Candidate).where(Candidate.job_id == job.id, Candidate.source == "google_form",
+                                                   Candidate.photo_path == "", Candidate.face_status == "")).all()
+    link = form_link(session, job)
+    if not waiting or not link:
+        return 0
+    try:
+        # → drive_service.read_form_rows: every answer of the form, from the first one
+        header, rows, job.google_form_id = drive_service.read_form_rows(link, 2, job.google_form_id)
+        by_key = {application.key: application for application in read_applications([header] + rows, 2)}
+    except (DriveError, FormProblem):
+        return 0                                      # tried again at the next fetch
+    from app.features.identity.services.identity_service import read_photo_face
+    added = 0
+    for candidate in waiting:
+        application = by_key.get(candidate.source_key)   # the candidate's OWN form answer (by its key, never by name)
+        if not application or not application.photo_id:
+            candidate.face_status = "no_photo"        # not asked again at every fetch
+            continue
+        try:
+            # → drive_service.download_file: this answer's photo from Google Drive
+            photo_name, photo_data = drive_service.download_file(application.photo_id)
+        except (DriveError, OSError):
+            candidate.face_status = "download_failed"
+            continue
+        candidate.photo_path = save_photo_file(candidate, photo_name, photo_data)
+        read_photo_face(candidate)                    # the face vector (or why the photo cannot be used)
+        added += 1
+    session.add(job)
+    session.add_all(waiting)
+    session.commit()
+    log.info("photos added job=%s added=%d", job.id, added)
+    return added
 
 
 # Passes the Settings page "Test Google Drive" check on to drive_service.check_drive
 def drive_check() -> dict:
+    """The Settings page "Test Google Drive" check (drive_service.check_drive)."""
     return drive_service.check_drive()

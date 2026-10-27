@@ -31,4 +31,10 @@ class Candidate(SQLModel, table=True):
     read_problem: str = ""                            # why the text may be incomplete; "" when it looks complete
     status: str = "new"                               # new | needs_review (a person must look at it)
     warnings: list = Field(default_factory=list, sa_column=Column(JSON))   # plain sentences, shown on the page
+    # F7 identity check: the photo from the Google Form (the job posting tells candidates what it is used for)
+    photo_path: str = ""                              # where the photo is saved: photos/job_3/candidate_12.jpg
+    face_vector: list = Field(default_factory=list, sa_column=Column(JSON))  # 128 numbers of the face (never a picture)
+    # "" (the form has no photo question) | no_photo | ready | no_face | several_faces | unreadable |
+    # engine_missing (the face models are not installed yet: the check computes it later) | download_failed
+    face_status: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

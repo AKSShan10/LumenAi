@@ -24,6 +24,7 @@ from app.graphs.invitation_graph import invitation_graph  # noqa: E402
 from app.graphs.job_post_graph import job_post_graph  # noqa: E402
 from app.graphs.qa_analysis_graph import qa_analysis_graph  # noqa: E402
 from app.graphs.assessment_graph import assessment_graph  # noqa: E402
+from app.graphs.talent_invite_graph import talent_invite_graph  # noqa: E402
 
 # The chatbot agent is built for every message (assistant_agent._run). Its shape is always the same:
 # keep_recent -> agent <-> tools. Here it is built with the stand-in model and the two local tools, only to draw it.
@@ -31,11 +32,12 @@ from app.graphs.assessment_graph import assessment_graph  # noqa: E402
 assistant_agent_graph = create_react_agent(FakeToolChatModel(), LOCAL_TOOLS, pre_model_hook=keep_recent)
 
 # Each feature adds its workflow here: (title, file, compiled graph)
+# The CV claim check and the interview quality check are plain Python steps (no LangGraph), so they are not here.
 WORKFLOWS = [
     ("Job description workflow", "backend/app/graphs/job_description_graph.py", job_description_graph),
     ("Job posting workflow (pauses for the interviewer's Yes or No)", "backend/app/graphs/job_post_graph.py",
      job_post_graph),
-    ("CV screening workflow (pre-interview subgraph, one run per CV)", "backend/app/graphs/cv_screening_graph.py",
+    ("CV screening workflow (one run per CV; pauses for the interviewer's decision)", "backend/app/graphs/cv_screening_graph.py",
      cv_screening_graph),
     ("Interview invitation workflow (pauses until the interviewer sends)", "backend/app/graphs/invitation_graph.py",
      invitation_graph),
@@ -43,6 +45,8 @@ WORKFLOWS = [
      qa_analysis_graph),
     ("Assessment workflow (post-interview, one run per candidate)", "backend/app/graphs/assessment_graph.py",
      assessment_graph),
+    ("Talent pool invitation workflow (one run per person; a person sends)", "backend/app/graphs/talent_invite_graph.py",
+     talent_invite_graph),
     ("Assistant agent (the chatbot)", "backend/app/graphs/assistant_agent.py", assistant_agent_graph),
 ]
 OUTPUT = BACKEND.parent / "docs" / "architecture" / "LumenAI_Workflows_From_Code.md"
@@ -57,6 +61,7 @@ READABLE = {
     "classDef first fill-opacity:0": "classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434",
     "([<p>__start__</p>])": "([start])",           # the HTML label ignores the text colour; plain text follows it
     "([<p>__end__</p>])": "([end])",
+    "&nbsp;": "",                                    # spaces LangGraph puts around arrow labels; some viewers show the code
 }
 
 

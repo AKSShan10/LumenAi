@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Column, Text
+from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, SQLModel
 
 
@@ -30,4 +30,7 @@ class InterviewSession(SQLModel, table=True):
     started_at: Optional[datetime] = None             # the interviewer started the call (status live)
     candidate_joined_at: Optional[datetime] = None    # the candidate first joined the call
     ended_at: Optional[datetime] = None               # the call was ended (status ended)
+    # F7 identity check of the person in the call: {"result", "similarity", "better_match", "message", "checked_at",
+    # "decision": confirmed | rejected | "", "decided_by", "decided_at"}; {} = not checked. The camera picture is never saved.
+    identity: dict = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

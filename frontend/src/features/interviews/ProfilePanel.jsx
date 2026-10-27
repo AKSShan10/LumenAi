@@ -1,23 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openInNewTab } from "../../shared/api/httpClient.js";
 import Icon from "../../shared/utils/Icon.jsx";
 import { initials } from "./initials.js";
+import IdentityCard from "../identity/IdentityCard.jsx";
+import { identityApi } from "../identity/identityApi.js";
 
 // The candidate's card at the right of the interviewer's call (never on the candidate's page).
 //   Candidate Info: who the candidate is (from the application) and the key highlights of the CV
 //   Evaluation:     the screening scores with their reasons, and the requirements worth asking about
-// No photo and no identity check: the avatar shows the initials.
+// The identity box on top (F7, IdentityCard.jsx): the face check against the application photo.
 // profile = the answer of GET /api/sessions/{id}/profile.
 const SECTIONS = [["skills", "Skills"], ["experience", "Experience"], ["qualifications", "Qualifications"]];
 const STATUS = { met: "Met", partial: "Partially met", unmet: "Unmet" };
 const SOURCES = { google_form: "Google Form", upload: "Uploaded by hand" };
 
 // The candidate card at the right of the interviewer's call, with Candidate Info and Evaluation tabs
-export default function ProfilePanel({ profile, error }) {
+export default function ProfilePanel({ profile, error, sessionId }) {
   const [tab, setTab] = useState("info");         // info | evaluation
 
   return (
     <aside className="room-card profile-panel">
+      {profile && <IdentityCard sessionId={sessionId} />}
       <div className="profile-tabs">
         <button type="button" className={tab === "info" ? "active" : ""} onClick={() => setTab("info")}>Candidate Info</button>
         <button type="button" className={tab === "evaluation" ? "active" : ""} onClick={() => setTab("evaluation")}>Evaluation</button>
@@ -38,6 +41,15 @@ function Info({ profile }) {
   const [latest, previous] = profile.jobs;
   const degree = profile.degrees[0];
   const [problem, setProblem] = useState("");
+  const [photo, setPhoto] = useState("");          // F7: the photo from the application, if there is one
+  const [bigPhoto, setBigPhoto] = useState(false); // the photo shown large after a click
+  // → GET /api/candidates/{id}/photo: shown instead of the initials
+  useEffect(() => {
+    if (!c.has_photo) return undefined;
+    let address = "";
+    identityApi.photo(c.id).then((url) => { address = url; setPhoto(url); });
+    return () => { if (address) URL.revokeObjectURL(address); };
+  }, [c.id, c.has_photo]);
   // Shows a job as "title at company", or only the title when there is no company
   const role = (job) => (job.company ? `${job.title} at ${job.company}` : job.title);
   const highlights = [
@@ -50,17 +62,28 @@ function Info({ profile }) {
   return (
     <>
       <div className="profile-person">
-        <span className="avatar large">{initials(c.full_name)}</span>
+        {photo ? (
+          <button type="button" className="photo-button" onClick={() => setBigPhoto(true)} title="Show the photo larger">
+            <img src={photo} alt={c.full_name} className="avatar-photo" />
+          </button>
+        ) : <span className="avatar large">{initials(c.full_name)}</span>}
         <div>
           <b>{c.full_name || "(name not given)"}</b>
           <div className="muted">{latest?.title || `Applied for ${profile.job_title}`}</div>
         </div>
       </div>
       <div className="profile-lines">
-        {c.email && <p><Icon name="mail" size={18} /> {c.email}</p>}
-        {c.phone && <p><Icon name="phone" size={18} /> {c.phone}</p>}
+        {c.email && <p><Icon name="mail" size={18} /> <a href={`mailto:${c.email}`}>{c.email}</a></p>}
+        {c.phone && <p><Icon name="phone" size={18} /> <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a></p>}
         <p><Icon name="document" size={18} /> {latest ? `Applied for ${profile.job_title} · ` : ""}{SOURCES[c.source] || c.source}</p>
       </div>
+
+      {bigPhoto && (                                 // the photo large, on top of the page; a click closes it
+        <div className="photo-viewer" role="dialog" aria-label="Candidate photo" onClick={() => setBigPhoto(false)}>
+          <img src={photo} alt={c.full_name} />
+          <span className="small">{c.full_name} · click anywhere to close</span>
+        </div>
+      )}
 
       <h4>Key Highlights from CV</h4>
       {highlights.length === 0 && <p className="muted small">The CV has not been screened yet.</p>}

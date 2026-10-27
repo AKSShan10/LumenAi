@@ -24,4 +24,5 @@ google-auth==2.58.1
 requests==2.33.1
 tzdata==2025.2
 livekit-api==1.2.1
+opencv-python-headless==4.13.0.92
 websockets==16.1.1

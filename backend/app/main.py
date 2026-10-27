@@ -24,7 +24,12 @@ from app.features.assessments.services.assessment_service import resume_running 
 from app.features.assistant.routers import assistant_router
 from app.features.auth.routers import auth_router
 from app.features.candidates.routers import candidate_router
+from app.features.claims.routers import claim_router
+from app.features.claims.services.claim_service import resume_running as resume_running_claims
+from app.features.identity.routers import identity_router
 from app.features.interview_helper.routers import helper_router
+from app.features.interview_quality.routers import interview_quality_router
+from app.features.interview_quality.services.interview_quality_service import resume_running as resume_running_quality
 from app.features.interviews.routers import interview_router, join_router
 from app.features.job_library.routers import company_document_router
 from app.features.jobs.routers import job_posting_router, job_router
@@ -33,10 +38,11 @@ from app.features.qa_analysis.services.qa_analysis_service import resume_running
 from app.features.screening.routers import screening_router
 from app.features.screening.services.screening_worker import resume_waiting_screening
 from app.features.system.routers import system_router
+from app.features.talent_pool.routers import talent_pool_router, unsubscribe_router
 from app.features.transcripts.routers import stt_router, transcript_router
 
 # Logs contain ids and events only, never names or CV text. They go to the terminal and to a log file.
-setup_logging(config.LOG_FILE)
+setup_logging(config.LOG_FILE, config.LOG_TIME_ZONE)
 log = logging.getLogger("app")
 api_log = logging.getLogger("api")               # one line for every API call
 
@@ -44,7 +50,9 @@ api_log = logging.getLogger("api")               # one line for every API call
 # Each feature that runs long AI work adds its "resume" function here.
 RESUME_FUNCTIONS: list = [resume_waiting_screening,      # CVs that still wait for screening after a restart
                           resume_running_analyses,       # Q&A analyses that were still running
-                          resume_running_assessments]    # assessments that were still running
+                          resume_running_assessments,    # assessments that were still running
+                          resume_running_claims,         # CV claim checks that were still running
+                          resume_running_quality]        # interview quality checks that were still running
 
 
 def resume_unfinished_work() -> None:
@@ -106,10 +114,15 @@ for module in (auth_router,                      # login
                join_router,                      # the candidate's page (public, only with the private link)
                stt_router,                       # the live transcript: each browser sends its own microphone
                transcript_router,                # reading the transcript and the .txt download
+               identity_router,                  # F7: the face in the call compared with the application photo
                helper_router,                    # the AI helper in the call: suggested questions, model answers, chat
-               qa_analysis_router,               # after the call: the answers graded on four criteria (F5)
+               qa_analysis_router,               # after the call: the graded answers (F5) and the interview scorecard (F9)
                assessment_router,                # the final report, the decision and the comparison (F6)
+               claim_router,                     # CV claims compared with the interview: prompts for follow-up (F8)
+               interview_quality_router,         # the quality of the interview process itself (F10)
                assistant_router,                 # the chatbot: the AI chooses tools, a person confirms
                company_document_router,          # company documents the AI will look up (RAG)
+               talent_pool_router,               # talent pool: keep past candidates, invite them to new jobs
+               unsubscribe_router,               # the public "no more emails" link of a pool invitation
                system_router):                   # "Test AI connection", workflow run log
     app.include_router(module.router)

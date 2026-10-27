@@ -16,6 +16,12 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 # Runs the server over stdio, or as an HTTP service when MCP_HTTP_PORT is set (Docker)
 def serve(server: FastMCP) -> None:
+    # The tools call the AI too (for example write_job_draft), so the server writes to the app's one log file:
+    # the AI calls with their tokens, in the same time zone. The backend starts new files; this server only adds
+    # lines (rotate=False). (The terminal part goes to stderr, so it never mixes with the stdio messages on stdout.)
+    from app.core import config
+    from app.core.logging_setup import setup_logging
+    setup_logging(config.LOG_FILE, config.LOG_TIME_ZONE, rotate=False)
     port = os.getenv("MCP_HTTP_PORT", "")
     if not port:
         server.run()                                  # stdio transport

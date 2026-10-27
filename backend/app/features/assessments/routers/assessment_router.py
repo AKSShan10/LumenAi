@@ -4,6 +4,7 @@
   GET  /api/candidates/{id}/assessment            the report; the page asks every 3 seconds while it is "running"
   PUT  /api/candidates/{id}/assessment/decision   {decision: hire | hold | reject | pending, note}: a person decides
   GET  /api/jobs/{id}/comparison                  the interviewed candidates of a job, best overall score first
+  GET  /api/comparison                           the same for all jobs, grouped by job
   PUT  /api/jobs/{id}/assessment-weight           {cv_weight}: change the CV / interview split; scores recalculated
 
 The routes only check the request; the work is in assessment_service.py and graphs/assessment_graph.py.
@@ -46,6 +47,12 @@ def record_decision(candidate_id: int, body: DecisionIn, session: Session = Depe
 def compare_candidates(job_id: int, session: Session = Depends(get_session)):
     """The comparison table of the Reports page."""
     return assessment_service.comparison(session, get_job_or_404(session, job_id))
+
+
+@router.get("/comparison", response_model=list[ComparisonRow])
+def compare_all_jobs(session: Session = Depends(get_session)):
+    """The comparison table of the Reports page for "All jobs" (grouped by job)."""
+    return assessment_service.comparison_all(session)
 
 
 @router.put("/jobs/{job_id}/assessment-weight", response_model=list[ComparisonRow])

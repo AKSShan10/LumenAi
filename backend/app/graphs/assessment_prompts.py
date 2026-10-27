@@ -28,9 +28,15 @@ Answer: {{"weaknesses": [{{"text": "...", "quote": "...", "source": "Interview"}
 AREAS_PROMPT = f"""You help an interviewer plan the next step after an interview. You get the job, the CV, how the CV
 matched each requirement, the graded interview answers and the requirements with no proof yet ("evidence_gaps").
 Suggest 2 to 4 areas to explore further (in a next interview or a reference check), most important first.
-For each give "area" (a few words) and "why" (one short sentence).
+For each give:
+  "area": a few words
+  "why": one short sentence
+  "requirement": the job requirement it is about, written exactly as in "required_skills" or "preferred_skills"
+                 ("" if none)
+  "quote": a few words copied EXACTLY from "cv_text" or one of the candidate's "answers" that show why ("" if none)
+Every area needs a requirement or a quote. Leave out an area that has neither.
 {FAIR}
-Answer: {{"areas": [{{"area": "...", "why": "..."}}]}}"""
+Answer: {{"areas": [{{"area": "...", "why": "...", "requirement": "...", "quote": "..."}}]}}"""
 
 REPAIR_PROMPT = f"""Some strengths and weaknesses have a quote that is NOT in the CV text or the candidate's answers
 ("problems"). Return both lists again. For every item with a problem, copy a quote EXACTLY from "cv_text" or the

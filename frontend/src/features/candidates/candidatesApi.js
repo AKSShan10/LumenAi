@@ -4,13 +4,15 @@ import { del, download, openInNewTab, post, request } from "../../shared/api/htt
 export const candidatesApi = {
   // GET /api/jobs/{id}/candidates: the candidates of one job, newest first
   list: (jobId) => request(`/api/jobs/${jobId}/candidates`),
+  listAll: () => request("/api/candidates"),                 // GET /api/candidates: every job, with the job title
   check: (jobId) => request(`/api/jobs/${jobId}/applications/check`),          // looks only at the answers after the checkpoint
   recheck: (jobId) => request(`/api/jobs/${jobId}/applications/recheck`, post), // moves the checkpoint back to the start
   fetchNew: (jobId) => request(`/api/jobs/${jobId}/applications/fetch`, post), // downloads the new CVs
-  // POST /api/jobs/{id}/candidates/upload: uploads one CV file (form data) with optional name, email, phone
-  upload: (jobId, file, person) => {
+  // POST /api/jobs/{id}/candidates/upload: uploads one CV file (form data) with the name, email, phone and photo
+  upload: (jobId, file, person, photo) => {
     const form = new FormData();          // a file is sent as form data, not as JSON
     form.append("file", file);
+    if (photo) form.append("photo", photo);          // F7: the photo for the identity check (optional)
     form.append("full_name", person.fullName || "");
     form.append("email", person.email || "");
     form.append("phone", person.phone || "");

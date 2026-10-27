@@ -1,24 +1,28 @@
 """The Q&A analysis workflow (F5): after the interview, the transcript becomes graded questions and answers.
 
     START -> load_transcript -> segment_qa_pairs -> classify_requirements
-          -> [evaluate_relevance | evaluate_accuracy (+RAG) | evaluate_completeness | evaluate_articulation]  (parallel)
-          -> merge_evaluation -> detect_requirement_gaps -> save -> END
+          -> [evaluate_relevance | evaluate_accuracy (+RAG) | evaluate_completeness | evaluate_articulation
+              | evaluate_problem_solving | evaluate_depth]                                              (parallel)
+          -> merge_evaluation -> detect_requirement_gaps -> build_scorecard -> save -> END
     any error -> failed -> END
 
     load_transcript          Python + database: the job and every transcript sentence, numbered
     segment_qa_pairs         AI: finds each question and its answer, marks small talk, splits multi-part questions
     classify_requirements    AI: links each pair to the job requirements it is about
-    evaluate_*               AI, four calls at the same time: one grade per answer (0 to 100) with a reason
+    evaluate_*               AI, six calls at the same time: one grade per answer (0 to 100) with a reason
                              and a quote. Accuracy also gets the 3 most similar company documents (RAG);
                              completeness also suggests a follow-up question for what the answer missed.
     merge_evaluation         Python: checks each quote is really in the answer and adds its time; the answer score
-                             is the average of the four grades, the interview score the average of the answers
+                             is the average of its grades
     detect_requirement_gaps  Python: which job requirements the answers showed (covered) and which not (uncovered)
+    build_scorecard          Python: the interview scorecard (F9): six dimensions with a score, a reason and the best
+                             checked quote; alignment with the job requirements is counted by code; the interview score
+                             is the average of the six dimensions
     save / failed            Python + database: the result (or the reason it failed) and one workflow_run row
 
 The AI suggests, code checks. Only the transcript text is used: never voice, appearance or confidence.
 The answer text is always the candidate's own words from the transcript (code copies it), never the AI's.
-About 6 AI calls per interview, however long it was.
+About 8 AI calls per interview, however long it was.
 """
 import logging
 import re
@@ -43,21 +47,34 @@ log = logging.getLogger("qa_analysis_graph")
 
 MAX_PAIRS = 40                   # the most questions and answers one analysis keeps
 SHOWN_SCORE = 50                 # an answer with at least this score shows its requirements (covered)
-EVALUATE_STEPS = ["evaluate_relevance", "evaluate_accuracy", "evaluate_completeness", "evaluate_articulation"]
+EVALUATE_STEPS = ["evaluate_relevance", "evaluate_accuracy", "evaluate_completeness", "evaluate_articulation",
+                  "evaluate_problem_solving", "evaluate_depth"]
+# The interview scorecard (F9): (key, name shown, the grader it comes from; None = counted by code)
+DIMENSIONS = [("technical", "Technical competency", "accuracy"),
+              ("communication", "Communication", "articulation"),
+              ("relevance", "Relevance of responses", "relevance"),
+              ("problem_solving", "Problem-solving approach", "problem_solving"),
+              ("depth", "Depth of experience demonstrated", "depth"),
+              ("alignment", "Alignment with job requirements", None)]
 
 
 class QaState(TypedDict):
     session_id: int
     job_title: str
     requirements: list       # the job's required and preferred skills
+    required: list           # only the required ones (they count twice in the alignment score)
     lines: list              # the transcript: [{"n", "speaker", "start", "text"}]
     pairs: list              # [{"question", "answer", "answer_lines", "job_related", "split", "requirements"}]
-    # The four graders' answers by pair number: {n: {"grade", "reason", "quote", "sources"}}; None = the AI failed.
-    # Each grader writes only its own key, so the four can run at the same time.
+    # The six graders' answers by pair number: {n: {"grade", "reason", "quote", "sources"}}; None = the AI failed.
+    # Each grader writes only its own key, so the six can run at the same time.
     relevance: Optional[dict]
     accuracy: Optional[dict]
     completeness: Optional[dict]
     articulation: Optional[dict]
+    problem_solving: Optional[dict]
+    depth: Optional[dict]
+    evidence: dict           # per grader: [{"n", "grade", "reason", "quote", "time"}] (quotes checked), for the scorecard
+    scorecard: list          # the six F9 dimensions: [{"key", "name", "score", "reason", "quote", "time"}]
     notes: list              # titles of the company documents the accuracy grader got (RAG)
     items: list              # the finished rows for qa_item
     interview_score: Optional[float]
@@ -151,7 +168,8 @@ def load_transcript(state: QaState) -> dict:
         return {"error": "Nothing the candidate said was transcribed, so there is nothing to analyse."}
     lines = [{"n": n, "speaker": t.speaker, "start": t.start_sec, "text": t.text} for n, t in enumerate(turns, 1)]
     requirements = list(dict.fromkeys((job.required_skills or []) + (job.preferred_skills or [])))
-    return {"job_title": job.title, "requirements": requirements, "lines": lines}
+    return {"job_title": job.title, "requirements": requirements, "required": list(job.required_skills or []),
+            "lines": lines}
 
 
 # Workflow step "segment_qa_pairs": the AI finds the questions and answers; code copies the answer words
@@ -201,7 +219,7 @@ def classify_requirements(state: QaState) -> dict:
     return {"pairs": [{**p, "requirements": linked.get(n, [])} for n, p in enumerate(state["pairs"], 1)]}
 
 
-# Workflow steps "evaluate_*": the four graders, run at the same time
+# Workflow steps "evaluate_*": the six graders, run at the same time
 def evaluate_relevance(state: QaState) -> dict:
     return {"relevance": _evaluate(state, "relevance")}
 
@@ -223,11 +241,19 @@ def evaluate_articulation(state: QaState) -> dict:
     return {"articulation": _evaluate(state, "articulation")}
 
 
-# Workflow step "merge_evaluation": puts the four grades together; checks quotes; works out the scores
+def evaluate_problem_solving(state: QaState) -> dict:
+    return {"problem_solving": _evaluate(state, "problem_solving")}
+
+
+def evaluate_depth(state: QaState) -> dict:
+    return {"depth": _evaluate(state, "depth")}
+
+
+# Workflow step "merge_evaluation": puts the grades together; checks quotes; works out the answer scores
 def merge_evaluation(state: QaState) -> dict:
     if any(state[criterion] is None for criterion in CRITERIA):
         return {"error": f"The AI did not grade the answers ({last_error()}). Please try again."}
-    items = []
+    items, evidence = [], {criterion: [] for criterion in CRITERIA}
     for n, pair in enumerate(state["pairs"], 1):
         item = {"position": n, "question": pair["question"], "answer": pair["answer"],
                 "job_related": pair["job_related"], "split_from_multi_part": pair["split"],
@@ -242,6 +268,8 @@ def merge_evaluation(state: QaState) -> dict:
             grades.append(graded["grade"])
             item["reasons"][criterion] = graded["reason"]
             said_at = _quote_time(graded["quote"], pair, state["lines"])
+            evidence[criterion].append({"n": n, "grade": graded["grade"], "reason": graded["reason"],
+                                        "quote": graded["quote"] if said_at is not None else "", "time": said_at})
             if not item["evidence_quote"] and said_at is not None:     # the first quote that is really in the answer
                 item["evidence_quote"], item["evidence_time"] = graded["quote"], said_at
         if grades:
@@ -251,9 +279,7 @@ def merge_evaluation(state: QaState) -> dict:
         used = (state["accuracy"].get(n) or {}).get("sources", [])
         item["references"] = [title for title in state["notes"] if title in used]   # only documents it really got
         items.append(item)
-    scores = [i["score"] for i in items if i["score"] is not None]
-    interview_score = round(sum(scores) / len(scores), 1) if scores else None      # job-related answers only
-    return {"items": items, "interview_score": interview_score}
+    return {"items": items, "evidence": evidence}
 
 
 # Workflow step "detect_requirement_gaps": a requirement is covered when an answer about it scored 50 or more
@@ -261,6 +287,34 @@ def detect_requirement_gaps(state: QaState) -> dict:
     shown = {r for item in state["items"] if (item["score"] or 0) >= SHOWN_SCORE for r in item["requirements"]}
     return {"covered": [r for r in state["requirements"] if r in shown],
             "uncovered": [r for r in state["requirements"] if r not in shown]}
+
+
+# Workflow step "build_scorecard" (code only): the six F9 dimensions and the interview score
+def build_scorecard(state: QaState) -> dict:
+    card = []
+    for key, name, criterion in DIMENSIONS:
+        if criterion:                                   # the average of that grade over the job-related answers
+            graded = state["evidence"].get(criterion) or []
+            if not graded:
+                card.append({"key": key, "name": name, "score": None, "reason": "No job-related answer to grade.",
+                             "quote": "", "time": None})
+                continue
+            best = max(graded, key=lambda g: (bool(g["quote"]), g["grade"]))     # strongest answer with a quote
+            card.append({"key": key, "name": name, "score": round(sum(g["grade"] for g in graded) / len(graded), 1),
+                         "reason": best["reason"], "quote": best["quote"], "time": best["time"]})
+            continue
+        # alignment with the job requirements: the share shown in the answers; required skills count twice
+        weight = {r: (2 if r in state["required"] else 1) for r in state["requirements"]}
+        total = sum(weight.values())
+        shown = sum(weight[r] for r in state["covered"])
+        linked = [i for i in state["items"] if i["evidence_quote"] and set(i["requirements"]) & set(state["covered"])]
+        best = max(linked, key=lambda i: i["score"] or 0) if linked else None
+        card.append({"key": key, "name": name, "score": round(100 * shown / total, 1) if total else None,
+                     "reason": f"{len(state['covered'])} of {len(state['requirements'])} job requirements were shown "
+                               "in the answers (required skills count twice)." if total else "The job has no requirements.",
+                     "quote": best["evidence_quote"] if best else "", "time": best["evidence_time"] if best else None})
+    scores = [d["score"] for d in card if d["score"] is not None]
+    return {"scorecard": card, "interview_score": round(sum(scores) / len(scores), 1) if scores else None}
 
 
 # Workflow step "save": the new questions and answers replace the old ones; the analysis is marked done
@@ -271,7 +325,7 @@ def save(state: QaState) -> dict:
             session.add(QaItem(session_id=state["session_id"], **item))
         row = session.exec(select(QaAnalysis).where(QaAnalysis.session_id == state["session_id"])).one()
         row.status, row.error, row.interview_score = "done", "", state["interview_score"]
-        row.covered, row.uncovered = state["covered"], state["uncovered"]
+        row.covered, row.uncovered, row.scorecard = state["covered"], state["uncovered"], state["scorecard"]
         session.add(row)
         session.add(WorkflowRun(stage="interview_analysis", subject_id=state["session_id"], outcome="done",
                                 seconds=round(time.time() - state["started"], 2)))
@@ -302,7 +356,7 @@ def go_on(state: QaState) -> str:
     return "failed" if state["error"] else "go"
 
 
-# After classify_requirements: the four graders at the same time, or "failed"
+# After classify_requirements: the six graders at the same time, or "failed"
 def after_classify(state: QaState):
     return "failed" if state["error"] else EVALUATE_STEPS
 
@@ -317,8 +371,11 @@ graph.add_node("evaluate_relevance", evaluate_relevance)
 graph.add_node("evaluate_accuracy", evaluate_accuracy)
 graph.add_node("evaluate_completeness", evaluate_completeness)
 graph.add_node("evaluate_articulation", evaluate_articulation)
+graph.add_node("evaluate_problem_solving", evaluate_problem_solving)
+graph.add_node("evaluate_depth", evaluate_depth)
 graph.add_node("merge_evaluation", merge_evaluation)
 graph.add_node("detect_requirement_gaps", detect_requirement_gaps)
+graph.add_node("build_scorecard", build_scorecard)
 graph.add_node("save", save)
 graph.add_node("failed", failed)
 
@@ -326,9 +383,10 @@ graph.add_edge(START, "load_transcript")
 graph.add_conditional_edges("load_transcript", go_on, {"go": "segment_qa_pairs", "failed": "failed"})
 graph.add_conditional_edges("segment_qa_pairs", go_on, {"go": "classify_requirements", "failed": "failed"})
 graph.add_conditional_edges("classify_requirements", after_classify, EVALUATE_STEPS + ["failed"])
-graph.add_edge(EVALUATE_STEPS, "merge_evaluation")      # waits until all four graders have finished
+graph.add_edge(EVALUATE_STEPS, "merge_evaluation")      # waits until all six graders have finished
 graph.add_conditional_edges("merge_evaluation", go_on, {"go": "detect_requirement_gaps", "failed": "failed"})
-graph.add_edge("detect_requirement_gaps", "save")
+graph.add_edge("detect_requirement_gaps", "build_scorecard")
+graph.add_edge("build_scorecard", "save")
 graph.add_edge("save", END)
 graph.add_edge("failed", END)
 
@@ -337,8 +395,9 @@ qa_analysis_graph = graph.compile()
 
 def analyse_interview(session_id: int) -> QaState:
     """Runs the workflow for one interview. The qa_analysis row must exist (status running). Never raises."""
-    state: QaState = {"session_id": session_id, "job_title": "", "requirements": [], "lines": [], "pairs": [],
-                      "relevance": {}, "accuracy": {}, "completeness": {}, "articulation": {}, "notes": [],
+    state: QaState = {"session_id": session_id, "job_title": "", "requirements": [], "required": [], "lines": [],
+                      "pairs": [], "relevance": {}, "accuracy": {}, "completeness": {}, "articulation": {},
+                      "problem_solving": {}, "depth": {}, "evidence": {}, "scorecard": [], "notes": [],
                       "items": [], "interview_score": None, "covered": [], "uncovered": [], "error": "",
                       "started": time.time()}
     try:

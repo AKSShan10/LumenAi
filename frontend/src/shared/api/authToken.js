@@ -15,6 +15,7 @@ export const auth = {
     catch { /* private mode: nothing is kept after a reload */ }
   },
   clear() {
-    try { [KEY, EMAIL_KEY, NAME_KEY].forEach((key) => sessionStorage.removeItem(key)); } catch { /* ignore */ }
+    // the chosen job (shared/utils/currentJob.js) is forgotten too
+    try { [KEY, EMAIL_KEY, NAME_KEY, "lumenai_job"].forEach((key) => sessionStorage.removeItem(key)); } catch { /* ignore */ }
   },
 };

@@ -11,7 +11,13 @@ class DocumentOut(BaseModel):
     source: str
     job_id: int | None = None
     words: int
+    preview: str = ""              # the first words of the text, shown on the Knowledge base card
     created_at: datetime
+
+
+class DocumentText(DocumentOut):
+    """One document with its whole text (the "View" button of the Knowledge base)."""
+    text: str
 
 
 class DocumentHit(BaseModel):

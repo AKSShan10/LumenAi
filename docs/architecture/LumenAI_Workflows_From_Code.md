@@ -66,7 +66,7 @@ graph TD;
 	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
 ```
 
-## CV screening workflow (pre-interview subgraph, one run per CV)
+## CV screening workflow (one run per CV; pauses for the interviewer's decision)
 
 Code: `backend/app/graphs/cv_screening_graph.py`
 
@@ -161,7 +161,7 @@ graph TD;
 
 Code: `backend/app/graphs/qa_analysis_graph.py`
 
-Steps: `load_transcript`, `segment_qa_pairs`, `classify_requirements`, `evaluate_relevance`, `evaluate_accuracy`, `evaluate_completeness`, `evaluate_articulation`, `merge_evaluation`, `detect_requirement_gaps`, `save`, `failed`
+Steps: `load_transcript`, `segment_qa_pairs`, `classify_requirements`, `evaluate_relevance`, `evaluate_accuracy`, `evaluate_completeness`, `evaluate_articulation`, `evaluate_problem_solving`, `evaluate_depth`, `merge_evaluation`, `detect_requirement_gaps`, `build_scorecard`, `save`, `failed`
 
 ```mermaid
 ---
@@ -178,27 +178,35 @@ graph TD;
 	evaluate_accuracy(evaluate_accuracy)
 	evaluate_completeness(evaluate_completeness)
 	evaluate_articulation(evaluate_articulation)
+	evaluate_problem_solving(evaluate_problem_solving)
+	evaluate_depth(evaluate_depth)
 	merge_evaluation(merge_evaluation)
 	detect_requirement_gaps(detect_requirement_gaps)
+	build_scorecard(build_scorecard)
 	save(save)
 	failed(failed)
 	__end__([end]):::last
 	__start__ --> load_transcript;
+	build_scorecard --> save;
 	classify_requirements -.-> evaluate_accuracy;
 	classify_requirements -.-> evaluate_articulation;
 	classify_requirements -.-> evaluate_completeness;
+	classify_requirements -.-> evaluate_depth;
+	classify_requirements -.-> evaluate_problem_solving;
 	classify_requirements -.-> evaluate_relevance;
 	classify_requirements -.-> failed;
-	detect_requirement_gaps --> save;
+	detect_requirement_gaps --> build_scorecard;
 	evaluate_accuracy --> merge_evaluation;
 	evaluate_articulation --> merge_evaluation;
 	evaluate_completeness --> merge_evaluation;
+	evaluate_depth --> merge_evaluation;
+	evaluate_problem_solving --> merge_evaluation;
 	evaluate_relevance --> merge_evaluation;
 	load_transcript -.-> failed;
-	load_transcript -. &nbsp;go&nbsp; .-> segment_qa_pairs;
-	merge_evaluation -. &nbsp;go&nbsp; .-> detect_requirement_gaps;
+	load_transcript -. go .-> segment_qa_pairs;
+	merge_evaluation -. go .-> detect_requirement_gaps;
 	merge_evaluation -.-> failed;
-	segment_qa_pairs -. &nbsp;go&nbsp; .-> classify_requirements;
+	segment_qa_pairs -. go .-> classify_requirements;
 	segment_qa_pairs -.-> failed;
 	failed --> __end__;
 	save --> __end__;
@@ -238,20 +246,53 @@ graph TD;
 	analyze_weaknesses --> merge_assessment;
 	evidence_gaps --> merge_assessment;
 	generate_report -.-> failed;
-	generate_report -. &nbsp;go&nbsp; .-> save;
+	generate_report -. go .-> save;
 	load_all_results -.-> analyze_strengths;
 	load_all_results -.-> analyze_weaknesses;
 	load_all_results -.-> evidence_gaps;
 	load_all_results -.-> failed;
 	load_all_results -.-> recommended_areas;
 	merge_assessment -.-> failed;
-	merge_assessment -. &nbsp;go&nbsp; .-> validate_traceability;
+	merge_assessment -. go .-> validate_traceability;
 	recommended_areas --> merge_assessment;
 	repair_assessment --> validate_traceability;
 	validate_traceability -.-> generate_report;
 	validate_traceability -.-> repair_assessment;
 	failed --> __end__;
 	save --> __end__;
+	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
+	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
+	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434
+```
+
+## Talent pool invitation workflow (one run per person; a person sends)
+
+Code: `backend/app/graphs/talent_invite_graph.py`
+
+Steps: `load_facts`, `write_draft`, `check_draft`, `standard_text`, `finish`
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([start]):::first
+	load_facts(load_facts)
+	write_draft(write_draft)
+	check_draft(check_draft)
+	standard_text(standard_text)
+	finish(finish)
+	__end__([end]):::last
+	__start__ --> load_facts;
+	check_draft -.-> finish;
+	check_draft -.-> standard_text;
+	check_draft -.-> write_draft;
+	load_facts --> write_draft;
+	standard_text --> finish;
+	write_draft --> check_draft;
+	finish --> __end__;
 	classDef default fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434,line-height:1.2
 	classDef first fill:#f2f0ff,stroke:#6b5fd6,color:#1c2434
 	classDef last fill:#bfb6fc,stroke:#6b5fd6,color:#1c2434

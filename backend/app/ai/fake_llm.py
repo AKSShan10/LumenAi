@@ -12,9 +12,13 @@ from app.utils.skill_names import find_skill
 
 from app.features.interview_helper.services.helper_service import CHAT_PROMPT, QUESTIONS_PROMPT
 from app.graphs.cv_screening_prompts import ATS_KEYWORDS_PROMPT, EXTRACT_PROFILE_PROMPT, SCORE_SECTIONS_PROMPT
-from app.graphs.invitation_prompts import INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT
+from app.graphs.invitation_prompts import (
+    INVITATION_CHANGE_PROMPT, INVITATION_PROMPT, INVITATION_TEMPLATE_CHANGE_PROMPT, INVITATION_TEMPLATE_PROMPT)
 from app.graphs.job_description_prompts import JOB_DRAFT_PROMPT, JOB_REVISE_PROMPT
 from app.graphs.qa_analysis_prompts import GRADE_PROMPTS, REQUIREMENTS_PROMPT, SEGMENT_PROMPT
+from app.graphs.talent_invite_prompts import TALENT_INVITE_PROMPT
+from app.features.claims.services.claim_prompts import COMPARE_PROMPT, EXTRACT_PROMPT
+from app.features.interview_quality.services.interview_quality_prompts import GRADE_QUESTIONS_PROMPT, RECOMMEND_PROMPT
 from app.graphs.assessment_prompts import (
     AREAS_PROMPT, REPAIR_PROMPT, STRENGTHS_PROMPT, SUMMARY_PROMPT, WEAKNESSES_PROMPT)
 
@@ -31,7 +35,8 @@ def fake_answer(instructions: str, data) -> dict:
         return _fake_section_scores(data)
     if instructions == ATS_KEYWORDS_PROMPT:
         return _fake_ats_keywords(data)
-    if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT):
+    if instructions in (INVITATION_PROMPT, INVITATION_TEMPLATE_PROMPT, INVITATION_CHANGE_PROMPT,
+                        INVITATION_TEMPLATE_CHANGE_PROMPT):
         return _fake_invitation(data)
     if instructions == QUESTIONS_PROMPT:
         return _fake_questions(data)
@@ -48,11 +53,32 @@ def fake_answer(instructions: str, data) -> dict:
     if instructions == WEAKNESSES_PROMPT:
         return {"weaknesses": _fake_evidence(data, strong=False)}
     if instructions == AREAS_PROMPT:
-        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)"}
-                          for gap in data.get("evidence_gaps", [])] or
-                [{"area": "Team work", "why": "Not discussed in the interview. (Fake AI text.)"}]}
+        return {"areas": [{"area": gap, "why": "No proof in the CV or the interview yet. (Fake AI text.)",
+                           "requirement": gap, "quote": ""} for gap in data.get("evidence_gaps", [])] or
+                [{"area": f"Follow up: {a['question']}", "why": "The answer was short. (Fake AI text.)", "requirement": "",
+                  "quote": " ".join(a["answer"].split()[:4])} for a in data["answers"][:1]]}
     if instructions == REPAIR_PROMPT:
         return _fake_repair(data)
+    if instructions == EXTRACT_PROMPT:
+        return _fake_claims(data)
+    if instructions == COMPARE_PROMPT:
+        return _fake_compare(data)
+    if instructions == GRADE_QUESTIONS_PROMPT:
+        return _fake_question_review(data)
+    if instructions == RECOMMEND_PROMPT:
+        return _fake_recommendations(data)
+    if instructions == TALENT_INVITE_PROMPT:
+        skills = ", ".join(data["fitting_skills"]) or "your skills"
+        if data.get("previous_draft") and "short" in data["instruction"].lower():     # "Write again": a shorter text
+            return {"subject": data["previous_draft"]["subject"] or f"A new opening: {data['new_job']}",
+                    "body": f"Dear {data['first_name']},\n\nThank you for your earlier application. We have a new "
+                            f"opening for {data['new_job']}, and your experience with {skills} may fit it. We would be "
+                            f"glad if you applied. (Fake AI text.)"}
+        return {"subject": f"A new opening: {data['new_job']}",
+                "body": f"Dear {data['first_name']},\n\nThank you again for your earlier application for "
+                        f"{data['earlier_job']}. We now have a new opening for {data['new_job']}, and your experience "
+                        f"with {skills} may fit this role well. We would be glad if you applied for it. "
+                        f"(Fake AI text for offline tests.)"}
     if instructions == SUMMARY_PROMPT:
         return {"summary": f"Overall score {data['overall_score']} (CV {data['cv_score']}, interview "
                            f"{data['interview_score']}). {len(data['strengths'])} strengths and "
@@ -226,6 +252,10 @@ def fake_embedding(text: str, size: int = 64) -> list[float]:
 
 def _fake_invitation(data: dict) -> dict:
     """A short invitation from the data, with the {join_link} placeholder (code puts the real link in)."""
+    if data.get("previous_draft") and "short" in data.get("change_request", "").lower():   # "Write again: shorter"
+        return {"subject": data["previous_draft"]["subject"] or f"Interview invitation: {data['job_title']}",
+                "body": f"Dear {data['candidate_name']},\n\nPlease join our online interview for {data['job_title']} on "
+                        f"{data['date']} at {data['time']}:\n{{join_link}}\n\nKind regards,\n{data['interviewer_name']}"}
     body = (f"Dear {data['candidate_name']},\n\nThank you for applying for the {data['job_title']} position. "
             f"We would like to invite you to an online video interview on {data['date']} at {data['time']} "
             f"(about {data['length_minutes']} minutes).\n\nJoin with your personal link:\n{{join_link}}\n\n"
@@ -341,3 +371,62 @@ def _fake_repair(data: dict) -> dict:
     wrong = {p["quote"] for p in data["problems"]}
     return {"strengths": [i for i in data["strengths"] if i["quote"] not in wrong],
             "weaknesses": [i for i in data["weaknesses"] if i["quote"] not in wrong]}
+
+
+# ---------- CV claim verification (claim_service.py) ----------
+
+def _fake_claims(data: dict) -> dict:
+    """The skills line and the experience line of a made-up CV become claims; the quotes are copied from the CV."""
+    claims = []
+    for line in data["cv_text"].splitlines():
+        if line.lower().startswith("skills:"):
+            skills = [s.strip() for s in line.split(":", 1)[1].split(",") if s.strip()][:3]
+            for n, skill in enumerate(skills, 1):          # the quote: "Skills: Python", "Skills: Python, FastAPI" ...
+                claims.append({"claim": f"Works with {skill}.", "cv_quote": "Skills: " + ", ".join(skills[:n])})
+        if line.lower().startswith("experience:"):
+            claims.append({"claim": "Has the stated years of experience.", "cv_quote": line.strip()[:60]})
+    return {"claims": claims}
+
+
+def _fake_compare(data: dict) -> dict:
+    """A claim whose main word is in a candidate line is supported (quote: that line's first words); else not discussed."""
+    out = []
+    for claim in data["claims"]:
+        word = claim["claim"].replace("Works with ", "").rstrip(".").lower()
+        line = next((l for l in data["lines"] if word and word in l["text"].lower()), None)
+        if line:
+            out.append({"n": claim["n"], "status": "supported", "line": line["n"],
+                        "interview_quote": " ".join(line["text"].split()[:4]), "note": "Mentioned in the interview.",
+                        "follow_up": ""})
+        else:
+            out.append({"n": claim["n"], "status": "not_discussed", "line": 0, "interview_quote": "",
+                        "note": "Not mentioned.", "follow_up": f"Could you tell me about: {claim['claim']}"})
+    return {"claims": out}
+
+
+# ---------- interview quality (interview_quality_service.py) ----------
+
+def _fake_question_review(data: dict) -> dict:
+    """A question that names a job requirement is relevant (80), else 40; open when it starts with how/what/tell..."""
+    out = []
+    for q in data["questions"]:
+        text = q["question"].lower()
+        relevant = any(r.lower() in text for r in data["requirements"])
+        open_question = text.startswith(("how", "what", "why", "tell", "describe", "explain", "walk"))
+        out.append({"n": q["n"], "relevance": 80 if relevant else 40, "open": open_question,
+                    "reason": "Names a job requirement. (Fake AI text.)" if relevant else "Not about a requirement. (Fake AI text.)",
+                    "better": "" if open_question else f"Could you describe {q['question'].rstrip('?').lower()}?"})
+    return {"questions": out}
+
+
+def _fake_recommendations(data: dict) -> dict:
+    """One improvement per kind of fact, in a fixed order; the summary names the job."""
+    recs = [{"basis": "requirement", "ref": r, "text": f"Ask about {r} next time. (Fake AI text.)"}
+            for r in data["not_asked"][:2]]
+    recs += [{"basis": "question", "ref": str(q["n"]), "text": f"Ask question {q['n']} in a more open way. (Fake AI text.)"}
+             for q in data["low_signal"][:2]]
+    if not data["talk"]["balanced"]:
+        recs.append({"basis": "talk", "ref": "", "text": "Let the candidate speak more. (Fake AI text.)"})
+    return {"summary": f"The interview for {data['job_title']} was reviewed. (Fake AI text for offline tests.)",
+            "recommendations": recs}
+

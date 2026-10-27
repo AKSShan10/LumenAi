@@ -3,13 +3,15 @@
   POST /api/sessions                      schedule an interview for a shortlisted candidate; the invitation workflow
                                           (graphs/invitation_graph.py) writes the draft and waits
   POST /api/sessions/plan                 "Suggest times": a time for each shortlisted candidate (nothing is saved)
-  POST /api/sessions/template             "Write the invitation": the AI writes ONE invitation for the shortlist (to check)
+  POST /api/sessions/template             "Write the invitation": the AI writes ONE invitation for the shortlist (to check);
+                                          with change_request it improves the text on the page
   POST /api/sessions/bulk                 "Schedule and save invitations": many candidates at once, drafts only
   POST /api/sessions/send-all?job_id=3    "Send all invitations": sends every unsent draft of the job
-  GET  /api/sessions?job_id=3             the interviews of a job
+  GET  /api/sessions?job_id=3             the interviews of a job (without job_id: of all jobs)
   GET  /api/sessions/{id}                 one interview with its invitation
   PUT  /api/sessions/{id}/time            a new time: a new draft (send it again so the candidate knows)
-  POST /api/sessions/{id}/invitation      "Write again with AI": a new draft, nothing is sent
+  POST /api/sessions/{id}/invitation      "Write again with AI": a new draft, or {change_request, subject, body}:
+                                          the text on the page improved as asked; nothing is sent
   PUT  /api/sessions/{id}/invitation      "Send email": sends the text as edited, with the calendar invite
   POST /api/sessions/{id}/start           start the video call (status live) or join it again: a LiveKit ticket
   POST /api/sessions/{id}/end             end the call for both (status ended)
@@ -25,7 +27,7 @@ from app.core.database import get_session
 from app.core.security import current_email, require_interviewer
 from app.features.interviews.models import InterviewSession
 from app.features.interviews.schemas import (
-    BulkOut, CallMessageOut, ChatIn, InvitationIn, PlanIn, PlanRowOut, ProfileOut, RescheduleIn, ScheduleIn,
+    BulkOut, CallMessageOut, ChatIn, InvitationIn, PlanIn, PlanRowOut, ProfileOut, RescheduleIn, RewriteIn, ScheduleIn,
     ScheduleManyIn, SessionOut, TemplateIn, TemplateText, TicketOut)
 from app.features.interviews.services import chat_service
 from app.features.interviews.services.profile_service import candidate_profile
@@ -59,7 +61,8 @@ def plan(body: PlanIn, session: Session = Depends(get_session), email: str = Dep
 # POST /api/sessions/template: the AI writes ONE invitation for the shortlist, for the interviewer to check (write_template)
 @router.post("/template", response_model=TemplateText)
 def template(body: TemplateIn, session: Session = Depends(get_session), email: str = Depends(current_email)):
-    return write_template(session, body.job_id, body.duration_minutes, email)
+    previous = {"subject": body.previous_subject, "body": body.previous_body}
+    return write_template(session, body.job_id, body.duration_minutes, email, body.change_request, previous)
 
 
 # POST /api/sessions/bulk: schedules many candidates at once with the checked invitation; nothing is sent (schedule_many)
@@ -74,11 +77,11 @@ def send_all_invitations(job_id: int, session: Session = Depends(get_session), e
     return send_all(session, job_id, email)
 
 
-# GET /api/sessions?job_id=: returns the interviews of one job, ordered by time (session_out)
+# GET /api/sessions?job_id=: the interviews of one job, or of all jobs without job_id, ordered by time (session_out)
 @router.get("", response_model=list[SessionOut])
-def list_sessions(job_id: int, session: Session = Depends(get_session)):
-    rows = session.exec(select(InterviewSession).where(InterviewSession.job_id == job_id)
-                        .order_by(InterviewSession.scheduled_at)).all()
+def list_sessions(job_id: int | None = None, session: Session = Depends(get_session)):
+    query = select(InterviewSession).order_by(InterviewSession.scheduled_at)
+    rows = session.exec(query.where(InterviewSession.job_id == job_id) if job_id else query).all()
     return [session_out(session, row) for row in rows]
 
 
@@ -98,8 +101,10 @@ def change_time(session_id: int, body: RescheduleIn, session: Session = Depends(
 
 # POST /api/sessions/{session_id}/invitation: asks the paused workflow for a new AI draft (rewrite)
 @router.post("/{session_id}/invitation", response_model=SessionOut)
-def write_again(session_id: int, session: Session = Depends(get_session), email: str = Depends(current_email)):
-    return rewrite(session, get_interview_or_404(session, session_id), email)
+def write_again(session_id: int, body: RewriteIn | None = None, session: Session = Depends(get_session),
+                email: str = Depends(current_email)):
+    body = body or RewriteIn()
+    return rewrite(session, get_interview_or_404(session, session_id), email, body.change_request, body.subject, body.body)
 
 
 # PUT /api/sessions/{session_id}/invitation: sends the edited email and calendar invite (send_invitation)

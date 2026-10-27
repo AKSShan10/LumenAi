@@ -33,6 +33,7 @@ class CandidateOut(BaseModel):
     id: int                          # inside the code and the links only
     number: int                      # the number shown on the page: 1, 2, 3 ... inside this job
     job_id: int
+    job_title: str = ""              # filled in the list of all jobs
     full_name: str
     email: str
     phone: str
@@ -40,6 +41,7 @@ class CandidateOut(BaseModel):
     source: str                      # google_form | upload
     original_file_name: str
     has_file: bool                   # is the CV saved on this computer?
+    has_photo: bool = False          # F7: is a photo from the Google Form saved? (shown in the interview room)
     saved_as: str                    # where it is saved, inside the storage folder
     cv_words: int
     screening_state: str = "waiting"  # waiting (not screened yet) | needs_review | included | excluded

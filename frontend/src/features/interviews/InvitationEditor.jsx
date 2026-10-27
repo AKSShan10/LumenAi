@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { interviewsApi, invitationStatus } from "./interviewsApi.js";
+import RewriteBox from "./RewriteBox.jsx";
 
 // The interview of one shortlisted candidate: schedule it, then check and send the invitation.
 // Draft first: the AI writes the email, code puts in the private join link and the calendar invite, and nothing
@@ -109,11 +110,10 @@ export default function InvitationEditor({ candidate, session, onChange }) {
         <div className="row">
           <button type="submit" disabled={busy !== ""}>
             {busy === "send" ? "Sending..." : session.invitation_status === "sent" ? "Send again" : "Send email"}</button>
-          <button type="button" className="secondary" disabled={busy !== ""}
-                  onClick={() => run("again", () => interviewsApi.writeAgain(session.id))}>
-            {busy === "again" ? "Writing..." : "Write again with AI"}</button>
         </div>
       </form>
+      <RewriteBox busy={busy !== ""} writing={busy === "again"}
+                  onRewrite={(change) => run("again", () => interviewsApi.writeAgain(session.id, change, subject, body))} />
       {note && <p className={note.ok ? "ok small" : "error small"}>{note.message}</p>}
       {error && <p className="error small">{error}</p>}
     </div>

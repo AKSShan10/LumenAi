@@ -5,18 +5,56 @@ import { interviewsApi } from "../interviews/interviewsApi.js";
 import { transcriptsApi } from "../transcripts/transcriptsApi.js";
 import { TurnList, clock } from "../transcripts/LiveTranscript.jsx";
 import { qaAnalysisApi } from "./qaAnalysisApi.js";
+import InterviewQualityTab from "../interview_quality/InterviewQualityTab.jsx";
+import { navigate } from "../../shared/utils/navigate.js";
 
-// The Q&A analysis of one interview, in its own browser tab (/interview-analysis/<id>), opened from the Interviews
+// The Q&A analysis of one interview, a page inside the app (/interview-analysis/<id>), opened from the Interviews
 // page. The tab gets a copy of the login from the tab that opened it.
 //   top:   who and when, "Analyse answers" / "Analyse again", the interview score and the requirements shown
-//   tabs:  Marks           every question with its four marks; click a row to see the answer, reasons, quote and a
+//   tabs:  Marks           every question with its six marks; click a row to see the answer, reasons, quote and a
 //                          suggested follow-up question for what the answer missed
 //          By requirement  each job requirement: which questions tested it, the best score, shown or not
 //          Transcript      everything said; "Show in transcript" jumps to the line of a quote
+//          Interview quality  the quality of the interview process itself (F10, InterviewQualityTab.jsx)
 // The AI suggests the marks from the transcript text only. A person decides.
 const LOOK_AGAIN_MS = 3000;            // while the analysis runs, the page asks again every 3 seconds
 const GRADES = [["relevance", "Relevance"], ["accuracy", "Accuracy"], ["completeness", "Completeness"],
-  ["articulation", "Articulation"]];
+  ["articulation", "Articulation"], ["problem_solving", "Problem solving"], ["depth", "Depth"]];
+
+// The interview scorecard (F9): six dimensions, each with its score bar, the reason and the best quote the candidate
+// really said (a click shows that line in the transcript). The interview score is the average of the six.
+function Scorecard({ card, score, showInTranscript }) {
+  if (!card.length) {
+    return <p className="muted small">This interview was analysed before the scorecard existed. Click "Analyse again" to
+      see the six dimensions.</p>;
+  }
+  return (
+    <div className="card scorecard">
+      <div className="row-between">
+        <h3>Interview scorecard</h3>
+        <span className="small muted">Interview score <b className={`mark ${tone(score)}`}>{score ?? "–"}</b>
+          {" "}= the average of the six dimensions, separate from the CV score</span>
+      </div>
+      {card.map((d) => (
+        <div key={d.key} className="scorecard-row">
+          <div className="dash-bar" title={`${d.name}: ${d.score ?? "–"}`}>
+            <span className="dash-bar-label">{d.name}</span>
+            <span className="dash-bar-track"><span className={`dash-bar-fill ${tone(d.score)}`}
+                                                   style={{ width: `${d.score ?? 0}%` }} /></span>
+            <span className="dash-bar-value"><b>{d.score ?? "–"}</b></span>
+          </div>
+          <div className="small muted scorecard-why">{d.reason}
+            {d.quote && <> · "{d.quote}" {d.time !== null && d.time !== undefined && (
+              <button type="button" className="link" onClick={() => showInTranscript(d.time)}>Show in transcript</button>)}</>}
+          </div>
+        </div>
+      ))}
+      <p className="small muted">Alignment is counted by code from the job requirements the answers showed. The other
+        dimensions are the averages of the AI's grades, checked by code. Only the words were assessed, never voice or
+        appearance.</p>
+    </div>
+  );
+}
 
 // The colour of a mark: green 75 and above, amber 50 and above, red below 50
 function tone(value) {
@@ -86,7 +124,7 @@ function MarksTab({ items, chosen, setChosen, showInTranscript }) {
                       <div className="small">{item.reasons[key] || "No reason given."}</div></li>
                   ))}
                 </ul>
-                <p><b>Answer score: <Mark value={item.score} /></b> <span className="muted small">(average of the four)</span></p>
+                <p><b>Answer score: <Mark value={item.score} /></b> <span className="muted small">(average of the six grades)</span></p>
                 {item.follow_up && (
                   <p className="follow-up small"><b>Suggested follow-up:</b> {item.follow_up}{" "}
                     <button type="button" className="link" onClick={() => navigator.clipboard?.writeText(item.follow_up)}>Copy</button></p>
@@ -141,13 +179,15 @@ function RequirementsTab({ analysis, openQuestion }) {
 }
 
 export default function InterviewAnalysisPage({ sessionId }) {
-  const first = new URLSearchParams(window.location.search).get("tab");
-  const [tab, setTab] = useState(first === "transcript" ? "transcript" : "marks");  // marks | requirements | transcript
+  const query = new URLSearchParams(window.location.search);
+  const first = query.get("tab");
+  const time = query.get("t");                      // from the assessment report: the transcript line to show
+  const [tab, setTab] = useState(["transcript", "quality"].includes(first) ? first : "marks");  // marks | requirements | transcript | quality
   const [interview, setInterview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [turns, setTurns] = useState([]);
   const [chosen, setChosen] = useState(null);       // the question shown on the right of the Marks tab
-  const [marked, setMarked] = useState(null);       // the transcript time "Show in transcript" jumps to
+  const [marked, setMarked] = useState(time === null ? null : Number(time));   // the time "Show in transcript" jumps to
   const [error, setError] = useState("");
   const running = analysis?.status === "running";
 
@@ -192,6 +232,11 @@ export default function InterviewAnalysisPage({ sessionId }) {
     try { setAnalysis(await qaAnalysisApi.start(sessionId)); setTab("marks"); } catch (e) { setError(e.message); }
   }
 
+  // "Next: assessment report": ?start=1 creates the report when there is none yet (Reports does the same)
+  function openReport() {
+    navigate(`/assessment-report/${interview.candidate_id}?start=1`);
+  }
+
   // → GET /api/sessions/{id}/transcript.txt: the transcript as a text file
   function saveTranscript() {
     download(`/api/sessions/${sessionId}/transcript.txt`, `interview-${sessionId}-transcript.txt`).catch((e) => setError(e.message));
@@ -210,13 +255,17 @@ export default function InterviewAnalysisPage({ sessionId }) {
     <div className="analysis-page">
       <div className="analysis-bar">
         <div>
-          <b>Q&A analysis · {interview?.candidate_name || "candidate"}</b>
+          <b>{interview?.candidate_name || "Candidate"}</b>
           <div className="muted small">{interview?.job_title}{when && ` · interview on ${when}`}</div>
         </div>
         <div>
           <button type="button" onClick={start} disabled={!analysis || running || interview?.status !== "ended"}>
             {running ? "Analysing..." : status === "done" || status === "failed" ? "Analyse again" : "Analyse answers"}</button>
-          <button type="button" className="secondary" onClick={() => window.close()}>Close tab</button>
+          {status === "done" && interview && (        // the next step of the process: the report (Reports page)
+            <button type="button" className="secondary" onClick={openReport}
+                    title="The assessment report combines this analysis with the CV screening; the decision is recorded there.">
+              Next: assessment report →</button>
+          )}
         </div>
       </div>
 
@@ -244,10 +293,14 @@ export default function InterviewAnalysisPage({ sessionId }) {
           </div>
         )}
 
+        {status === "done" && <Scorecard card={analysis.scorecard || []} score={analysis.interview_score}
+                                         showInTranscript={(time) => { setMarked(time); setTab("transcript"); }} />}
+
         <div className="tabs">
           <button type="button" className={tab === "marks" ? "active" : ""} onClick={() => setTab("marks")}>Marks</button>
           <button type="button" className={tab === "requirements" ? "active" : ""} onClick={() => setTab("requirements")}>By requirement</button>
           <button type="button" className={tab === "transcript" ? "active" : ""} onClick={() => setTab("transcript")}>Transcript</button>
+          <button type="button" className={tab === "quality" ? "active" : ""} onClick={() => setTab("quality")}>Interview quality</button>
         </div>
 
         {tab === "marks" && (status === "done"
@@ -257,6 +310,8 @@ export default function InterviewAnalysisPage({ sessionId }) {
         {tab === "requirements" && (status === "done"
           ? <RequirementsTab analysis={analysis} openQuestion={(n) => { setChosen(n); setTab("marks"); }} />
           : <p className="muted">The requirements appear here after the analysis.</p>)}
+        {tab === "quality" && <InterviewQualityTab sessionId={sessionId} analysisDone={status === "done"}
+                                                    showInTranscript={(time) => { setMarked(time); setTab("transcript"); }} />}
         {tab === "transcript" && (
           <div className="card">
             <div className="row-between">

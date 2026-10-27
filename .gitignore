@@ -7,6 +7,8 @@ secrets/*
 sample-cvs/
 uploads/
 backend/storage/
+# Face models of the identity check (F7): downloaded by scripts/download_face_models.py
+backend/models/
 *.db
 *.sqlite
 *.sqlite3

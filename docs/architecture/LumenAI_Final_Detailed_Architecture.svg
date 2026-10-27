@@ -1,0 +1,475 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1958" height="1152" viewBox="0 0 1958 1152" font-family="Helvetica, Arial, sans-serif" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTozYmQ1NDFlNy00ZDRkLTQyMzMtODM2Yi1jZmU1M2QwNzYxNDYAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaEKYk4+RwajBxMsnwVls0vcAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo0N2YzZmRkNy0xODc2LTRkY2UtYWNlZS0zNTZmYmRmZGE3OTlscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNoEKiwLy1EaIM0VVokJJSbVwAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggIM4dQd4z+qIgkgAlPU3ylp7EFqqCYO4GMlXKzkDtXTmkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaCFx0zGgD80CZMu3/7deSzgAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCAdhFRO3NEXJrhbEP3QLHqc5PN2L/PnrSpjVxV3ox9DCGRuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBjFZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjNiZDU0MWU3LTRkNGQtNDIzMy04MzZiLWNmZTUzZDA3NjE0Ni9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOmQ4OWY0NzBiLTg5NzAtNDEwMi05NGUzLWFkNTNjOTViMzA2ZXJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCAgzh1B3jP6oiCSACU9TfKWnsQWqoJg7gYyVcrOQO1dOaJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggKg4ZOmqjrE9pJYbODeY7Thw4opRzR+edyTSBzvT4JlOiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggK0+j08plHb1pm1vaE0st7ezJHFoc28iTeL+n7P4FBrt0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQNqkVBoycTJ7nbXOEcFCQrMOC97LNsSi1oMiGi7Azg2BzOFPedbE7/zJxzKUodRCsFp99imYmILuEvNch99cPTw=</c2pa:manifest></metadata>
+<rect width="1958" height="1152" fill="#ffffff"/>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="context-stroke"/></marker></defs>
+<rect x="20" y="92" width="460" height="830" rx="6" fill="#E8F4F1" stroke="none" stroke-width="1.3"/>
+<rect x="52.0" y="254" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="52.0" y="416" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<rect x="52.0" y="578" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="52.0" y="740" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="506" y="92" width="460" height="830" rx="6" fill="#FDF5E6" stroke="none" stroke-width="1.3"/>
+<rect x="538.0" y="254" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="538.0" y="416" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<rect x="538.0" y="578" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="538.0" y="740" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="2"/>
+<rect x="992" y="92" width="460" height="830" rx="6" fill="#EAF1FB" stroke="none" stroke-width="1.3"/>
+<rect x="1024.0" y="254" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="1024.0" y="416" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<rect x="1024.0" y="578" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="2"/>
+<rect x="1024.0" y="740" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<rect x="1478" y="92" width="460" height="830" rx="6" fill="#F1EFF9" stroke="none" stroke-width="1.3"/>
+<rect x="1510.0" y="254" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="1510.0" y="416" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#148F77" stroke-width="2"/>
+<rect x="1510.0" y="578" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<rect x="1510.0" y="740" width="412" height="132" rx="6" fill="#FFFFFF" stroke="#F5A623" stroke-width="2"/>
+<text x="28" y="46.0" font-size="22" text-anchor="start" font-weight="bold" fill="#1A1A1A">LumenAI: Detailed Architecture</text>
+<text x="28" y="72.2" font-size="13" text-anchor="start" font-weight="normal" fill="#444444">The same 16 steps as Figure 1. Inside each step: the parts of the system that do it, from left to right.</text>
+<text x="1930" y="76.8" font-size="12" text-anchor="end" font-weight="normal" fill="#444444">Author: Md. Abdul Kahhar Siddiki Shan</text>
+<text x="250.0" y="124.4" font-size="17" text-anchor="middle" font-weight="bold" fill="#1A1A1A">1. Prepare the Job</text>
+<text x="250.0" y="909.5" font-size="11" text-anchor="middle" font-weight="normal" fill="#777777">↓ read down</text>
+<rect x="52.0" y="254" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="84.0" y="273.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Describe the job in the Assistant chat</text>
+<text x="450.0" y="273.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="51.0" cy="255.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="51.0" y="258.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">1</text>
+<rect x="62.0" y="310.0" width="68.8" height="52" rx="26.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="96.4" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interviewer</text>
+<text x="96.4" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">/ HR</text>
+<rect x="142.8" y="310.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="177.20000000000002" y="326.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Jobs page</text>
+<text x="177.20000000000002" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(Chat</text>
+<text x="177.20000000000002" y="352.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">tab)</text>
+<rect x="223.6" y="310.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="258.0" y="326.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Assistant</text>
+<text x="258.0" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">agent</text>
+<text x="258.0" y="352.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(ReAct)</text>
+<rect x="304.4" y="310.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="338.79999999999995" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">recruitment-</text>
+<text x="338.79999999999995" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">mcp tools</text>
+<path d="M385.2 316.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="419.59999999999997" y="335.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">chat_</text>
+<text x="419.59999999999997" y="348.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">message</text>
+<rect x="52.0" y="416" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="84.0" y="435.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">The AI writes the job description</text>
+<text x="450.0" y="435.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="51.0" cy="417.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="51.0" y="420.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">2</text>
+<rect x="62.0" y="472.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="96.4" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">recruitment-</text>
+<text x="96.4" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">mcp tool</text>
+<rect x="142.8" y="472.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="177.20000000000002" y="488.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Job</text>
+<text x="177.20000000000002" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">description</text>
+<text x="177.20000000000002" y="514.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<path d="M223.6 478.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="258.0" y="497.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">company_</text>
+<text x="258.0" y="510.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">document</text>
+<rect x="304.4" y="472.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="338.79999999999995" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini</text>
+<text x="338.79999999999995" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API</text>
+<rect x="385.2" y="472.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="419.59999999999997" y="488.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Draft</text>
+<text x="419.59999999999997" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">shown in</text>
+<text x="419.59999999999997" y="514.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">the chat</text>
+<rect x="52.0" y="578" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="84.0" y="597.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Review and approve the job</text>
+<text x="450.0" y="597.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="51.0" cy="579.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="51.0" y="582.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">3</text>
+<rect x="62.0" y="634.0" width="68.8" height="52" rx="26.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="96.4" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interviewer</text>
+<text x="96.4" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">/ HR</text>
+<rect x="142.8" y="634.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="177.20000000000002" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Yes / No</text>
+<text x="177.20000000000002" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">card</text>
+<rect x="223.6" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="258.0" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Assistant</text>
+<text x="258.0" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="304.4" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="338.79999999999995" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Job</text>
+<text x="338.79999999999995" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<path d="M385.2 640.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="419.59999999999997" y="666.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">job</text>
+<rect x="52.0" y="740" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="84.0" y="759.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Post the job with the form link</text>
+<text x="450.0" y="759.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="51.0" cy="741.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="51.0" y="744.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">4</text>
+<rect x="62.0" y="796.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="96.4" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Yes / No</text>
+<text x="96.4" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">card</text>
+<rect x="142.8" y="796.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="177.20000000000002" y="812.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Job</text>
+<text x="177.20000000000002" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">posting</text>
+<text x="177.20000000000002" y="838.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<rect x="223.6" y="796.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="258.0" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">blogger-mcp</text>
+<rect x="304.4" y="796.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="338.79999999999995" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Blogger</text>
+<path d="M385.2 802.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="419.59999999999997" y="821.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">job_</text>
+<text x="419.59999999999997" y="834.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">posting</text>
+<text x="736.0" y="124.4" font-size="17" text-anchor="middle" font-weight="bold" fill="#1A1A1A">2. Find the Best CVs</text>
+<text x="736.0" y="909.5" font-size="11" text-anchor="middle" font-weight="normal" fill="#777777">↑ read up</text>
+<rect x="538.0" y="254" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="570.0" y="273.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Review, set weights and shortlist</text>
+<text x="936.0" y="273.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="537.0" cy="255.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="537.0" y="258.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">8</text>
+<rect x="548.0" y="310.0" width="89.0" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="592.5" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Screening /</text>
+<text x="592.5" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Shortlist</text>
+<rect x="649.0" y="310.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="693.5" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Score service</text>
+<rect x="750.0" y="310.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="794.5" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Shortlist</text>
+<text x="794.5" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<path d="M851.0 316.0 v40 a44.5 6 0 0 0 89.0 0 v-40 a44.5 6 0 0 0 -89.0 0 a44.5 6 0 0 0 89.0 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="895.5" y="335.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">shortlist_</text>
+<text x="895.5" y="348.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">entry</text>
+<rect x="538.0" y="416" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="570.0" y="435.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Read, score and rank every CV</text>
+<text x="936.0" y="435.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="537.0" cy="417.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="537.0" y="420.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">7</text>
+<rect x="548.0" y="472.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="592.5" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Screening</text>
+<text x="592.5" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">worker</text>
+<rect x="649.0" y="472.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="693.5" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">CV screening</text>
+<text x="693.5" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<rect x="750.0" y="472.0" width="89.0" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="794.5" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini API</text>
+<path d="M851.0 478.0 v40 a44.5 6 0 0 0 89.0 0 v-40 a44.5 6 0 0 0 -89.0 0 a44.5 6 0 0 0 89.0 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="895.5" y="497.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">screening_</text>
+<text x="895.5" y="510.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">result</text>
+<rect x="538.0" y="578" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="570.0" y="597.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Fetch applications or upload a CV</text>
+<text x="936.0" y="597.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="537.0" cy="579.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="537.0" y="582.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">6</text>
+<rect x="548.0" y="634.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="582.4" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Candidates</text>
+<text x="582.4" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">page</text>
+<rect x="628.8" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="663.1999999999999" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Application</text>
+<text x="663.1999999999999" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="709.6" y="634.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="744.0" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Forms /</text>
+<text x="744.0" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Drive API</text>
+<rect x="790.4" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="824.8" y="650.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Face</text>
+<text x="824.8" y="663.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<text x="824.8" y="676.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(OpenCV)</text>
+<path d="M871.2 640.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="905.6" y="666.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">candidate</text>
+<rect x="538.0" y="740" width="412" height="32" rx="9" fill="#2E6DB4" stroke="none" stroke-width="1.3"/>
+<text x="570.0" y="759.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Apply with CV and photo</text>
+<text x="936.0" y="759.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Candidate</text>
+<ellipse cx="537.0" cy="741.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="3"/>
+<text x="537.0" y="744.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">5</text>
+<rect x="548.0" y="796.0" width="89.0" height="52" rx="26.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="592.5" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Candidate</text>
+<rect x="649.0" y="796.0" width="89.0" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="693.5" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Blogger post</text>
+<rect x="750.0" y="796.0" width="89.0" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="794.5" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Google Form</text>
+<rect x="851.0" y="796.0" width="89.0" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="895.5" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Google Drive</text>
+<text x="895.5" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(CV, photo)</text>
+<text x="1222.0" y="124.4" font-size="17" text-anchor="middle" font-weight="bold" fill="#1A1A1A">3. Hold the Interview</text>
+<text x="1222.0" y="909.5" font-size="11" text-anchor="middle" font-weight="normal" fill="#777777">↓ read down</text>
+<rect x="1024.0" y="254" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="1056.0" y="273.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Schedule the interviews</text>
+<text x="1422.0" y="273.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="1023.0" cy="255.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="1023.0" y="258.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">9</text>
+<rect x="1034.0" y="310.0" width="89.0" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1078.5" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interviews</text>
+<text x="1078.5" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">page</text>
+<rect x="1135.0" y="310.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1179.5" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interview</text>
+<text x="1179.5" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="1236.0" y="310.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1280.5" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Slot service</text>
+<path d="M1337.0 316.0 v40 a44.5 6 0 0 0 89.0 0 v-40 a44.5 6 0 0 0 -89.0 0 a44.5 6 0 0 0 89.0 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1381.5" y="335.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">interview_</text>
+<text x="1381.5" y="348.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">session</text>
+<rect x="1024.0" y="416" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="1056.0" y="435.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Write and send the invitation</text>
+<text x="1422.0" y="435.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="1023.0" cy="417.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="1023.0" y="420.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">10</text>
+<rect x="1034.0" y="472.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1068.4" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Invitation</text>
+<text x="1068.4" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">editor</text>
+<rect x="1114.8" y="472.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="1149.2" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Invitation</text>
+<text x="1149.2" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<rect x="1195.6" y="472.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1230.0" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini</text>
+<text x="1230.0" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API</text>
+<rect x="1276.4" y="472.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1310.8000000000002" y="488.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Email</text>
+<text x="1310.8000000000002" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(SMTP +</text>
+<text x="1310.8000000000002" y="514.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">.ics)</text>
+<rect x="1357.2" y="472.0" width="68.8" height="52" rx="26.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="1391.6000000000001" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Candidate</text>
+<rect x="1024.0" y="578" width="412" height="32" rx="9" fill="#6C4FB0" stroke="none" stroke-width="1.3"/>
+<text x="1056.0" y="597.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Join the call and check identity</text>
+<text x="1422.0" y="597.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer + candidate</text>
+<ellipse cx="1023.0" cy="579.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="3"/>
+<text x="1023.0" y="582.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">11</text>
+<rect x="1034.0" y="634.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1068.4" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Join page</text>
+<text x="1068.4" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">+ room</text>
+<rect x="1114.8" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1149.2" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Video</text>
+<text x="1149.2" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="1195.6" y="634.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1230.0" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">LiveKit</text>
+<text x="1230.0" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Cloud</text>
+<rect x="1276.4" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1310.8000000000002" y="650.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Identity</text>
+<text x="1310.8000000000002" y="663.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<text x="1310.8000000000002" y="676.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(OpenCV)</text>
+<path d="M1357.2 640.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1391.6000000000001" y="659.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">interview_</text>
+<text x="1391.6000000000001" y="672.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">session</text>
+<rect x="1024.0" y="740" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="1056.0" y="759.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Live transcript and the AI Helper</text>
+<text x="1422.0" y="759.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="1023.0" cy="741.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="1023.0" y="744.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">12</text>
+<rect x="1034.0" y="796.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1068.4" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interview</text>
+<text x="1068.4" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">room</text>
+<rect x="1114.8" y="796.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1149.2" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Transcript</text>
+<text x="1149.2" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="1195.6" y="796.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1230.0" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Deepgram</text>
+<rect x="1276.4" y="796.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1310.8000000000002" y="812.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Helper</text>
+<text x="1310.8000000000002" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<text x="1310.8000000000002" y="838.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(RAG)</text>
+<path d="M1357.2 802.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1391.6000000000001" y="821.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">transcript_</text>
+<text x="1391.6000000000001" y="834.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">turn</text>
+<text x="1708.0" y="124.4" font-size="17" text-anchor="middle" font-weight="bold" fill="#1A1A1A">4. Assess and Decide</text>
+<text x="1708.0" y="909.5" font-size="11" text-anchor="middle" font-weight="normal" fill="#777777">↑ read up</text>
+<rect x="1510.0" y="254" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="1542.0" y="273.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Keep good candidates for later</text>
+<text x="1908.0" y="273.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="1509.0" cy="255.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="1509.0" y="258.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">16</text>
+<rect x="1520.0" y="310.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1554.4" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Talent</text>
+<text x="1554.4" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Pool page</text>
+<rect x="1600.8" y="310.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1635.2" y="326.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Talent</text>
+<text x="1635.2" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">pool</text>
+<text x="1635.2" y="352.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="1681.6" y="310.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="1716.0" y="326.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Talent</text>
+<text x="1716.0" y="339.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">invite</text>
+<text x="1716.0" y="352.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<rect x="1762.4" y="310.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1796.8000000000002" y="332.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini</text>
+<text x="1796.8000000000002" y="345.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API</text>
+<path d="M1843.2 316.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1877.6000000000001" y="335.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">talent_</text>
+<text x="1877.6000000000001" y="348.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">pool</text>
+<rect x="1510.0" y="416" width="412" height="32" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="1542.0" y="435.8" font-size="12" text-anchor="start" font-weight="bold" fill="#FFFFFF">Compare candidates and decide</text>
+<text x="1908.0" y="435.2" font-size="10" text-anchor="end" font-weight="normal" fill="#FFFFFF">Interviewer / HR</text>
+<ellipse cx="1509.0" cy="417.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#148F77" stroke-width="3"/>
+<text x="1509.0" y="420.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">15</text>
+<rect x="1520.0" y="472.0" width="89.0" height="52" rx="26.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="1564.5" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interviewer /</text>
+<text x="1564.5" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">HR</text>
+<rect x="1621.0" y="472.0" width="89.0" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1665.5" y="501.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Reports page</text>
+<rect x="1722.0" y="472.0" width="89.0" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1766.5" y="494.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Assessment</text>
+<text x="1766.5" y="507.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<path d="M1823.0 478.0 v40 a44.5 6 0 0 0 89.0 0 v-40 a44.5 6 0 0 0 -89.0 0 a44.5 6 0 0 0 89.0 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1867.5" y="497.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">assessment</text>
+<text x="1867.5" y="510.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(decision)</text>
+<rect x="1510.0" y="578" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="1542.0" y="597.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Assessment report + CV claim check</text>
+<text x="1908.0" y="597.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="1509.0" cy="579.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="1509.0" y="582.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">14</text>
+<rect x="1520.0" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1554.4" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Assessment</text>
+<text x="1554.4" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">service</text>
+<rect x="1600.8" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="1635.2" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Assessment</text>
+<text x="1635.2" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<rect x="1681.6" y="634.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1716.0" y="650.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Claim</text>
+<text x="1716.0" y="663.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">check</text>
+<text x="1716.0" y="676.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(F8)</text>
+<rect x="1762.4" y="634.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1796.8000000000002" y="656.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini</text>
+<text x="1796.8000000000002" y="669.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API</text>
+<path d="M1843.2 640.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1877.6000000000001" y="659.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">assessment,</text>
+<text x="1877.6000000000001" y="672.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">claim_check</text>
+<rect x="1510.0" y="740" width="412" height="32" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="1542.0" y="759.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Check each answer and the interview</text>
+<text x="1908.0" y="759.2" font-size="10" text-anchor="end" font-weight="normal" fill="#1A1A1A">System</text>
+<ellipse cx="1509.0" cy="741.0" rx="15.0" ry="15.0" fill="#FFFFFF" stroke="#F5A623" stroke-width="3"/>
+<text x="1509.0" y="744.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">13</text>
+<rect x="1520.0" y="796.0" width="68.8" height="52" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="1554.4" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Interview</text>
+<text x="1554.4" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">analysis</text>
+<rect x="1600.8" y="796.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="1635.2" y="806.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Q&amp;A</text>
+<text x="1635.2" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">workflow</text>
+<text x="1635.2" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(6</text>
+<text x="1635.2" y="844.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">graders)</text>
+<rect x="1681.6" y="796.0" width="68.8" height="52" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="1716.0" y="812.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Quality</text>
+<text x="1716.0" y="825.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">check</text>
+<text x="1716.0" y="838.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">(F10)</text>
+<rect x="1762.4" y="796.0" width="68.8" height="52" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1796.8000000000002" y="818.8" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">Gemini</text>
+<text x="1796.8000000000002" y="831.6" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API</text>
+<path d="M1843.2 802.0 v40 a34.4 6 0 0 0 68.8 0 v-40 a34.4 6 0 0 0 -68.8 0 a34.4 6 0 0 0 68.8 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1877.6000000000001" y="815.4" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">qa_item,</text>
+<text x="1877.6000000000001" y="828.2" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">interview_</text>
+<text x="1877.6000000000001" y="841.0" font-size="10" text-anchor="middle" font-weight="normal" fill="#1A1A1A">quality</text>
+<rect x="198.0" y="160" width="120" height="46" rx="23.0" fill="#2F2F2F" stroke="none" stroke-width="1.3"/>
+<text x="258.0" y="188.1" font-size="16" text-anchor="middle" font-weight="bold" fill="#FFFFFF">Start</text>
+<rect x="1656.0" y="160" width="120" height="46" rx="23.0" fill="#2F2F2F" stroke="none" stroke-width="1.3"/>
+<text x="1716.0" y="188.1" font-size="16" text-anchor="middle" font-weight="bold" fill="#FFFFFF">End</text>
+<rect x="526" y="144" width="420" height="84" rx="9" fill="#FFFFFF" stroke="#BBBBBB" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="534" y="168.4" font-size="11" text-anchor="start" font-weight="bold" fill="#444444">Dashboard and log</text>
+<text x="534" y="182.5" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">The Dashboard counts every job, CV, interview and report (code, no</text>
+<text x="534" y="196.6" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">AI). One log file: every API call and every AI call with its tokens</text>
+<text x="534" y="210.6" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">(input, output, thinking), in Bangladesh time.</text>
+<rect x="1012" y="144" width="420" height="84" rx="9" fill="#FFFFFF" stroke="#BBBBBB" stroke-width="1.3" stroke-dasharray="6 4"/>
+<text x="1020" y="161.4" font-size="11" text-anchor="start" font-weight="bold" fill="#444444">People decide</text>
+<text x="1020" y="175.4" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">The AI only suggests. A person approves and posts the job, sends</text>
+<text x="1020" y="189.5" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">emails, shortlists and decides. Candidates never see scores, notes or</text>
+<text x="1020" y="203.6" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">the helper. Every AI quote is checked against the CV or the</text>
+<text x="1020" y="217.7" font-size="11" text-anchor="start" font-weight="normal" fill="#444444">transcript.</text>
+<text x="28" y="967.1" font-size="13" text-anchor="start" font-weight="bold" fill="#1A1A1A">Platform</text>
+<text x="28" y="981.8" font-size="11" text-anchor="start" font-weight="normal" fill="#1A1A1A">used by every step</text>
+<rect x="190.0" y="940" width="338.4" height="60" rx="9" fill="#F7F7F7" stroke="#999999" stroke-width="1.3"/>
+<text x="359.2" y="966.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">Login</text>
+<text x="359.2" y="981.2" font-size="11" text-anchor="middle" font-weight="normal" fill="#1A1A1A">JWT for interviewers; candidates use a private link</text>
+<rect x="542.4" y="940" width="338.4" height="60" rx="9" fill="#F7F7F7" stroke="#999999" stroke-width="1.3"/>
+<text x="711.5999999999999" y="966.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">Settings</text>
+<text x="711.5999999999999" y="981.2" font-size="11" text-anchor="middle" font-weight="normal" fill="#1A1A1A">connection checks, AI model choice, workflow log</text>
+<rect x="894.8" y="940" width="338.4" height="60" rx="9" fill="#F7F7F7" stroke="#999999" stroke-width="1.3"/>
+<text x="1064.0" y="966.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">PostgreSQL</text>
+<text x="1064.0" y="981.2" font-size="11" text-anchor="middle" font-weight="normal" fill="#1A1A1A">23 app tables + LangGraph checkpointer (paused runs)</text>
+<rect x="1247.1999999999998" y="940" width="338.4" height="60" rx="9" fill="#F7F7F7" stroke="#999999" stroke-width="1.3"/>
+<text x="1416.3999999999999" y="966.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">Docker Compose</text>
+<text x="1416.3999999999999" y="981.2" font-size="11" text-anchor="middle" font-weight="normal" fill="#1A1A1A">db, api, web, blogger-mcp, recruitment-mcp</text>
+<rect x="1599.6" y="940" width="338.4" height="60" rx="9" fill="#F7F7F7" stroke="#999999" stroke-width="1.3"/>
+<text x="1768.8" y="966.8" font-size="12" text-anchor="middle" font-weight="bold" fill="#1A1A1A">One log file</text>
+<text x="1768.8" y="981.2" font-size="11" text-anchor="middle" font-weight="normal" fill="#1A1A1A">API calls and AI calls with tokens, Bangladesh time</text>
+<text x="68" y="1037.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Parts:</text>
+<rect x="140" y="1022" width="46" height="26" rx="9" fill="#FFFFFF" stroke="#2E6DB4" stroke-width="1.4"/>
+<text x="216" y="1038.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Page (web app)</text>
+<rect x="440" y="1022" width="46" height="26" rx="0" fill="#FFFFFF" stroke="#6C4FB0" stroke-width="1.4"/>
+<text x="516" y="1038.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Backend service</text>
+<rect x="740" y="1022" width="46" height="26" rx="0" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.4"/>
+<text x="816" y="1038.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">LangGraph workflow</text>
+<rect x="1040" y="1022" width="46" height="26" rx="9" fill="#EEEEEE" stroke="#777777" stroke-width="1.4"/>
+<text x="1116" y="1031.2" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Outside service / Gemini API /</text>
+<text x="1116" y="1046.5" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">MCP</text>
+<path d="M1340 1028 v14 a30.0 6 0 0 0 60 0 v-14 a30.0 6 0 0 0 -60 0 a30.0 6 0 0 0 60 0" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.4"/>
+<text x="1416" y="1038.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Database table</text>
+<rect x="1640" y="1022" width="46" height="26" rx="13.0" fill="#FFFFFF" stroke="#777777" stroke-width="1.4"/>
+<text x="1716" y="1038.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Person</text>
+<text x="68" y="1077.8" font-size="12" text-anchor="start" font-weight="bold" fill="#1A1A1A">Step colour:</text>
+<rect x="180" y="1064" width="30" height="20" rx="9" fill="#148F77" stroke="none" stroke-width="1.3"/>
+<text x="228" y="1077.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Interviewer / HR</text>
+<rect x="380" y="1064" width="30" height="20" rx="9" fill="#F5A623" stroke="none" stroke-width="1.3"/>
+<text x="428" y="1077.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">System</text>
+<rect x="580" y="1064" width="30" height="20" rx="9" fill="#2E6DB4" stroke="none" stroke-width="1.3"/>
+<text x="628" y="1077.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Candidate</text>
+<rect x="780" y="1064" width="30" height="20" rx="9" fill="#6C4FB0" stroke="none" stroke-width="1.3"/>
+<text x="828" y="1077.8" font-size="12" text-anchor="start" font-weight="normal" fill="#1A1A1A">Interviewer + candidate</text>
+<text x="979.0" y="1123.5" font-size="14" text-anchor="middle" font-weight="bold" fill="#1A1A1A">Figure 2: LumenAI Detailed Architecture</text>
+<path d="M130.8 336.0 L142.8 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M211.6 336.0 L223.6 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M292.4 336.0 L304.4 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M373.2 336.0 L385.2 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M130.8 498.0 L142.8 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M211.6 498.0 L223.6 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M292.4 498.0 L304.4 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M373.2 498.0 L385.2 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M130.8 660.0 L142.8 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M211.6 660.0 L223.6 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M292.4 660.0 L304.4 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M373.2 660.0 L385.2 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M130.8 822.0 L142.8 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M211.6 822.0 L223.6 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M292.4 822.0 L304.4 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M373.2 822.0 L385.2 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M637.0 336.0 L649.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M738.0 336.0 L750.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M839.0 336.0 L851.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M637.0 498.0 L649.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M738.0 498.0 L750.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M839.0 498.0 L851.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M616.8 660.0 L628.8 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M697.6 660.0 L709.6 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M778.4 660.0 L790.4 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M859.2 660.0 L871.2 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M637.0 822.0 L649.0 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M738.0 822.0 L750.0 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M839.0 822.0 L851.0 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1123.0 336.0 L1135.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1224.0 336.0 L1236.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1325.0 336.0 L1337.0 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1102.8 498.0 L1114.8 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1183.6 498.0 L1195.6 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1264.4 498.0 L1276.4 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1345.2 498.0 L1357.2 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1102.8 660.0 L1114.8 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1183.6 660.0 L1195.6 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1264.4 660.0 L1276.4 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1345.2 660.0 L1357.2 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1102.8 822.0 L1114.8 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1183.6 822.0 L1195.6 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1264.4 822.0 L1276.4 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1345.2 822.0 L1357.2 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1588.8 336.0 L1600.8 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1669.6 336.0 L1681.6 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1750.4 336.0 L1762.4 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1831.2 336.0 L1843.2 336.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1609.0 498.0 L1621.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1710.0 498.0 L1722.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1811.0 498.0 L1823.0 498.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1588.8 660.0 L1600.8 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1669.6 660.0 L1681.6 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1750.4 660.0 L1762.4 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1831.2 660.0 L1843.2 660.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1588.8 822.0 L1600.8 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1669.6 822.0 L1681.6 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1750.4 822.0 L1762.4 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1831.2 822.0 L1843.2 822.0" fill="none" stroke="#555555" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M258.0 386.0 L258.0 416.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M258.0 548.0 L258.0 578.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M258.0 710.0 L258.0 740.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M464.0 806.0 L538.0 806.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M744.0 740.0 L744.0 710.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M744.0 578.0 L744.0 548.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M744.0 416.0 L744.0 386.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M950.0 320.0 L1024.0 320.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1230.0 386.0 L1230.0 416.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1230.0 548.0 L1230.0 578.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1230.0 710.0 L1230.0 740.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1436.0 806.0 L1510.0 806.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1716.0 740.0 L1716.0 710.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1716.0 578.0 L1716.0 548.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1716.0 416.0 L1716.0 386.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M258.0 206.0 L258.0 254.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+<path d="M1716.0 254.0 L1716.0 206.0" fill="none" stroke="#333333" stroke-width="1.4" marker-end="url(#arr)"/>
+</svg>

@@ -3,9 +3,6 @@
 LLM_PROVIDER=fake gives a stand-in model that chooses tools with word rules. Everything else is real:
 the agent loop, the MCP servers (started as child processes) and the tools.
 """
-import io
-import json
-
 import pytest
 
 from app.features.assistant.services import assistant_service
@@ -362,3 +359,15 @@ def test_posting_runs_in_a_langgraph_workflow_that_waits_for_the_person(client, 
     chat = client.post(f"/api/assistant/actions/{question['id']}", json={"yes": True}).json()
     assert "was posted to the Blogger blog" in last(chat)["content"] and paused_at(question["id"]) == ()
     assert len(client.get(f"/api/jobs/{job['id']}/postings").json()) == 1
+
+
+def test_the_chat_tokens_are_counted_for_the_log():
+    """The chat model does not go through llm_client, so its tokens are added up from LangChain's usage_metadata."""
+    from types import SimpleNamespace
+    from app.graphs.assistant_agent import usage_text
+    first = SimpleNamespace(usage_metadata={"input_tokens": 1000, "output_tokens": 50, "total_tokens": 1050,
+                                            "output_token_details": {"reasoning": 120}})
+    second = SimpleNamespace(usage_metadata={"input_tokens": 1500, "output_tokens": 80, "total_tokens": 1680})
+    tool_answer = SimpleNamespace(usage_metadata=None)
+    assert usage_text([first, tool_answer, second]) == "ai_calls=2 tokens in=2500 out=130 thinking=220"
+    assert usage_text([tool_answer]) == "tokens in=? out=?"

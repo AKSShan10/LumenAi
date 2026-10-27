@@ -6,6 +6,7 @@
                                                                   send_email -> save_result -> ask_person (waits again)
 
     write_draft   AI          Gemini writes the subject and the text (never sees the email address; writes {join_link}).
+                              "Write again" with a change ("shorter"): Gemini improves the text on the page instead
                               "Schedule all" gives a template the interviewer already checked: it is filled in, no AI call
     check_draft   PYTHON      the placeholder is there, no web or email address of its own, the date as given, not too long
     save_draft    PYTHON+DB   the real link goes in; the draft is saved on the interview (status "" = draft)
@@ -36,7 +37,7 @@ from app.features.interviews.services.invitation_service import (
     subject_with_time, with_link)
 from app.features.system.models import WorkflowRun
 from app.graphs.checkpointer import checkpointer
-from app.graphs.invitation_prompts import INVITATION_PROMPT
+from app.graphs.invitation_prompts import INVITATION_CHANGE_PROMPT, INVITATION_PROMPT
 
 log = logging.getLogger("invitation_graph")
 
@@ -50,7 +51,8 @@ class InvitationState(TypedDict, total=False):
     body: str              # with {join_link} until save_draft puts the real link in
     problems: list         # what check_draft found ("" list = fine)
     writes: int            # how often the AI wrote in this round
-    answer: dict           # what the interviewer did in ask_person: {action: send | write_again, to, subject, body}
+    answer: dict           # what the interviewer did in ask_person: {action: send | write_again, to, subject, body};
+                           # write_again may have change_request + the text on the page, which the AI then improves
     message: str           # one sentence for the page
     template: dict         # "Schedule all": {subject, body} with {candidate_name}, {date} ... (used once, then cleared)
 
@@ -65,9 +67,13 @@ def write_draft(state: InvitationState) -> dict:
     if template:                                     # "Schedule all": the checked template, filled in by code
         return {"subject": fill_template(template["subject"], facts), "body": fill_template(template["body"], facts),
                 "writes": 1, "template": {}}         # cleared: "Write again" later asks the AI for this candidate
+    reply = state.get("answer") or {}
+    if reply.get("action") == "write_again" and reply.get("change_request"):   # "Write again" with a change
+        facts["change_request"] = reply["change_request"]
+        facts["previous_draft"] = {"subject": reply.get("subject", ""), "body": reply.get("body", "")}
     if state.get("problems"):
         facts["fix_these"] = state["problems"]                          # the second try: say what to fix
-    answer = llm_json(INVITATION_PROMPT, facts)
+    answer = llm_json(INVITATION_CHANGE_PROMPT if facts.get("change_request") else INVITATION_PROMPT, facts)
     writes = state.get("writes", 0) + 1
     if not isinstance(answer, dict):
         return {"subject": "", "body": "", "writes": writes, "problems": [f"the AI did not answer ({last_error()})"]}
